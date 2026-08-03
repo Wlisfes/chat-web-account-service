@@ -82,6 +82,34 @@ services:
     networks:
       - infrastructure
 
+  nacos:
+    image: nacos/nacos-server:v2.5.1
+    container_name: chat-web-nacos
+    hostname: nacos
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+      JVM_XMN: 128m
+    ports:
+      - "127.0.0.1:8848:8848"
+    volumes:
+      - nacos_data:/home/nacos/data
+      - nacos_logs:/home/nacos/logs
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS http://127.0.0.1:8848/nacos/v1/console/health/readiness >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    networks:
+      - infrastructure
+
   kafka:
     image: apache/kafka:4.1.0
     container_name: chat-web-kafka
@@ -146,5 +174,9 @@ volumes:
     name: chat-web-redis-data
   rabbitmq_data:
     name: chat-web-rabbitmq-data
+  nacos_data:
+    name: chat-web-nacos-data
+  nacos_logs:
+    name: chat-web-nacos-logs
   kafka_data:
     name: chat-web-kafka-data

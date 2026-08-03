@@ -18,6 +18,13 @@ cd /opt/chat-web-account-service
 # 按 deploy/.env.example 创建 .env，并填写实际配置
 ```
 
+账号服务通过 `chat-web-infrastructure` Docker 网络访问 `nacos:8848`。首次部署账号服务前，需要先启动基础设施中的 Nacos：
+
+```bash
+docker compose --env-file docker/.env -f docker/compose.yml up -d nacos
+docker compose --env-file docker/.env -f docker/compose.yml ps nacos
+```
+
 如果修改了 `DEPLOY_PATH` Secret，请在对应目录创建 `.env`。真实 `.env` 只保存在服务器，不上传 GitHub。
 
 ## GitHub 配置
