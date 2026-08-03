@@ -1,0 +1,69 @@
+#!/bin/sh
+set -eu
+
+IMAGE=${1:?Usage: deploy.sh IMAGE [COMPOSE_FILE]}
+COMPOSE_FILE=${2:-compose.yml}
+SERVICE=account-service
+CONTAINER=chat-web-account-service
+HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
+
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo "Compose file not found: $COMPOSE_FILE" >&2
+    exit 1
+fi
+
+if [ ! -f .env ]; then
+    echo "Missing $(pwd)/.env; create it from deploy/.env.example before the first deployment." >&2
+    exit 1
+fi
+
+old_image=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)
+
+compose() {
+    IMAGE="$IMAGE" docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+rollback() {
+    echo "Deployment failed; showing the latest container logs." >&2
+    docker logs --tail 100 "$CONTAINER" 2>&1 || true
+
+    if [ -n "$old_image" ] && [ "$old_image" != "$IMAGE" ]; then
+        echo "Rolling back to $old_image" >&2
+        IMAGE="$old_image" docker compose -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
+    else
+        echo "No previous image is available for rollback." >&2
+    fi
+}
+
+echo "Pulling $IMAGE"
+docker pull "$IMAGE"
+
+echo "Starting $SERVICE"
+if ! compose up -d --no-deps --remove-orphans "$SERVICE"; then
+    rollback
+    exit 1
+fi
+
+elapsed=0
+while [ "$elapsed" -lt "$HEALTH_TIMEOUT" ]; do
+    state=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$CONTAINER" 2>/dev/null || true)
+    case "$state" in
+        healthy)
+            echo "Deployment succeeded: $IMAGE"
+            docker image prune -f >/dev/null 2>&1 || true
+            exit 0
+            ;;
+        exited|dead|unhealthy)
+            echo "Container state: $state" >&2
+            rollback
+            exit 1
+            ;;
+    esac
+
+    sleep 5
+    elapsed=$((elapsed + 5))
+done
+
+echo "Health check timed out after ${HEALTH_TIMEOUT}s." >&2
+rollback
+exit 1

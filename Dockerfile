@@ -1,34 +1,43 @@
-# ---- Stage 1: Build ----
-FROM node:22-alpine AS builder
+# syntax=docker/dockerfile:1.7
+
+FROM node:22-alpine AS dependencies
 WORKDIR /app
 
-# 安装构建依赖
-RUN apk add --no-cache python3 make g++
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+COPY package.json yarn.lock ./
+# yarn.lock was generated with a regional mirror; use the canonical registry in CI.
+RUN sed -i 's#https://registry.npmmirror.com#https://registry.npmjs.org#g' yarn.lock
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
+    yarn install --frozen-lockfile --non-interactive --ignore-scripts
 
-# 复制依赖清单
-COPY package.json ./
-RUN npm install --registry=https://registry.npmmirror.com
+FROM dependencies AS builder
+COPY nest-cli.json tsconfig*.json ./
+COPY src ./src
+RUN yarn build
 
-# 复制源码并构建
-COPY . .
-RUN npm run build
+FROM node:22-alpine AS production-dependencies
+WORKDIR /app
 
-# ---- Stage 2: Production ----
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+COPY package.json yarn.lock ./
+RUN sed -i 's#https://registry.npmmirror.com#https://registry.npmjs.org#g' yarn.lock
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
+    yarn install --frozen-lockfile --production=true --non-interactive --ignore-scripts
+
 FROM node:22-alpine AS production
 WORKDIR /app
 
-# 安装生产依赖（不含 devDependencies）
-COPY package.json ./
-RUN npm install --production --registry=https://registry.npmmirror.com
+ENV NODE_ENV=production \
+    PORT=3000
 
-# 复制构建产物
-COPY --from=builder /app/dist ./dist
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --chown=node:node package.json ./
 
-# 暴露端口
+USER node
 EXPOSE 3000
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=4 \
+    CMD node -e "require('http').get('http://127.0.0.1:3000/health', (response) => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]

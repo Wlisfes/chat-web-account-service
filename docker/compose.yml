@@ -1,0 +1,150 @@
+name: chat-web-infra
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: chat-web-mysql
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - infrastructure
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: chat-web-redis
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$${REDIS_PASSWORD}" ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - infrastructure
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    container_name: chat-web-rabbitmq
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - -q
+        - ping
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - infrastructure
+
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: chat-web-kafka
+    hostname: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:19092,CONTROLLER://:9093,PLAINTEXT_HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - "127.0.0.1:9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - infrastructure
+
+  nginx:
+    image: nginx:1.28-alpine
+    container_name: chat-web-nginx
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:80:80"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1/
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - infrastructure
+
+networks:
+  infrastructure:
+    name: chat-web-infrastructure
+
+volumes:
+  mysql_data:
+    name: chat-web-mysql-data
+  redis_data:
+    name: chat-web-redis-data
+  rabbitmq_data:
+    name: chat-web-rabbitmq-data
+  kafka_data:
+    name: chat-web-kafka-data
