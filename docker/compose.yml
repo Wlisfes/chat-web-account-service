@@ -1,16 +1,21 @@
-name: chat-web-infra
+name: chat-web-base-developer
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
 
 services:
   mysql:
     image: mysql:8.4
     container_name: chat-web-mysql
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
@@ -32,7 +37,8 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: chat-web-redis
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -58,7 +64,8 @@ services:
   rabbitmq:
     image: rabbitmq:4.1-management-alpine
     container_name: chat-web-rabbitmq
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
@@ -86,7 +93,8 @@ services:
     image: nacos/nacos-server:v2.5.1
     container_name: chat-web-nacos
     hostname: nacos
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
       MODE: standalone
@@ -114,7 +122,8 @@ services:
     image: apache/kafka:4.1.0
     container_name: chat-web-kafka
     hostname: kafka
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -147,7 +156,8 @@ services:
   nginx:
     image: nginx:1.28-alpine
     container_name: chat-web-nginx
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
     ports:
@@ -166,7 +176,8 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     container_name: chat-web-dozzle
-    restart: unless-stopped
+    restart: always
+    logging: *default-logging
     environment:
       TZ: Asia/Shanghai
       DOZZLE_NO_ANALYTICS: "true"
@@ -193,14 +204,20 @@ networks:
 
 volumes:
   mysql_data:
+    external: true
     name: chat-web-mysql-data
   redis_data:
+    external: true
     name: chat-web-redis-data
   rabbitmq_data:
+    external: true
     name: chat-web-rabbitmq-data
   nacos_data:
+    external: true
     name: chat-web-nacos-data
   nacos_logs:
+    external: true
     name: chat-web-nacos-logs
   kafka_data:
+    external: true
     name: chat-web-kafka-data
