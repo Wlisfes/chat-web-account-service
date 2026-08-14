@@ -6,18 +6,13 @@ on:
       - master
   workflow_dispatch:
 
-concurrency:
-  group: production
-  cancel-in-progress: false
-
-env:
-  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
-  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/chat-web-account-service' }}
-
 jobs:
   build:
     name: Build and publish image
     runs-on: ubuntu-latest
+    concurrency:
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -61,78 +56,71 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to production
+    name: Deploy to ${{ matrix.server }}
     needs: build
-    runs-on: ubuntu-latest
-    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - server: company
+            runner: chat-server-company
+            environment: production-company
+          - server: home
+            runner: chat-server-home
+            environment: production-home
+    runs-on:
+      - self-hosted
+      - linux
+      - ${{ matrix.runner }}
+    environment: ${{ matrix.environment }}
+    concurrency:
+      group: deploy-${{ matrix.server }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: read
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/chat-web-account-service' }}
+      IMAGE: ${{ needs.build.outputs.image }}
 
     steps:
       - name: Check out deployment files
         uses: actions/checkout@v4
 
-      - name: Validate deployment configuration
+      - name: Validate local Docker host
         shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -eu
-          for variable in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
-            if [ -z "${!variable:-}" ]; then
-              echo "Missing required GitHub secret: ${variable}" >&2
-              exit 1
-            fi
-          done
-          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "DEPLOY_HOST must be an IPv4 address or DNS name" >&2; exit 1; }
-          [[ "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9._-]*$ ]] || { echo "DEPLOY_USER contains unsupported characters" >&2; exit 1; }
-          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]] || { echo "DEPLOY_PORT must be numeric" >&2; exit 1; }
           [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "DEPLOY_PATH must be an absolute path" >&2; exit 1; }
+          command -v docker >/dev/null
+          export DOCKER_CONFIG="$RUNNER_TEMP/chat-web-account-service-docker-config"
+          printf 'DOCKER_CONFIG=%s\n' "$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          mkdir -p "$DOCKER_CONFIG"
+          chmod 700 "$DOCKER_CONFIG"
+          docker compose version
+          docker info >/dev/null
+          mkdir -p "$DEPLOY_PATH"
+          test -w "$DEPLOY_PATH" || { echo "$DEPLOY_PATH is not writable by the runner user" >&2; exit 1; }
+          test -f "$DEPLOY_PATH/.env" || { echo "Missing $DEPLOY_PATH/.env" >&2; exit 1; }
 
-      - name: Configure SSH
+      - name: Install deployment files
         shell: bash
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
-
-      - name: Upload deployment files
-        shell: bash
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -eu
-          target="${DEPLOY_USER}@${DEPLOY_HOST}"
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o StrictHostKeyChecking=yes \
-            "$target" "mkdir -p '$DEPLOY_PATH'"
-          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" -o StrictHostKeyChecking=yes \
-            deploy/compose.yml deploy/deploy.sh "$target:$DEPLOY_PATH/"
+          install -m 0644 deploy/compose.yml "$DEPLOY_PATH/compose.yml"
+          install -m 0755 deploy/deploy.sh "$DEPLOY_PATH/deploy.sh"
 
       - name: Pull and deploy image
         shell: bash
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE: ${{ needs.build.outputs.image }}
         run: |
           set -eu
-          target="${DEPLOY_USER}@${DEPLOY_HOST}"
-          ssh_args=(-i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o StrictHostKeyChecking=yes "$target")
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+          cd "$DEPLOY_PATH"
+          ./deploy.sh "$IMAGE" compose.yml
 
-          # shellcheck disable=SC2029
-          printf '%s' "$GHCR_TOKEN" | ssh "${ssh_args[@]}" \
-            "docker login ghcr.io --username '${{ github.actor }}' --password-stdin"
-
-          # shellcheck disable=SC2029
-          ssh "${ssh_args[@]}" \
-            "cd '$DEPLOY_PATH' && chmod +x deploy.sh && ./deploy.sh '$IMAGE' compose.yml"
+      - name: Log out from GitHub Container Registry
+        if: always()
+        shell: bash
+        run: docker logout ghcr.io >/dev/null 2>&1 || true

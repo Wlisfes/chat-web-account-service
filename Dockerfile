@@ -7,7 +7,7 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate
 COPY package.json yarn.lock ./
 # yarn.lock was generated with a regional mirror; use the canonical registry in CI.
 RUN sed -i 's#https://registry.npmmirror.com#https://registry.npmjs.org#g' yarn.lock
-RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
+RUN --mount=type=cache,id=yarn-cache,target=/usr/local/share/.cache/yarn,sharing=locked \
     yarn install --frozen-lockfile --non-interactive --ignore-scripts
 
 FROM dependencies AS builder
@@ -15,14 +15,10 @@ COPY nest-cli.json tsconfig*.json ./
 COPY src ./src
 RUN yarn build
 
-FROM node:22-alpine AS production-dependencies
-WORKDIR /app
-
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
-COPY package.json yarn.lock ./
-RUN sed -i 's#https://registry.npmmirror.com#https://registry.npmjs.org#g' yarn.lock
-RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
-    yarn install --frozen-lockfile --production=true --non-interactive --ignore-scripts
+FROM dependencies AS production-dependencies
+RUN --mount=type=cache,id=yarn-cache,target=/usr/local/share/.cache/yarn,sharing=locked \
+    yarn install --frozen-lockfile --production=true --prefer-offline \
+      --network-timeout 120000 --non-interactive --ignore-scripts
 
 FROM node:22-alpine AS production
 WORKDIR /app
