@@ -5,7 +5,7 @@ import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
 @Module({
-    imports: [ConfigModule.forRoot({ isGlobal: true }), NacosModule],
+    imports: [ConfigModule.forRoot({ isGlobal: true }), NacosModule.forRoot()],
     controllers: [AppController],
     providers: [AppService]
 })

@@ -1,20 +1,29 @@
-import { Module, Global } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
-import { NacosModule as NestNacosModule } from '@sch_cat/nest-nacos-config'
+import { DynamicModule, Global, Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { NACOS_OPTIONS, NacosService as NestNacosService } from '@sch_cat/nest-nacos-config'
 import { NacosService } from '@/modules/nacos/nacos.service'
 
-console.log({ serverAddr: process.env.NACOS_SERVER, namespace: process.env.NACOS_NAMESPACE })
 @Global()
-@Module({
-    imports: [
-        ConfigModule,
-        NestNacosModule.forRoot({
-            serverAddr: process.env.NACOS_SERVER,
-            namespace: process.env.NACOS_NAMESPACE,
-            requestTimeout: 5000
-        })
-    ],
-    providers: [NacosService],
-    exports: [NacosService]
-})
-export class NacosModule {}
+@Module({})
+export class NacosModule {
+    static forRoot(): DynamicModule {
+        return {
+            module: NacosModule,
+            imports: [ConfigModule],
+            providers: [
+                {
+                    provide: NACOS_OPTIONS,
+                    inject: [ConfigService],
+                    useFactory: (configService: ConfigService) => ({
+                        serverAddr: configService.get<string>('NACOS_SERVER', '127.0.0.1:8848'),
+                        namespace: configService.get<string>('NACOS_NAMESPACE', 'public'),
+                        requestTimeout: 5000
+                    })
+                },
+                NestNacosService,
+                NacosService
+            ],
+            exports: [NestNacosService, NacosService]
+        }
+    }
+}

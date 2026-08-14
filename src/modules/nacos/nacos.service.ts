@@ -21,21 +21,24 @@ export class NacosService implements OnModuleInit {
         const group = this.configService.get<string>('NACOS_GROUP')
         const namespace = this.configService.get<string>('NACOS_NAMESPACE')
 
+        // 应用启动时读取远程配置，并将配置项写入 ConfigService。
         const content = await this.nacosService.getConfig(dataId, group)
-        this.applyRemoteConfig(content, 'loaded', dataId, group, namespace)
 
+        this.applyRemoteConfig(content, '已加载', dataId, group, namespace)
+
+        // 监听 Nacos 配置变更，配置更新后同步刷新 ConfigService。
         this.nacosService.subscribeConfig(dataId, group, nextContent => {
             try {
-                this.applyRemoteConfig(nextContent, 'updated', dataId, group, namespace)
+                this.applyRemoteConfig(nextContent, '已更新', dataId, group, namespace)
             } catch (error) {
-                this.logger.error(`Rejected invalid Nacos config update: ${this.getErrorMessage(error)}`)
+                this.logger.error(`无效的 Nacos 配置更新已被拒绝：${this.getErrorMessage(error)}`)
             }
         })
     }
 
-    private applyRemoteConfig(content: string, action: 'loaded' | 'updated', dataId: string, group: string, namespace: string): void {
+    private applyRemoteConfig(content: string, action: '已加载' | '已更新', dataId: string, group: string, namespace: string): void {
         if (!content?.trim()) {
-            throw new Error(`Nacos config is empty or missing: dataId=${dataId}, group=${group}, namespace=${namespace}`)
+            throw new Error(`Nacos 配置为空或不存在：dataId=${dataId}, group=${group}, namespace=${namespace}`)
         }
 
         if (content === this.currentContent) {
@@ -44,10 +47,11 @@ export class NacosService implements OnModuleInit {
 
         const parsed = yaml.load(content)
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            throw new Error('Nacos configuration root must be a YAML object')
+            throw new Error('Nacos 配置根节点必须是 YAML 对象')
         }
 
         const config = parsed as Record<string, unknown>
+        // 清除新配置中已经不存在的旧配置项。
         for (const key of this.remoteConfigKeys) {
             if (!(key in config)) {
                 this.configService.set(key, undefined)
@@ -62,11 +66,12 @@ export class NacosService implements OnModuleInit {
         this.currentContent = content
 
         this.logger.log(
-            `Nacos config ${action}: dataId=${dataId}, group=${group}, namespace=${namespace}, keys=${Object.keys(config).join(',')}`
+            `Nacos 配置${action}：dataId=${dataId}, group=${group}, namespace=${namespace}, 配置项=${Object.keys(config).join(',')}`
         )
 
+        // 只在非生产环境输出完整配置内容，避免生产日志泄露配置信息。
         if (process.env.NODE_ENV !== 'production') {
-            this.logger.log(`Nacos config content:\n${content}`)
+            this.logger.log(`Nacos 配置内容：\n${content}`)
         }
     }
 
