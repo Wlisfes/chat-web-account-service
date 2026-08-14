@@ -75,7 +75,7 @@ jobs:
     environment: ${{ matrix.environment }}
     concurrency:
       group: deploy-${{ matrix.server }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: read

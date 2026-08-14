@@ -6,6 +6,7 @@ COMPOSE_FILE=${2:-compose.yml}
 SERVICE=account-service
 CONTAINER=chat-web-account-service
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
+deployment_started=0
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "Compose file not found: $COMPOSE_FILE" >&2
@@ -35,10 +36,25 @@ rollback() {
     fi
 }
 
+# shellcheck disable=SC2329 # Invoked indirectly by trap.
+handle_interrupt() {
+    trap - HUP INT TERM
+    echo "Deployment interrupted by a newer version." >&2
+
+    if [ "$deployment_started" -eq 1 ]; then
+        rollback
+    fi
+
+    exit 130
+}
+
+trap handle_interrupt HUP INT TERM
+
 echo "Pulling $IMAGE"
 docker pull "$IMAGE"
 
 echo "Starting $SERVICE"
+deployment_started=1
 if ! compose up -d --no-deps --remove-orphans "$SERVICE"; then
     rollback
     exit 1
@@ -50,6 +66,7 @@ while [ "$elapsed" -lt "$HEALTH_TIMEOUT" ]; do
     case "$state" in
         healthy)
             echo "Deployment succeeded: $IMAGE"
+            trap - HUP INT TERM
             docker image prune -f >/dev/null 2>&1 || true
             exit 0
             ;;
