@@ -376,6 +376,11 @@
     jsonc-parser "3.3.1"
     pluralize "8.0.0"
 
+"@sch_cat/nest-nacos-config@^0.0.6":
+  version "0.0.6"
+  resolved "https://registry.npmmirror.com/@sch_cat/nest-nacos-config/-/nest-nacos-config-0.0.6.tgz#98a3ce5f373ebdf9c4a81856640cc8867179410e"
+  integrity sha512-Q30isIZtopzhSwaNxWjCAtS+zKE6e9cRswjegKMo+tg7Q1dIEbVy8cMICcHGOMdWnj+6HVAwoUJyqny02oCLDg==
+
 "@tokenizer/inflate@^0.4.1":
   version "0.4.1"
   resolved "https://registry.npmmirror.com/@tokenizer/inflate/-/inflate-0.4.1.tgz"
