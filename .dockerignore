@@ -8,11 +8,7 @@ build
 coverage
 docker
 deploy
-k8s
 *.log
 **/.env
 **/.env.*
 README.md
-auto-deploy.js
-release.bat
-release.sh

@@ -14,7 +14,7 @@ async function bootstrap() {
         throw new Error(`Invalid service port: ${port}`)
     }
     await app.listen(port, '0.0.0.0')
-
+    console.log(process.env)
     console.log(
         `Chat管理平台API服务启动[${process.env.NODE_ENV || 'production'}]:`,
         `http://0.0.0.0:${port}`,
