@@ -18,12 +18,7 @@ cd /opt/chat-web-account-service
 # 按 deploy/.env.example 创建 .env，并填写实际配置
 ```
 
-账号服务通过 `chat-web-infrastructure` Docker 网络访问 `nacos:8848`。首次部署账号服务前，需要先启动基础设施中的 Nacos：
-
-```bash
-docker compose --env-file docker/.env -f docker/compose.yml up -d nacos
-docker compose --env-file docker/.env -f docker/compose.yml ps nacos
-```
+MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立的基础设施环境管理，不在本业务仓库中启动。部署账号服务前，请确认外部 Docker 网络 `chat-web-infrastructure` 已创建，且账号服务可通过该网络访问 Nacos。业务连接参数统一保存在 Nacos 配置中。
 
 如果修改了 `DEPLOY_PATH` Secret，请在对应目录创建 `.env`。真实 `.env` 只保存在服务器，不上传 GitHub。
 
