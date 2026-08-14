@@ -63,6 +63,20 @@ $ yarn run test:cov
 
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 
+### Nacos 配置
+
+服务启动时会从 Nacos 加载并监听以下配置：
+
+```text
+Namespace ID: 0210cecf-114e-43e6-a260-1d4b263fb189
+Data ID: chat-web-account-service.yaml
+Group: DEFAULT_GROUP
+```
+
+配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
+
+本地执行 `yarn run dev` 时读取根目录 `.env`，通过 `127.0.0.1:8848` 连接 Nacos，并使用本地端口 `3001`，避免与 Docker 版服务的 `3000` 端口冲突。显式环境变量 `PORT` 的优先级高于 Nacos 的 `server.port`。
+
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
