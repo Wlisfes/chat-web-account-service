@@ -1,22 +1,18 @@
 import { NestFactory } from '@nestjs/core'
 import { ConfigService } from '@nestjs/config'
+import { NestExpressApplication } from '@nestjs/platform-express'
+import { setupSwagger } from '@wlisfes/chat-web-base-schema'
 import { AppModule } from '@/app.module'
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule)
-    await app.init()
-
-    const configService = app.get(ConfigService)
-    const port = Number(process.env.PORT ?? configService.get<number>('server.port', 3000))
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new Error(`Invalid service port: ${port}`)
-    }
-    await app.listen(port, '0.0.0.0')
-
-    console.log(
-        `Chat管理平台API服务启动[${process.env.NODE_ENV || 'production'}]:`,
-        `http://0.0.0.0:${port}`,
-        `http://0.0.0.0:${port}/api/swagger`
-    )
+    const app = await NestFactory.create<NestExpressApplication>(AppModule)
+    const port = Number(process.env.PORT ?? app.get(ConfigService).get<number>('server.port', 3000))
+    return await setupSwagger(app, {
+        title: `Chat Web 账号服务 API`,
+        description: `Chat Web 账号、用户及身份信息管理接口文档`,
+        port: port
+    }).then(() => {
+        console.log(`Chat Web 账号服务启动[${process.env.NODE_ENV}]:`, `http://127.0.0.1:${port}`, `http://127.0.0.1:${port}/api/swagger`)
+    })
 }
 bootstrap()
