@@ -18,11 +18,12 @@
 - JWT 使用 HS256；密钥读取 `JWT_SECRET`，未设置时读取 Nacos `security.jwt.secret`，长度至少32位。
 - 新增9张权限相关表；数据库仍由外部 SQL 创建或升级，TypeORM 不自动建表。
 - `/health` 和 `/health/ready` 新增数据库必需表及 JWT 密钥检查；缺表或密钥无效时返回 HTTP 503，Docker 部署会自动回滚。`/health/live` 仅检查进程存活。
+- 双机部署从各自 GitHub Environment 的 `JWT_SECRET` Secret 同步运行密钥，并在切换容器前自动运行带文件校验和及执行账本的 Schema 升级器。
 
 ### 机器侧操作
 
-1. 在账号数据库按文件名顺序执行共享 Schema 包 `sql/changes/20260817170000` 至 `20260817170010` 的增量 SQL；`170000` 会幂等补齐缺失的账号基础表，`170010` 会幂等补齐邮箱唯一索引。
-2. 在 Company、Home 的 `/opt/chat-web-account-service/.env` 设置相同的 `JWT_SECRET`；也可改为在各自 Nacos 的 `security.jwt.secret` 设置相同值。
+1. 在 `production-company`、`production-home` GitHub Environment 中设置相同的 `JWT_SECRET` Secret；部署任务会安全同步到各机器 `/opt/chat-web-account-service/.env`。
+2. 自动部署会按文件名执行共享 Schema 包 `sql/changes/20260817170000` 至 `20260817170010`；首次接入自动建立 `tb_account_schema_migration` 执行账本。Company 已人工应用本次 SQL，部署器会幂等复核并补记账本。
 3. 为初始管理员账号分配编码为 `super_admin` 的启用角色，再开放管理接口。
 4. 不要把真实 JWT 密钥、密码哈希或完整 `.env` 提交到仓库。
 

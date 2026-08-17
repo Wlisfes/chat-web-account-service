@@ -20,6 +20,8 @@ Namespace ID 是每台 Nacos 的运行参数。恢复机器时先在 Nacos 控�
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表和 JWT 密钥。返回 503 时，根据 `missingTables` 和 `security.jwtConfigured` 检查增量 SQL及密钥配置，不要绕过健康检查。
 
+自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
+
 ## 五分钟排障
 
 ### 1. 检查容器与访问

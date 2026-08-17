@@ -69,6 +69,22 @@ pull_image() {
 echo "Pulling $IMAGE (up to $PULL_ATTEMPTS attempts)"
 pull_image
 
+network=$(sed -n 's/^DOCKER_NETWORK=//p' .env | tail -n 1)
+network=${network:-chat-web-infrastructure}
+case "$network" in
+    *[!A-Za-z0-9_.-]*|'')
+        echo "Invalid DOCKER_NETWORK in .env" >&2
+        exit 1
+        ;;
+esac
+
+echo "Applying account database schema migrations"
+docker run --rm \
+    --network "$network" \
+    --env-file .env \
+    --entrypoint node \
+    "$IMAGE" dist/cli/apply-schema.js
+
 echo "Starting $SERVICE"
 deployment_started=1
 if ! compose up -d --no-deps "$SERVICE"; then

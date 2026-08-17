@@ -51,6 +51,8 @@ MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立的基础设施环境�
 
 真实 `.env` 分别保存在两台服务器，不上传 GitHub。若需要修改部署目录，请在对应 GitHub Environment 中添加 `DEPLOY_PATH` Variable，并在该目录创建 `.env`。
 
+在 `production-company` 和 `production-home` 两个 GitHub Environment 中分别创建 `JWT_SECRET` Secret，长度至少32位。部署任务会在不输出密钥的前提下同步服务器 `.env`，并在切换容器前使用新镜像中的 Schema 升级器应用尚未执行的增量 SQL。升级器以文件名和 SHA-256 校验和记录执行状态；已经应用的文件不会重复执行，被修改的历史文件会导致部署立即失败。
+
 ## 首个超级管理员
 
 增量 SQL 会创建内置 `super_admin` 角色，但不会写入默认账号或默认密码。若数据库还没有管理员：
