@@ -2,21 +2,23 @@
 
 ## 当前基线
 
-| 项目 | 值 |
-| --- | --- |
-| 容器 | `chat-web-account-service` |
-| 访问地址 | `http://127.0.0.1:3000` |
-| 健康检查 | `http://127.0.0.1:3000/health` |
-| 部署目录 | `/opt/chat-web-account-service` |
-| Docker 网络 | `chat-web-infrastructure` |
-| Nacos Data ID | `chat-web-account-service.yaml` |
-| Nacos Group | `DEFAULT_GROUP` |
-| Nacos Namespace 名称 | `chat-web-service` |
-| Nacos 服务名 | `chat-web-account-service` |
-| Company Runner 标签 | `chat-server-company` |
-| Home Runner 标签 | `chat-server-home` |
+| 项目                 | 值                              |
+| -------------------- | ------------------------------- |
+| 容器                 | `chat-web-account-service`      |
+| 访问地址             | `http://127.0.0.1:3000`         |
+| 健康检查             | `http://127.0.0.1:3000/health`  |
+| 部署目录             | `/opt/chat-web-account-service` |
+| Docker 网络          | `chat-web-infrastructure`       |
+| Nacos Data ID        | `chat-web-account-service.yaml` |
+| Nacos Group          | `DEFAULT_GROUP`                 |
+| Nacos Namespace 名称 | `chat-web-service`              |
+| Nacos 服务名         | `chat-web-account-service`      |
+| Company Runner 标签  | `chat-server-company`           |
+| Home Runner 标签     | `chat-server-home`              |
 
 Namespace ID 是每台 Nacos 的运行参数。恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据另一台机器猜测。
+
+`/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接和账号服务全部必需表。返回 503 且列出 `missingTables` 时，先执行对应版本的共享 Schema 增量 SQL，不要绕过健康检查。
 
 ## 五分钟排障
 
@@ -58,13 +60,14 @@ Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像�
 
 ## 常见故障
 
-| 现象 | 原因 | 处理 |
-| --- | --- | --- |
-| Actions 长时间 Queued | 对应机器 Runner 离线 | 启动 WSL 保活任务并重启 Runner 服务 |
-| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL | 将 Nacos MySQL 主机改成 `chat-web-mysql` |
-| Nacos 配置不存在 | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台 |
-| 新镜像不健康 | 数据库、Nacos或启动代码失败 | 查看容器日志；部署脚本会自动回滚 |
-| 3000 无法访问 | 容器未健康或端口未映射 | 检查 Compose、容器状态和 `HOST_PORT` |
+| 现象                          | 原因                                  | 处理                                     |
+| ----------------------------- | ------------------------------------- | ---------------------------------------- |
+| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务      |
+| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql` |
+| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台        |
+| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚         |
+| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署 |
+| 3000 无法访问                 | 容器未健康或端口未映射                | 检查 Compose、容器状态和 `HOST_PORT`     |
 
 ## 恢复顺序
 

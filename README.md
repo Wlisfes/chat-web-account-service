@@ -75,23 +75,38 @@ Group: DEFAULT_GROUP
 
 配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
 
+账号服务负责校验 Bearer Token。JWT 使用 HS256，密钥必须至少32位，可通过服务器 `.env` 的 `JWT_SECRET` 提供，也可使用以下 Nacos 配置：
+
+```yaml
+security:
+    jwt:
+        secret: replace-with-at-least-32-random-characters
+        issuer: chat-web-account-service
+        audience: chat-web
+        accessTokenTtlSeconds: 3600
+```
+
+除 `/`、`/health`、`/health/live`、`/health/ready` 和 `/auth/login` 外，接口默认需要登录。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
+
+`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接以及全部必需表，缺表时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL。
+
 账号数据库的 Nacos 配置格式如下；数据库和表必须由外部 SQL 提前创建，TypeORM 固定关闭 `synchronize` 和自动迁移：
 
 ```yaml
 database:
-  chat-web-account:
-    host: mysql
-    port: 3306
-    name: chat_web_account
-    username: account_service
-    password: replace-with-secret
-    charset: utf8mb4
-    timezone: +08:00
-    logging: false
-    poolSize: 10
-    connectTimeout: 10000
-    retryAttempts: 5
-    retryDelay: 3000
+    chat-web-account:
+        host: mysql
+        port: 3306
+        name: chat_web_account
+        username: account_service
+        password: replace-with-secret
+        charset: utf8mb4
+        timezone: +08:00
+        logging: false
+        poolSize: 10
+        connectTimeout: 10000
+        retryAttempts: 5
+        retryDelay: 3000
 ```
 
 本地从 Windows 直接启动服务时，可通过 `.env` 中的 `ACCOUNT_MYSQL_HOST`、`ACCOUNT_MYSQL_PORT` 和 `ACCOUNT_MYSQL_DATABASE` 覆盖 Docker 内部连接信息；数据库账号密码仍从 Nacos 读取。

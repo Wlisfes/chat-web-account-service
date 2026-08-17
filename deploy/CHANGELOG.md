@@ -4,6 +4,49 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-17：组织架构、RBAC 与数据权限运行配置
+
+- 影响范围：Company、Home。
+- 关联版本：`developer` 分支本次功能提交；依赖 `@wlisfes/chat-web-base-schema@1.0.2`。
+- 容器与端口：保持 `chat-web-account-service`、宿主机及容器端口 `3000` 不变。
+- Nacos：原数据库和服务发现配置保持不变，新增可选的 `security.jwt` 配置节点。
+
+### 变更内容
+
+- 新增组织架构、系统菜单、角色、菜单权限、用户组织/角色关系和跨部门数据范围功能。
+- 除首页、健康检查和登录接口外，账号服务默认校验 Bearer Token。
+- JWT 使用 HS256；密钥读取 `JWT_SECRET`，未设置时读取 Nacos `security.jwt.secret`，长度至少32位。
+- 新增9张权限相关表；数据库仍由外部 SQL 创建或升级，TypeORM 不自动建表。
+- `/health` 和 `/health/ready` 新增数据库必需表检查；缺表返回 HTTP 503，Docker 部署会自动回滚。`/health/live` 仅检查进程存活。
+
+### 机器侧操作
+
+1. 在账号数据库按文件名顺序执行共享 Schema 包 `sql/changes/20260817170000` 至 `20260817170010` 的增量 SQL；`170000` 会幂等补齐缺失的账号基础表，`170010` 会幂等补齐邮箱唯一索引。
+2. 在 Company、Home 的 `/opt/chat-web-account-service/.env` 设置相同的 `JWT_SECRET`；也可改为在各自 Nacos 的 `security.jwt.secret` 设置相同值。
+3. 为初始管理员账号分配编码为 `super_admin` 的启用角色，再开放管理接口。
+4. 不要把真实 JWT 密钥、密码哈希或完整 `.env` 提交到仓库。
+
+首个账号的密码哈希可在可信开发机使用 `yarn password:hash` 离线生成，具体初始化 SQL 见 `deploy/README.md`。
+
+### 验证
+
+```bash
+docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3000/health
+curl -i http://127.0.0.1:3000/organizations/tree
+docker logs --tail 100 chat-web-account-service
+```
+
+正常结果：容器为 `healthy`，健康检查返回 HTTP 200，未携带 Token 访问组织接口返回 HTTP 401，登录后按角色返回 HTTP 200 或 403。
+
+若健康检查返回 HTTP 503 并列出 `missingTables`，说明增量 SQL 未完整应用，不能跳过检查继续部署。
+
+### 回滚
+
+- 将服务镜像回滚到变更前 SHA，并恢复部署前的 Nacos JWT 配置或服务器 `.env`。
+- 新增表在旧版本中不会被访问，可暂时保留；确认无新版本业务数据后再由数据库管理员备份并删除。
+- 不要回滚或重复执行已经成功应用的增量 SQL 文件。
+
 ## 2026-08-17：双机器部署、Nacos 注册与数据库连接修复
 
 - 影响范围：Company、Home。
