@@ -4,6 +4,44 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-17：本地 Docker 数据库初始化与配置示例说明
+
+- 影响范围：Home；文档同步覆盖 Company。
+- 关联版本：`developer` 分支本次配置修正；Schema 依赖 `@wlisfes/chat-web-base-schema@1.0.3`。
+- 容器与端口：容器和 Nacos 注册端口固定为 `3000`；`.env.example` 的宿主机端口仅为示例，真实端口由各机器 `.env` 管理。
+- Nacos 与网络：Namespace ID 使用稳定占位符，不在示例文件中同步机器真实值；继续使用 `chat-web-infrastructure`。
+
+### 变更内容
+
+- 明确 `.env.example` 只用于保证配置项完整，值使用稳定示例或占位符，不随机器运行值变化。
+- 补齐本地端口、数据库覆盖项和可选 Nacos 鉴权项，避免复制示例后缺少代码支持的环境变量名称。
+- 修正 README 数据库名为实际使用的 `chat-web-account`。
+- 明确 Home、Company 的宿主机端口差异，以及容器和 Nacos 注册始终使用 `3000`。
+- 本地基础设施为全新 MySQL 数据卷增加 `chat-web-account` 数据库初始化 SQL；表结构仍由 Schema 包增量 SQL 创建，TypeORM 不自动建表。
+
+### 机器侧操作
+
+1. 现有 MySQL 数据卷已经包含账号库，无需删除或重建，也不会重新执行初始化 SQL。
+2. 各机器继续使用 `/opt/chat-web-account-service/.env` 中自己的 Namespace ID 和宿主机端口，不要从 `.env.example` 自动覆盖真实值。
+3. 新机器首次启动空 MySQL 数据卷时，先确认基础设施初始化 SQL 已挂载，再运行账号服务部署器应用 Schema 增量 SQL。
+
+### 验证
+
+```bash
+IMAGE=chat-web-account-service:local docker compose -f deploy/compose.yml --env-file deploy/.env.example config
+docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3001/health
+docker exec -it chat-web-mysql mysql -uroot -p -e "SHOW DATABASES LIKE 'chat-web-account';"
+```
+
+Home 健康检查应返回 HTTP 200；Company 将验证命令端口改为 `3000`。数据库查询应返回 `chat-web-account`。
+
+### 回滚
+
+- 将两份环境变量示例和 README 恢复为变更前内容；真实服务器 `.env` 不随文档回滚。
+- 可移除基础设施的初始化 SQL 挂载；它只在空数据目录初始化时执行，移除不会删除现有数据库。
+- 不要为了回滚文档或初始化配置而删除现有 MySQL 数据卷。
+
 ## 2026-08-17：RBAC 关联字段统一使用自增主键
 
 - 影响范围：Company、Home。

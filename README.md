@@ -68,7 +68,7 @@ $ yarn run test:cov
 服务启动时会从 Nacos 加载并监听以下配置：
 
 ```text
-Namespace ID: 0210cecf-114e-43e6-a260-1d4b263fb189
+Namespace ID: replace-with-nacos-namespace-id
 Data ID: chat-web-account-service.yaml
 Group: DEFAULT_GROUP
 ```
@@ -97,7 +97,7 @@ database:
     chat-web-account:
         host: mysql
         port: 3306
-        name: chat_web_account
+        name: chat-web-account
         username: account_service
         password: replace-with-secret
         charset: utf8mb4
