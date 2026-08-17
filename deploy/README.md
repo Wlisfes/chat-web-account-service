@@ -28,6 +28,8 @@ sudo ./svc.sh start
 
 家中机器将标签改为 `chat-server-home`。首次部署前，每台机器都要执行：
 
+Self-hosted Runner 默认只属于注册它的仓库。当前 Runner 不能替 `chat-web-gateway-service` 执行部署；同一台机器部署网关时，需要在网关仓库的 `Settings -> Actions -> Runners` 中获取新的临时 Token，并使用独立目录再安装一个 Runner 服务。不要让两个仓库共用同一个 Runner 安装目录。
+
 ```bash
 sudo usermod -aG docker "RUNNER用户"
 sudo mkdir -p /opt/chat-web-account-service
