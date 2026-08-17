@@ -1,9 +1,9 @@
 export interface RoleIdentity {
-    uid: string
+    keyId: number
 }
 
 export interface ResourceScopeRule {
-    roleUid: string
+    roleKeyId: number
     resourceCode: string
 }
 
@@ -15,7 +15,7 @@ export function selectEffectiveScopeRules<TRule extends ResourceScopeRule>(
     defaultResourceCode = '*'
 ): TRule[] {
     return roles.flatMap(role => {
-        const roleScopes = scopes.filter(scope => scope.roleUid === role.uid)
+        const roleScopes = scopes.filter(scope => scope.roleKeyId === role.keyId)
         const exact = roleScopes.find(scope => scope.resourceCode === resourceCode)
         return exact ? [exact] : roleScopes.filter(scope => scope.resourceCode === defaultResourceCode)
     })

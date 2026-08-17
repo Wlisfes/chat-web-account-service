@@ -4,6 +4,53 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-17：RBAC 关联字段统一使用自增主键
+
+- 影响范围：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.0.3`；账号服务本次修复版本。
+- 容器与端口：服务名、容器名和 `3000` 端口保持不变。
+- Nacos 与网络：配置结构、Data ID、数据库地址和 Docker 网络保持不变。
+
+### 变更内容
+
+- `uid` 仅保留在 `tb_account_user`，继续作为账号业务标识和 JWT subject。
+- 组织、菜单、角色和数据范围规则直接使用各表自增 `key_id`；全部内部关联改为 `*_key_id`。
+- 新增 `20260817205000__tb_account_organization__use_key_ids.sql`，升级时按旧 UID 映射现有父子关系、成员关系、角色菜单和数据范围后删除旧字段。
+- 组织、菜单、角色相关 HTTP 路径参数和请求体同步改为数值型 `keyId`。
+
+### 机器侧操作
+
+1. 部署前保留账号数据库备份；该迁移会删除非用户表的旧 UID 字段，属于不可直接逆向的 DDL。
+2. 正常合并到 `master` 后由部署器自动执行增量 SQL，不要人工修改已经发布的历史迁移文件。
+3. 部署后使用 `information_schema.columns` 确认名为 `uid` 的业务列只剩 `tb_account_user.uid`。
+
+### 验证
+
+```bash
+docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3000/health
+docker logs --tail 100 chat-web-account-service
+```
+
+数据库验证应确认旧关联列为 0 个，并且 UID 业务列只剩用户表：
+
+```sql
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND column_name = 'uid';
+
+SELECT COUNT(*)
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND column_name IN ('parent_uid', 'ancestor_uid', 'descendant_uid', 'organization_uid', 'role_uid', 'menu_uid', 'data_scope_uid');
+```
+
+### 回滚
+
+- 不能只回滚到旧服务镜像：旧镜像依赖已经删除的 UID 关联列。
+- 若切换失败且必须回退，先恢复迁移前数据库备份，再恢复上一条已验证镜像。
+- 若新版本已经写入业务数据，优先发布前向修复；不要直接恢复旧备份覆盖新增数据。
+
 ## 2026-08-17：组织架构、RBAC 与数据权限运行配置
 
 - 影响范围：Company、Home。

@@ -1,7 +1,7 @@
 export interface EffectiveDataScope {
     all: boolean
     includeSelf: boolean
-    organizationUids: string[]
+    organizationKeyIds: number[]
 }
 
 export interface EffectiveAccess {

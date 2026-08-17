@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { RequirePermissions } from '@/modules/auth/auth.decorator'
 import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organizations/dto/organization.dto'
@@ -17,11 +17,11 @@ export class OrganizationsController {
         return this.organizationsService.getTree()
     }
 
-    @Get(':uid')
+    @Get(':keyId')
     @RequirePermissions('account:organization:list')
     @ApiOperation({ summary: '获取组织详情' })
-    findOne(@Param('uid') uid: string) {
-        return this.organizationsService.findOne(uid)
+    findOne(@Param('keyId', ParseIntPipe) keyId: number) {
+        return this.organizationsService.findOne(keyId)
     }
 
     @Post()
@@ -31,18 +31,18 @@ export class OrganizationsController {
         return this.organizationsService.create(input)
     }
 
-    @Patch(':uid')
+    @Patch(':keyId')
     @RequirePermissions('account:organization:update')
     @ApiOperation({ summary: '更新或移动组织节点' })
-    update(@Param('uid') uid: string, @Body() input: UpdateOrganizationDto) {
-        return this.organizationsService.update(uid, input)
+    update(@Param('keyId', ParseIntPipe) keyId: number, @Body() input: UpdateOrganizationDto) {
+        return this.organizationsService.update(keyId, input)
     }
 
-    @Delete(':uid')
+    @Delete(':keyId')
     @RequirePermissions('account:organization:delete')
     @ApiOperation({ summary: '删除没有下级、成员和权限引用的组织节点' })
-    async remove(@Param('uid') uid: string) {
-        await this.organizationsService.remove(uid)
+    async remove(@Param('keyId', ParseIntPipe) keyId: number) {
+        await this.organizationsService.remove(keyId)
         return { success: true }
     }
 }

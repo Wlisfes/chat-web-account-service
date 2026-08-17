@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { RequirePermissions } from '@/modules/auth/auth.decorator'
 import { CreateMenuDto, UpdateMenuDto } from '@/modules/menus/dto/menu.dto'
@@ -17,11 +17,11 @@ export class MenusController {
         return this.menusService.getTree()
     }
 
-    @Get(':uid')
+    @Get(':keyId')
     @RequirePermissions('account:menu:list')
     @ApiOperation({ summary: '获取菜单详情' })
-    findOne(@Param('uid') uid: string) {
-        return this.menusService.findOne(uid)
+    findOne(@Param('keyId', ParseIntPipe) keyId: number) {
+        return this.menusService.findOne(keyId)
     }
 
     @Post()
@@ -31,18 +31,18 @@ export class MenusController {
         return this.menusService.create(input)
     }
 
-    @Patch(':uid')
+    @Patch(':keyId')
     @RequirePermissions('account:menu:update')
     @ApiOperation({ summary: '更新或移动菜单节点' })
-    update(@Param('uid') uid: string, @Body() input: UpdateMenuDto) {
-        return this.menusService.update(uid, input)
+    update(@Param('keyId', ParseIntPipe) keyId: number, @Body() input: UpdateMenuDto) {
+        return this.menusService.update(keyId, input)
     }
 
-    @Delete(':uid')
+    @Delete(':keyId')
     @RequirePermissions('account:menu:delete')
     @ApiOperation({ summary: '删除没有下级和角色引用的菜单节点' })
-    async remove(@Param('uid') uid: string) {
-        await this.menusService.remove(uid)
+    async remove(@Param('keyId', ParseIntPipe) keyId: number) {
+        await this.menusService.remove(keyId)
         return { success: true }
     }
 }

@@ -11,11 +11,13 @@ import {
     IsArray,
     IsBoolean,
     IsEnum,
+    IsInt,
     IsNotEmpty,
     IsOptional,
     IsString,
     Length,
     MaxLength,
+    Min,
     ValidateNested
 } from 'class-validator'
 import { PageDto } from '@/common/dto/page.dto'
@@ -34,11 +36,10 @@ export class UserQueryDto extends PageDto {
 }
 
 export class UserOrganizationMembershipDto {
-    @ApiProperty({ description: '组织UID', example: '2149446185344106496' })
-    @IsString({ message: '组织UID必须是字符串' })
-    @IsNotEmpty({ message: '组织UID必填' })
-    @Length(1, 19, { message: '组织UID长度不能超过19位' })
-    organizationUid: string
+    @ApiProperty({ description: '组织主键', example: 1 })
+    @IsInt({ message: '组织主键必须是整数' })
+    @Min(1, { message: '组织主键必须大于0' })
+    organizationKeyId: number
 
     @ApiProperty({ description: '是否为主组织', example: true })
     @IsBoolean({ message: '主组织标记必须是布尔值' })
@@ -70,13 +71,13 @@ export class ReplaceUserOrganizationsDto {
 }
 
 export class ReplaceUserRolesDto {
-    @ApiProperty({ description: '用户拥有的全部角色UID；空数组表示清空', type: [String] })
-    @IsArray({ message: '角色UID列表必须是数组' })
+    @ApiProperty({ description: '用户拥有的全部角色主键；空数组表示清空', type: [Number] })
+    @IsArray({ message: '角色主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个角色' })
-    @ArrayUnique({ message: '角色UID不能重复' })
-    @IsString({ each: true, message: '角色UID必须是字符串' })
-    @Length(1, 19, { each: true, message: '角色UID长度不能超过19位' })
-    roleUids: string[]
+    @ArrayUnique({ message: '角色主键不能重复' })
+    @IsInt({ each: true, message: '角色主键必须是整数' })
+    @Min(1, { each: true, message: '角色主键必须大于0' })
+    roleKeyIds: number[]
 }
 
 export class CreateUserDto extends PickType(TbAccountUserDto, [
@@ -99,14 +100,14 @@ export class CreateUserDto extends PickType(TbAccountUserDto, [
     @Type(() => UserOrganizationMembershipDto)
     memberships?: UserOrganizationMembershipDto[]
 
-    @ApiPropertyOptional({ description: '创建时一并设置的角色UID；仅超级管理员可用', type: [String] })
+    @ApiPropertyOptional({ description: '创建时一并设置的角色主键；仅超级管理员可用', type: [Number] })
     @IsOptional()
-    @IsArray({ message: '角色UID列表必须是数组' })
+    @IsArray({ message: '角色主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个角色' })
-    @ArrayUnique({ message: '角色UID不能重复' })
-    @IsString({ each: true, message: '角色UID必须是字符串' })
-    @Length(1, 19, { each: true, message: '角色UID长度不能超过19位' })
-    roleUids?: string[]
+    @ArrayUnique({ message: '角色主键不能重复' })
+    @IsInt({ each: true, message: '角色主键必须是整数' })
+    @Min(1, { each: true, message: '角色主键必须大于0' })
+    roleKeyIds?: number[]
 }
 
 export class UpdateUserDto extends PartialType(

@@ -2,7 +2,7 @@ import { PartialType, PickType } from '@nestjs/swagger'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 
 export class CreateMenuDto extends PickType(TbAccountMenuDto, [
-    'parentUid',
+    'parentKeyId',
     'type',
     'name',
     'routeName',
