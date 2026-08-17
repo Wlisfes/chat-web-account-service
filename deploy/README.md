@@ -1,5 +1,12 @@
 # Docker 自动部署
 
+部署基线、故障恢复和跨机器操作记录：
+
+- [部署变更记录](./CHANGELOG.md)
+- [故障恢复手册](./RUNBOOK.md)
+
+凡是修改 Docker、Actions、Nacos、端口、环境变量、健康检查或 Runner，必须在同一次提交中更新部署变更记录。
+
 向 `master` 分支直接推送或合并 Pull Request 后，GitHub Actions 会：
 
 1. 构建 Docker 镜像，并以完整 Git SHA 和 `latest` 两个标签推送到 GHCR。
