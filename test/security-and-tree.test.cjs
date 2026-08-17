@@ -18,30 +18,30 @@ function config(values) {
 
 test('组织和菜单树按 sort 排序并保留层级', () => {
     const nodes = [
-        { uid: '3', parentUid: '1', sort: 20 },
-        { uid: '1', parentUid: undefined, sort: 10 },
-        { uid: '2', parentUid: '1', sort: 10 }
+        { keyId: 3, parentKeyId: 1, sort: 20 },
+        { keyId: 1, parentKeyId: undefined, sort: 10 },
+        { keyId: 2, parentKeyId: 1, sort: 10 }
     ]
     assertValidTree(nodes, '测试树')
     const tree = buildTree(nodes)
     assert.deepEqual(
-        tree.map(node => node.uid),
-        ['1']
+        tree.map(node => node.keyId),
+        [1]
     )
     assert.deepEqual(
-        tree[0].children.map(node => node.uid),
-        ['2', '3']
+        tree[0].children.map(node => node.keyId),
+        [2, 3]
     )
 })
 
 test('树校验拒绝循环和缺失父节点', () => {
-    assert.throws(() => assertValidTree([{ uid: '1', parentUid: '2', sort: 0 }], '测试树'), /父节点/)
+    assert.throws(() => assertValidTree([{ keyId: 1, parentKeyId: 2, sort: 0 }], '测试树'), /父节点/)
     assert.throws(
         () =>
             assertValidTree(
                 [
-                    { uid: '1', parentUid: '2', sort: 0 },
-                    { uid: '2', parentUid: '1', sort: 0 }
+                    { keyId: 1, parentKeyId: 2, sort: 0 },
+                    { keyId: 2, parentKeyId: 1, sort: 0 }
                 ],
                 '测试树'
             ),
@@ -86,11 +86,11 @@ test('JWT 可验证且拒绝篡改和不同密钥', () => {
 })
 
 test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
-    const roles = [{ uid: 'role-a' }, { uid: 'role-b' }]
+    const roles = [{ keyId: 1 }, { keyId: 2 }]
     const rules = [
-        { id: 'a-default', roleUid: 'role-a', resourceCode: '*' },
-        { id: 'a-user', roleUid: 'role-a', resourceCode: 'account:user' },
-        { id: 'b-default', roleUid: 'role-b', resourceCode: '*' }
+        { id: 'a-default', roleKeyId: 1, resourceCode: '*' },
+        { id: 'a-user', roleKeyId: 1, resourceCode: 'account:user' },
+        { id: 'b-default', roleKeyId: 2, resourceCode: '*' }
     ]
     assert.deepEqual(
         selectEffectiveScopeRules(roles, rules, 'account:user').map(rule => rule.id),

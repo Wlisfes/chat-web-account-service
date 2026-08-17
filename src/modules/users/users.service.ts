@@ -37,13 +37,13 @@ export class UsersService {
 
     async create(actorUid: string, input: CreateUserDto): Promise<TbAccountUser> {
         const memberships = input.memberships ?? []
-        const roleUids = input.roleUids?.map(roleUid => assertUid(roleUid, '角色UID')) ?? []
+        const roleKeyIds = input.roleKeyIds ?? []
         this.assertMemberships(memberships)
         await this.assertCanAssignOrganizations(
             actorUid,
-            memberships.map(item => item.organizationUid)
+            memberships.map(item => item.organizationKeyId)
         )
-        if (roleUids.length && !(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (roleKeyIds.length && !(await this.permissionsService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException('只有超级管理员可以在创建账号时分配角色')
         }
 
@@ -51,10 +51,10 @@ export class UsersService {
             await this.assertUserUnique(manager, input)
             await this.assertOrganizationsExist(
                 manager,
-                memberships.map(item => item.organizationUid)
+                memberships.map(item => item.organizationKeyId)
             )
-            await this.assertRolesExist(manager, roleUids)
-            const { memberships: _memberships, roleUids: _roleUids, password, ...fields } = input
+            await this.assertRolesExist(manager, roleKeyIds)
+            const { memberships: _memberships, roleKeyIds: _roleKeyIds, password, ...fields } = input
             const user = manager.create(TbAccountUser, {
                 ...fields,
                 uid: generateUid(),
@@ -62,7 +62,7 @@ export class UsersService {
             })
             const saved = await manager.save(user)
             await this.insertMemberships(manager, saved.uid, memberships)
-            await this.insertRoles(manager, saved.uid, roleUids)
+            await this.insertRoles(manager, saved.uid, roleKeyIds)
             saved.password = undefined as unknown as string
             return saved
         })
@@ -134,7 +134,7 @@ export class UsersService {
             this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
             this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: normalizedTargetUid } })
         ])
-        return { ...user, organizations, roleUids: roleRelations.map(item => item.roleUid) }
+        return { ...user, organizations, roleKeyIds: roleRelations.map(item => item.roleKeyId) }
     }
 
     async replaceOrganizations(actorUid: string, targetUid: string, input: ReplaceUserOrganizationsDto): Promise<void> {
@@ -143,9 +143,9 @@ export class UsersService {
         this.assertMemberships(input.memberships)
         await this.userRepository.manager.transaction(async manager => {
             await this.lockUser(manager, normalizedTargetUid)
-            const organizationUids = input.memberships.map(item => assertUid(item.organizationUid, '组织UID'))
-            await this.assertCanAssignOrganizations(actorUid, organizationUids)
-            await this.assertOrganizationsExist(manager, organizationUids)
+            const organizationKeyIds = input.memberships.map(item => item.organizationKeyId)
+            await this.assertCanAssignOrganizations(actorUid, organizationKeyIds)
+            await this.assertOrganizationsExist(manager, organizationKeyIds)
             await manager.delete(TbAccountUserOrganization, { userUid: normalizedTargetUid })
             await this.insertMemberships(manager, normalizedTargetUid, input.memberships)
         })
@@ -157,15 +157,15 @@ export class UsersService {
         }
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
         await this.assertCanAccessUser(actorUid, normalizedTargetUid)
-        const roleUids = input.roleUids.map(roleUid => assertUid(roleUid, '角色UID'))
+        const roleKeyIds = input.roleKeyIds
         await this.userRepository.manager.transaction(async manager => {
             await this.lockUser(manager, normalizedTargetUid)
             const superAdminRole = await manager.findOneBy(TbAccountRole, { code: 'super_admin' })
-            if (superAdminRole && !roleUids.includes(superAdminRole.uid)) {
+            if (superAdminRole && !roleKeyIds.includes(superAdminRole.keyId)) {
                 const superAdminAssignments = await manager
                     .getRepository(TbAccountUserRole)
                     .createQueryBuilder('user_role')
-                    .where('user_role.role_uid = :roleUid', { roleUid: superAdminRole.uid })
+                    .where('user_role.role_key_id = :roleKeyId', { roleKeyId: superAdminRole.keyId })
                     .setLock('pessimistic_write')
                     .getMany()
                 const targetHasSuperAdminRole = superAdminAssignments.some(item => item.userUid === normalizedTargetUid)
@@ -175,9 +175,9 @@ export class UsersService {
                     }
                 }
             }
-            await this.assertRolesExist(manager, roleUids)
+            await this.assertRolesExist(manager, roleKeyIds)
             await manager.delete(TbAccountUserRole, { userUid: normalizedTargetUid })
-            await this.insertRoles(manager, normalizedTargetUid, roleUids)
+            await this.insertRoles(manager, normalizedTargetUid, roleKeyIds)
         })
     }
 
@@ -186,7 +186,7 @@ export class UsersService {
         if (scope.all) {
             return
         }
-        if (!scope.includeSelf && !scope.organizationUids.length) {
+        if (!scope.includeSelf && !scope.organizationKeyIds.length) {
             builder.andWhere('1 = 0')
             return
         }
@@ -195,17 +195,17 @@ export class UsersService {
                 if (scope.includeSelf) {
                     where.orWhere('user.uid = :scopeActorUid', { scopeActorUid: actorUid })
                 }
-                if (scope.organizationUids.length) {
+                if (scope.organizationKeyIds.length) {
                     where.orWhere(
                         `EXISTS (
                             SELECT 1
                             FROM tb_account_user_organization scope_user_org
                             WHERE scope_user_org.user_uid = user.uid
-                              AND scope_user_org.organization_uid IN (:...scopeOrganizationUids)
+                              AND scope_user_org.organization_key_id IN (:...scopeOrganizationKeyIds)
                               AND scope_user_org.status = :scopeMembershipStatus
                         )`,
                         {
-                            scopeOrganizationUids: scope.organizationUids,
+                            scopeOrganizationKeyIds: scope.organizationKeyIds,
                             scopeMembershipStatus: TbAccountUserOrganizationStatus.ENABLED
                         }
                     )
@@ -223,8 +223,8 @@ export class UsersService {
     }
 
     private assertMemberships(memberships: UserOrganizationMembershipDto[]): void {
-        const organizationUids = memberships.map(item => item.organizationUid)
-        if (new Set(organizationUids).size !== organizationUids.length) {
+        const organizationKeyIds = memberships.map(item => item.organizationKeyId)
+        if (new Set(organizationKeyIds).size !== organizationKeyIds.length) {
             throw new BadRequestException('同一个组织不能重复关联')
         }
         const primaryCount = memberships.filter(item => item.isPrimary).length
@@ -244,24 +244,24 @@ export class UsersService {
         return user
     }
 
-    private async assertOrganizationsExist(manager: EntityManager, organizationUids: string[]): Promise<void> {
-        if (!organizationUids.length) {
+    private async assertOrganizationsExist(manager: EntityManager, organizationKeyIds: number[]): Promise<void> {
+        if (!organizationKeyIds.length) {
             return
         }
         const organizations = await manager.find(TbAccountOrganization, {
-            where: { uid: In(organizationUids), status: TbAccountOrganizationStatus.ENABLED }
+            where: { keyId: In(organizationKeyIds), status: TbAccountOrganizationStatus.ENABLED }
         })
-        if (organizations.length !== organizationUids.length) {
+        if (organizations.length !== organizationKeyIds.length) {
             throw new BadRequestException('组织关系列表包含不存在或已禁用的组织')
         }
     }
 
-    private async assertRolesExist(manager: EntityManager, roleUids: string[]): Promise<void> {
-        if (!roleUids.length) {
+    private async assertRolesExist(manager: EntityManager, roleKeyIds: number[]): Promise<void> {
+        if (!roleKeyIds.length) {
             return
         }
-        const roles = await manager.find(TbAccountRole, { where: { uid: In(roleUids), status: TbAccountRoleStatus.ENABLED } })
-        if (roles.length !== roleUids.length) {
+        const roles = await manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds), status: TbAccountRoleStatus.ENABLED } })
+        if (roles.length !== roleKeyIds.length) {
             throw new BadRequestException('角色列表包含不存在或已禁用的角色')
         }
     }
@@ -274,7 +274,7 @@ export class UsersService {
             TbAccountUserOrganization,
             memberships.map(item => ({
                 userUid,
-                organizationUid: item.organizationUid,
+                organizationKeyId: item.organizationKeyId,
                 isPrimary: item.isPrimary,
                 positionName: item.positionName,
                 status: item.status
@@ -282,22 +282,22 @@ export class UsersService {
         )
     }
 
-    private async insertRoles(manager: EntityManager, userUid: string, roleUids: string[]): Promise<void> {
-        if (!roleUids.length) {
+    private async insertRoles(manager: EntityManager, userUid: string, roleKeyIds: number[]): Promise<void> {
+        if (!roleKeyIds.length) {
             return
         }
         await manager.insert(
             TbAccountUserRole,
-            roleUids.map(roleUid => ({ userUid, roleUid }))
+            roleKeyIds.map(roleKeyId => ({ userUid, roleKeyId }))
         )
     }
 
-    private async assertCanAssignOrganizations(actorUid: string, organizationUids: string[]): Promise<void> {
+    private async assertCanAssignOrganizations(actorUid: string, organizationKeyIds: number[]): Promise<void> {
         const scope = await this.permissionsService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
         if (scope.all) {
             return
         }
-        if (!organizationUids.length || organizationUids.some(uid => !scope.organizationUids.includes(uid))) {
+        if (!organizationKeyIds.length || organizationKeyIds.some(keyId => !scope.organizationKeyIds.includes(keyId))) {
             throw new ForbiddenException('不能把账号分配到当前用户数据范围之外的组织')
         }
     }

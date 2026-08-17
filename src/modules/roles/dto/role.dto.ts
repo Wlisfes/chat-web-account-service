@@ -11,11 +11,12 @@ import {
     IsArray,
     IsBoolean,
     IsEnum,
+    IsInt,
     IsNotEmpty,
     IsOptional,
     IsString,
-    Length,
     MaxLength,
+    Min,
     ValidateNested
 } from 'class-validator'
 
@@ -24,21 +25,20 @@ export class CreateRoleDto extends PickType(TbAccountRoleDto, ['code', 'name', '
 export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
 
 export class ReplaceRoleMenusDto {
-    @ApiProperty({ description: '角色拥有的全部菜单UID；空数组表示清空', type: [String] })
-    @IsArray({ message: '菜单UID列表必须是数组' })
+    @ApiProperty({ description: '角色拥有的全部菜单主键；空数组表示清空', type: [Number] })
+    @IsArray({ message: '菜单主键列表必须是数组' })
     @ArrayMaxSize(1000, { message: '单个角色最多关联1000个菜单' })
-    @ArrayUnique({ message: '菜单UID不能重复' })
-    @IsString({ each: true, message: '菜单UID必须是字符串' })
-    @Length(1, 19, { each: true, message: '菜单UID长度不能超过19位' })
-    menuUids: string[]
+    @ArrayUnique({ message: '菜单主键不能重复' })
+    @IsInt({ each: true, message: '菜单主键必须是整数' })
+    @Min(1, { each: true, message: '菜单主键必须大于0' })
+    menuKeyIds: number[]
 }
 
 export class DataScopeOrganizationGrantDto {
-    @ApiProperty({ description: '授权组织UID', example: '2149446185344106496' })
-    @IsString({ message: '授权组织UID必须是字符串' })
-    @IsNotEmpty({ message: '授权组织UID必填' })
-    @Length(1, 19, { message: '授权组织UID长度不能超过19位' })
-    organizationUid: string
+    @ApiProperty({ description: '授权组织主键', example: 1 })
+    @IsInt({ message: '授权组织主键必须是整数' })
+    @Min(1, { message: '授权组织主键必须大于0' })
+    organizationKeyId: number
 
     @ApiProperty({ description: '是否包含全部下级组织', example: true })
     @IsBoolean({ message: '包含下级标记必须是布尔值' })

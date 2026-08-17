@@ -2,7 +2,7 @@ import { PartialType, PickType } from '@nestjs/swagger'
 import { TbAccountOrganizationDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 
 export class CreateOrganizationDto extends PickType(TbAccountOrganizationDto, [
-    'parentUid',
+    'parentKeyId',
     'code',
     'name',
     'type',

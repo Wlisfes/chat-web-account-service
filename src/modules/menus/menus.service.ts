@@ -2,7 +2,6 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, Repository } from 'typeorm'
-import { assertUid, generateUid } from '@/common/uid'
 import { assertValidTree, buildTree } from '@/common/tree'
 import { CreateMenuDto, UpdateMenuDto } from '@/modules/menus/dto/menu.dto'
 
@@ -15,8 +14,8 @@ export class MenusService {
         return buildTree(menus)
     }
 
-    async findOne(uid: string): Promise<TbAccountMenu> {
-        const menu = await this.menuRepository.findOne({ where: { uid: assertUid(uid, '菜单UID') } })
+    async findOne(keyId: number): Promise<TbAccountMenu> {
+        const menu = await this.menuRepository.findOne({ where: { keyId } })
         if (!menu) {
             throw new NotFoundException('菜单不存在')
         }
@@ -26,37 +25,36 @@ export class MenusService {
     async create(input: CreateMenuDto): Promise<TbAccountMenu> {
         return this.menuRepository.manager.transaction(async manager => {
             await this.lockTree(manager)
-            const parentUid = input.parentUid?.trim() || null
-            await this.assertParent(manager, parentUid)
+            const parentKeyId = input.parentKeyId ?? null
+            await this.assertParent(manager, parentKeyId)
             await this.assertPermissionCodeAvailable(manager, input.permissionCode)
             this.assertMenuFields(input)
 
-            const menu = manager.create(TbAccountMenu, { ...input, uid: generateUid(), parentUid: parentUid as unknown as string })
+            const menu = manager.create(TbAccountMenu, { ...input, parentKeyId: parentKeyId as unknown as number })
             return manager.save(menu)
         })
     }
 
-    async update(uid: string, input: UpdateMenuDto): Promise<TbAccountMenu> {
-        const normalizedUid = assertUid(uid, '菜单UID')
+    async update(keyId: number, input: UpdateMenuDto): Promise<TbAccountMenu> {
         return this.menuRepository.manager.transaction(async manager => {
             await this.lockTree(manager)
-            const menu = await manager.findOneBy(TbAccountMenu, { uid: normalizedUid })
+            const menu = await manager.findOneBy(TbAccountMenu, { keyId })
             if (!menu) {
                 throw new NotFoundException('菜单不存在')
             }
 
-            const nextParentUid = input.parentUid === undefined ? menu.parentUid : input.parentUid?.trim() || null
-            if (nextParentUid === normalizedUid) {
+            const nextParentKeyId = input.parentKeyId === undefined ? menu.parentKeyId : input.parentKeyId ?? null
+            if (nextParentKeyId === keyId) {
                 throw new BadRequestException('菜单不能成为自己的父节点')
             }
-            await this.assertParent(manager, nextParentUid)
+            await this.assertParent(manager, nextParentKeyId)
             if (input.permissionCode !== undefined && input.permissionCode !== menu.permissionCode) {
-                await this.assertPermissionCodeAvailable(manager, input.permissionCode, normalizedUid)
+                await this.assertPermissionCodeAvailable(manager, input.permissionCode, keyId)
             }
 
-            const nextMenu = { ...menu, ...input, parentUid: nextParentUid }
+            const nextMenu = { ...menu, ...input, parentKeyId: nextParentKeyId }
             this.assertMenuFields(nextMenu)
-            manager.merge(TbAccountMenu, menu, input, { parentUid: nextParentUid as unknown as string })
+            manager.merge(TbAccountMenu, menu, input, { parentKeyId: nextParentKeyId as unknown as number })
             await manager.save(menu)
 
             const menus = await manager.find(TbAccountMenu)
@@ -69,30 +67,28 @@ export class MenusService {
         })
     }
 
-    async remove(uid: string): Promise<void> {
-        const normalizedUid = assertUid(uid, '菜单UID')
+    async remove(keyId: number): Promise<void> {
         await this.menuRepository.manager.transaction(async manager => {
             await this.lockTree(manager)
-            const menu = await manager.findOneBy(TbAccountMenu, { uid: normalizedUid })
+            const menu = await manager.findOneBy(TbAccountMenu, { keyId })
             if (!menu) {
                 throw new NotFoundException('菜单不存在')
             }
-            if (await manager.existsBy(TbAccountMenu, { parentUid: normalizedUid })) {
+            if (await manager.existsBy(TbAccountMenu, { parentKeyId: keyId })) {
                 throw new ConflictException('菜单存在下级节点，不能删除')
             }
-            if (await manager.existsBy(TbAccountRoleMenu, { menuUid: normalizedUid })) {
+            if (await manager.existsBy(TbAccountRoleMenu, { menuKeyId: keyId })) {
                 throw new ConflictException('菜单仍被角色引用，不能删除')
             }
-            await manager.delete(TbAccountMenu, { uid: normalizedUid })
+            await manager.delete(TbAccountMenu, { keyId })
         })
     }
 
-    private async assertParent(manager: EntityManager, parentUid?: string | null): Promise<void> {
-        if (!parentUid) {
+    private async assertParent(manager: EntityManager, parentKeyId?: number | null): Promise<void> {
+        if (!parentKeyId) {
             return
         }
-        assertUid(parentUid, '父菜单UID')
-        const parent = await manager.findOneBy(TbAccountMenu, { uid: parentUid })
+        const parent = await manager.findOneBy(TbAccountMenu, { keyId: parentKeyId })
         if (!parent) {
             throw new BadRequestException('父菜单不存在')
         }
@@ -101,7 +97,7 @@ export class MenusService {
         }
     }
 
-    private async assertPermissionCodeAvailable(manager: EntityManager, permissionCode?: string, excludedUid?: string): Promise<void> {
+    private async assertPermissionCodeAvailable(manager: EntityManager, permissionCode?: string, excludedKeyId?: number): Promise<void> {
         const normalized = permissionCode?.trim()
         if (!normalized) {
             return
@@ -110,8 +106,8 @@ export class MenusService {
             .getRepository(TbAccountMenu)
             .createQueryBuilder('menu')
             .where('menu.permissionCode = :permissionCode', { permissionCode: normalized })
-        if (excludedUid) {
-            query.andWhere('menu.uid <> :excludedUid', { excludedUid })
+        if (excludedKeyId) {
+            query.andWhere('menu.keyId <> :excludedKeyId', { excludedKeyId })
         }
         if (await query.getExists()) {
             throw new ConflictException('菜单权限码已存在')

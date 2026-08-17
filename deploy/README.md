@@ -59,11 +59,11 @@ MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立的基础设施环境�
 
 1. 在可信开发机执行 `yarn password:hash`，终端会隐藏密码输入并只输出 `scrypt-v1` 哈希。
 2. 由数据库管理员使用该哈希创建 `tb_account_user` 记录，不要保存明文密码。
-3. 根据角色编码关联首个管理员，避免依赖固定角色UID：
+3. 根据角色编码关联首个管理员，避免依赖固定角色主键：
 
 ```sql
-INSERT INTO `tb_account_user_role` (`user_uid`, `role_uid`)
-SELECT '替换为管理员账号UID', `uid`
+INSERT INTO `tb_account_user_role` (`user_uid`, `role_key_id`)
+SELECT '替换为管理员账号UID', `key_id`
 FROM `tb_account_role`
 WHERE `code` = 'super_admin';
 ```

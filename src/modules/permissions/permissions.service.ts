@@ -46,16 +46,16 @@ export class PermissionsService {
             explicitlyGrantedMenus = allEnabledMenus
         } else if (roles.length) {
             const relations = await this.menuRepository.manager.find(TbAccountRoleMenu, {
-                where: { roleUid: In(roles.map(role => role.uid)) }
+                where: { roleKeyId: In(roles.map(role => role.keyId)) }
             })
-            const grantedUids = new Set(relations.map(relation => relation.menuUid))
-            explicitlyGrantedMenus = allEnabledMenus.filter(menu => grantedUids.has(menu.uid))
+            const grantedKeyIds = new Set(relations.map(relation => relation.menuKeyId))
+            explicitlyGrantedMenus = allEnabledMenus.filter(menu => grantedKeyIds.has(menu.keyId))
         } else {
             explicitlyGrantedMenus = []
         }
 
-        const treeMenuUids = this.includeMenuAncestors(explicitlyGrantedMenus, allEnabledMenus)
-        const menuTree = buildTree(allEnabledMenus.filter(menu => treeMenuUids.has(menu.uid)))
+        const treeMenuKeyIds = this.includeMenuAncestors(explicitlyGrantedMenus, allEnabledMenus)
+        const menuTree = buildTree(allEnabledMenus.filter(menu => treeMenuKeyIds.has(menu.keyId)))
         return {
             superAdmin,
             roleCodes: roles.map(role => role.code).sort(),
@@ -83,8 +83,8 @@ export class PermissionsService {
         const permissionRows = await this.menuRepository
             .createQueryBuilder('menu')
             .select('DISTINCT menu.permission_code', 'permissionCode')
-            .innerJoin(TbAccountRoleMenu, 'role_menu', 'role_menu.menu_uid = menu.uid')
-            .where('role_menu.role_uid IN (:...roleUids)', { roleUids: roles.map(role => role.uid) })
+            .innerJoin(TbAccountRoleMenu, 'role_menu', 'role_menu.menu_key_id = menu.key_id')
+            .where('role_menu.role_key_id IN (:...roleKeyIds)', { roleKeyIds: roles.map(role => role.keyId) })
             .andWhere('menu.status = :menuStatus', { menuStatus: TbAccountMenuStatus.ENABLED })
             .andWhere('menu.permission_code IN (:...permissionCodes)', { permissionCodes: requiredPermissionCodes })
             .getRawMany<{ permissionCode: string }>()
@@ -101,19 +101,19 @@ export class PermissionsService {
         const normalizedUserUid = assertUid(userUid, '账号UID')
         const normalizedResourceCode = resourceCode.trim()
         if (normalizedResourceCode.length > 128) {
-            return { all: false, includeSelf: false, organizationUids: [] }
+            return { all: false, includeSelf: false, organizationKeyIds: [] }
         }
         const roles = await this.getEnabledRoles(normalizedUserUid)
         if (roles.some(role => role.code === SUPER_ADMIN_ROLE_CODE)) {
-            return { all: true, includeSelf: true, organizationUids: [] }
+            return { all: true, includeSelf: true, organizationKeyIds: [] }
         }
         if (!roles.length || !normalizedResourceCode) {
-            return { all: false, includeSelf: false, organizationUids: [] }
+            return { all: false, includeSelf: false, organizationKeyIds: [] }
         }
 
         const scopes = await this.dataScopeRepository.find({
             where: {
-                roleUid: In(roles.map(role => role.uid)),
+                roleKeyId: In(roles.map(role => role.keyId)),
                 resourceCode: In([normalizedResourceCode, DEFAULT_RESOURCE_CODE]),
                 status: TbAccountRoleDataScopeStatus.ENABLED
             }
@@ -121,11 +121,11 @@ export class PermissionsService {
         const selectedScopes = selectEffectiveScopeRules(roles, scopes, normalizedResourceCode, DEFAULT_RESOURCE_CODE)
 
         if (selectedScopes.some(scope => scope.scopeType === TbAccountRoleDataScopeType.ALL)) {
-            return { all: true, includeSelf: true, organizationUids: [] }
+            return { all: true, includeSelf: true, organizationKeyIds: [] }
         }
 
         const includeSelf = selectedScopes.some(scope => scope.scopeType === TbAccountRoleDataScopeType.SELF)
-        const organizationUids = new Set<string>()
+        const organizationKeyIds = new Set<number>()
         const primaryOrganizations = await this.userOrganizationRepository.find({
             where: {
                 userUid: normalizedUserUid,
@@ -133,27 +133,27 @@ export class PermissionsService {
                 status: TbAccountUserOrganizationStatus.ENABLED
             }
         })
-        const primaryOrganizationUids = primaryOrganizations.map(item => item.organizationUid)
+        const primaryOrganizationKeyIds = primaryOrganizations.map(item => item.organizationKeyId)
 
         if (selectedScopes.some(scope => scope.scopeType === TbAccountRoleDataScopeType.ORGANIZATION)) {
-            primaryOrganizationUids.forEach(uid => organizationUids.add(uid))
+            primaryOrganizationKeyIds.forEach(keyId => organizationKeyIds.add(keyId))
         }
         if (selectedScopes.some(scope => scope.scopeType === TbAccountRoleDataScopeType.ORGANIZATION_TREE)) {
-            ;(await this.expandOrganizationTrees(primaryOrganizationUids)).forEach(uid => organizationUids.add(uid))
+            ;(await this.expandOrganizationTrees(primaryOrganizationKeyIds)).forEach(keyId => organizationKeyIds.add(keyId))
         }
 
         const customScopes = selectedScopes.filter(scope => scope.scopeType === TbAccountRoleDataScopeType.CUSTOM)
         if (customScopes.length) {
             const grants = await this.dataScopeRepository.manager.find(TbAccountRoleDataScopeOrganization, {
-                where: { dataScopeUid: In(customScopes.map(scope => scope.uid)) }
+                where: { dataScopeKeyId: In(customScopes.map(scope => scope.keyId)) }
             })
-            const directOrganizationUids = grants.filter(grant => !grant.includeChildren).map(grant => grant.organizationUid)
-            directOrganizationUids.forEach(uid => organizationUids.add(uid))
-            const treeRootUids = grants.filter(grant => grant.includeChildren).map(grant => grant.organizationUid)
-            ;(await this.expandOrganizationTrees(treeRootUids)).forEach(uid => organizationUids.add(uid))
+            const directOrganizationKeyIds = grants.filter(grant => !grant.includeChildren).map(grant => grant.organizationKeyId)
+            directOrganizationKeyIds.forEach(keyId => organizationKeyIds.add(keyId))
+            const treeRootKeyIds = grants.filter(grant => grant.includeChildren).map(grant => grant.organizationKeyId)
+            ;(await this.expandOrganizationTrees(treeRootKeyIds)).forEach(keyId => organizationKeyIds.add(keyId))
         }
 
-        return { all: false, includeSelf, organizationUids: [...organizationUids].sort() }
+        return { all: false, includeSelf, organizationKeyIds: [...organizationKeyIds].sort((left, right) => left - right) }
     }
 
     private async getEnabledRoles(userUid: string): Promise<TbAccountRole[]> {
@@ -162,31 +162,31 @@ export class PermissionsService {
             return []
         }
         return this.roleRepository.find({
-            where: { uid: In(relations.map(relation => relation.roleUid)), status: TbAccountRoleStatus.ENABLED },
+            where: { keyId: In(relations.map(relation => relation.roleKeyId)), status: TbAccountRoleStatus.ENABLED },
             order: { sort: 'ASC', keyId: 'ASC' }
         })
     }
 
-    private includeMenuAncestors(grantedMenus: TbAccountMenu[], allMenus: TbAccountMenu[]): Set<string> {
-        const byUid = new Map(allMenus.map(menu => [menu.uid, menu]))
-        const result = new Set<string>()
+    private includeMenuAncestors(grantedMenus: TbAccountMenu[], allMenus: TbAccountMenu[]): Set<number> {
+        const byKeyId = new Map(allMenus.map(menu => [menu.keyId, menu]))
+        const result = new Set<number>()
         for (const menu of grantedMenus) {
             let current: TbAccountMenu | undefined = menu
-            while (current && !result.has(current.uid)) {
-                result.add(current.uid)
-                current = current.parentUid ? byUid.get(current.parentUid) : undefined
+            while (current && !result.has(current.keyId)) {
+                result.add(current.keyId)
+                current = current.parentKeyId ? byKeyId.get(current.parentKeyId) : undefined
             }
         }
         return result
     }
 
-    private async expandOrganizationTrees(rootUids: string[]): Promise<string[]> {
-        if (!rootUids.length) {
+    private async expandOrganizationTrees(rootKeyIds: number[]): Promise<number[]> {
+        if (!rootKeyIds.length) {
             return []
         }
         const rows = await this.dataScopeRepository.manager.find(TbAccountOrganizationClosure, {
-            where: { ancestorUid: In([...new Set(rootUids)]) }
+            where: { ancestorKeyId: In([...new Set(rootKeyIds)]) }
         })
-        return [...new Set(rows.map(row => row.descendantUid))]
+        return [...new Set(rows.map(row => row.descendantKeyId))]
     }
 }
