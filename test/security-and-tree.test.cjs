@@ -99,14 +99,33 @@ test('资源专属数据范围覆盖同角色的默认规则，不影响其他�
 })
 
 test('就绪检查会报告缺失的数据库表', async () => {
-    const service = new HealthService({
-        isInitialized: true,
-        entityMetadatas: [{ tableName: 'table_a' }, { tableName: 'table_b' }],
-        async query() {
-            return [{ tableName: 'table_a' }]
-        }
-    })
+    const service = new HealthService(
+        {
+            isInitialized: true,
+            entityMetadatas: [{ tableName: 'table_a' }, { tableName: 'table_b' }],
+            async query() {
+                return [{ tableName: 'table_a' }]
+            }
+        },
+        config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' })
+    )
     const result = await service.getReadiness()
     assert.equal(result.status, 'DOWN')
     assert.deepEqual(result.database.missingTables, ['table_b'])
+})
+
+test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
+    const dataSource = {
+        isInitialized: true,
+        entityMetadatas: [{ tableName: 'table_a' }],
+        async query() {
+            return [{ tableName: 'table_a' }]
+        }
+    }
+    const missing = await new HealthService(dataSource, config({})).getReadiness()
+    const valid = await new HealthService(dataSource, config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' })).getReadiness()
+    assert.equal(missing.status, 'DOWN')
+    assert.equal(missing.security.jwtConfigured, false)
+    assert.equal(valid.status, 'UP')
+    assert.equal(valid.security.jwtConfigured, true)
 })

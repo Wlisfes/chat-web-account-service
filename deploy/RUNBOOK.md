@@ -18,7 +18,7 @@
 
 Namespace ID 是每台 Nacos 的运行参数。恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据另一台机器猜测。
 
-`/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接和账号服务全部必需表。返回 503 且列出 `missingTables` 时，先执行对应版本的共享 Schema 增量 SQL，不要绕过健康检查。
+`/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表和 JWT 密钥。返回 503 时，根据 `missingTables` 和 `security.jwtConfigured` 检查增量 SQL及密钥配置，不要绕过健康检查。
 
 ## 五分钟排障
 

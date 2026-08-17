@@ -17,7 +17,7 @@
 - 除首页、健康检查和登录接口外，账号服务默认校验 Bearer Token。
 - JWT 使用 HS256；密钥读取 `JWT_SECRET`，未设置时读取 Nacos `security.jwt.secret`，长度至少32位。
 - 新增9张权限相关表；数据库仍由外部 SQL 创建或升级，TypeORM 不自动建表。
-- `/health` 和 `/health/ready` 新增数据库必需表检查；缺表返回 HTTP 503，Docker 部署会自动回滚。`/health/live` 仅检查进程存活。
+- `/health` 和 `/health/ready` 新增数据库必需表及 JWT 密钥检查；缺表或密钥无效时返回 HTTP 503，Docker 部署会自动回滚。`/health/live` 仅检查进程存活。
 
 ### 机器侧操作
 

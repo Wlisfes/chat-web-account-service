@@ -88,7 +88,7 @@ security:
 
 除 `/`、`/health`、`/health/live`、`/health/ready` 和 `/auth/login` 外，接口默认需要登录。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
-`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接以及全部必需表，缺表时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL。
+`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 JWT 密钥是否有效，缺表或密钥缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL并配置 JWT 密钥。
 
 账号数据库的 Nacos 配置格式如下；数据库和表必须由外部 SQL 提前创建，TypeORM 固定关闭 `synchronize` 和自动迁移：
 

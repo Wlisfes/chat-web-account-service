@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 
@@ -8,7 +9,10 @@ type TableRow = {
 
 @Injectable()
 export class HealthService {
-    constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+    constructor(
+        @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly configService: ConfigService
+    ) {}
 
     getLiveness() {
         return { status: 'UP', timestamp: new Date().toISOString() }
@@ -16,6 +20,8 @@ export class HealthService {
 
     async getReadiness() {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
+        const jwtSecret = this.configService.get<string>('JWT_SECRET') || this.configService.get<string>('security.jwt.secret')
+        const jwtConfigured = typeof jwtSecret === 'string' && jwtSecret.length >= 32
         try {
             const placeholders = requiredTables.map(() => '?').join(', ')
             const rows = (await this.dataSource.query(
@@ -28,12 +34,13 @@ export class HealthService {
             const existingTables = new Set(rows.map(row => row.tableName))
             const missingTables = requiredTables.filter(tableName => !existingTables.has(tableName))
             return {
-                status: missingTables.length ? 'DOWN' : 'UP',
+                status: missingTables.length || !jwtConfigured ? 'DOWN' : 'UP',
                 database: {
                     connected: this.dataSource.isInitialized,
                     requiredTableCount: requiredTables.length,
                     missingTables
                 },
+                security: { jwtConfigured },
                 timestamp: new Date().toISOString()
             }
         } catch (error) {
@@ -43,6 +50,7 @@ export class HealthService {
                     connected: false,
                     error: error instanceof Error ? error.message : String(error)
                 },
+                security: { jwtConfigured },
                 timestamp: new Date().toISOString()
             }
         }
