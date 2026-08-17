@@ -1,17 +1,30 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { networkInterfaces } from 'node:os'
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NacosService as NestNacosService } from '@sch_cat/nest-nacos-config'
+import { NacosNamingClient } from 'nacos'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const yaml = require('js-yaml')
 
+type RegisteredInstance = {
+    ip: string
+    port: number
+}
+
+type ClosableNacosNamingClient = NacosNamingClient & {
+    close: () => Promise<void>
+}
+
 @Injectable()
-export class NacosService implements OnModuleInit {
+export class NacosService implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(NacosService.name)
     private readonly remoteConfigKeys = new Set<string>()
     private currentContent: string | null = null
     private loadPromise: Promise<void> | null = null
     private subscribed = false
+    private namingClient?: ClosableNacosNamingClient
+    private registeredInstance?: RegisteredInstance
 
     constructor(
         private readonly configService: ConfigService,
@@ -20,6 +33,33 @@ export class NacosService implements OnModuleInit {
 
     async onModuleInit(): Promise<void> {
         await this.loadConfig()
+        await this.registerService()
+    }
+
+    async onModuleDestroy(): Promise<void> {
+        if (!this.namingClient) {
+            return
+        }
+
+        if (this.registeredInstance) {
+            try {
+                await this.namingClient.deregisterInstance(
+                    this.getServiceName(),
+                    {
+                        instanceId: '',
+                        healthy: true,
+                        enabled: true,
+                        ephemeral: true,
+                        ...this.registeredInstance
+                    },
+                    this.getDiscoveryGroup()
+                )
+            } catch (error) {
+                this.logger.warn(`注销 Nacos 服务实例失败：${this.getErrorMessage(error)}`)
+            }
+        }
+
+        await this.namingClient.close()
     }
 
     /** 确保远程配置在依赖它的异步模块创建连接前完成加载。 */
@@ -88,6 +128,106 @@ export class NacosService implements OnModuleInit {
         this.logger.log(
             `Nacos 配置${action}：dataId=${dataId}, group=${group}, namespace=${namespace}, 配置项=${Object.keys(config).join(',')}`
         )
+    }
+
+    private async registerService(): Promise<void> {
+        if (!this.getBooleanConfig('NACOS_REGISTER_ENABLED', true)) {
+            this.logger.warn('Nacos 服务注册已关闭')
+            return
+        }
+
+        try {
+            this.namingClient = new NacosNamingClient({
+                logger: this.createNacosClientLogger(),
+                serverList: this.configService.get<string>('NACOS_SERVER', '127.0.0.1:8848'),
+                namespace: this.configService.get<string>('NACOS_NAMESPACE', 'public'),
+                username: this.configService.get<string>('NACOS_USERNAME') || undefined,
+                password: this.configService.get<string>('NACOS_PASSWORD') || undefined
+            }) as ClosableNacosNamingClient
+            await this.namingClient.ready()
+
+            const instance = {
+                ip: this.resolveRegisterIp(),
+                port: this.getRegisterPort()
+            }
+            await this.namingClient.registerInstance(
+                this.getServiceName(),
+                {
+                    instanceId: '',
+                    healthy: true,
+                    enabled: true,
+                    ephemeral: true,
+                    ...instance
+                },
+                this.getDiscoveryGroup()
+            )
+            this.registeredInstance = instance
+            this.logger.log(`服务已注册到 Nacos：${this.getServiceName()} ${instance.ip}:${instance.port}`)
+        } catch (error) {
+            this.logger.error(`注册 Nacos 服务实例失败：${this.getErrorMessage(error)}`)
+            if (this.getBooleanConfig('NACOS_REGISTER_REQUIRED', false)) {
+                throw error
+            }
+        }
+    }
+
+    private resolveRegisterIp(): string {
+        const configuredIp = this.configService.get<string>('NACOS_REGISTER_IP')?.trim()
+        if (configuredIp) {
+            return configuredIp
+        }
+
+        for (const addresses of Object.values(networkInterfaces())) {
+            const address = addresses?.find(item => item.family === 'IPv4' && !item.internal)
+            if (address) {
+                return address.address
+            }
+        }
+        return '127.0.0.1'
+    }
+
+    private getRegisterPort(): number {
+        const value = this.configService.get<string | number>('NACOS_REGISTER_PORT') ?? this.configService.get<number>('server.port', 3000)
+        const port = Number(value)
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            throw new Error('NACOS_REGISTER_PORT 必须是 1-65535 之间的整数')
+        }
+        return port
+    }
+
+    private getDiscoveryGroup(): string {
+        const group = (
+            this.configService.get<string>('NACOS_GROUP') ||
+            this.configService.get<string>('NACOS_CONFIG_GROUP') ||
+            'DEFAULT_GROUP'
+        ).trim()
+        return group || 'DEFAULT_GROUP'
+    }
+
+    private getServiceName(): string {
+        return this.configService.get<string>('NACOS_SERVICE_NAME')?.trim() || 'chat-web-account-service'
+    }
+
+    private getBooleanConfig(key: string, fallback: boolean): boolean {
+        const value = this.configService.get<boolean | string>(key)
+        if (value === undefined || value === null || value === '') {
+            return fallback
+        }
+        if (typeof value === 'boolean') {
+            return value
+        }
+        if (value === 'true' || value === 'false') {
+            return value === 'true'
+        }
+        throw new Error(`${key} 必须是 true 或 false`)
+    }
+
+    private createNacosClientLogger(): typeof console {
+        const clientLogger = Object.create(console) as typeof console
+        clientLogger.log = () => undefined
+        clientLogger.info = () => undefined
+        clientLogger.debug = () => undefined
+        return clientLogger
     }
 
     private getRequiredConfig(key: string): string {

@@ -6,6 +6,7 @@ COMPOSE_FILE=${2:-compose.yml}
 SERVICE=account-service
 CONTAINER=chat-web-account-service
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
+PULL_ATTEMPTS=${PULL_ATTEMPTS:-3}
 deployment_started=0
 
 if [ ! -f "$COMPOSE_FILE" ]; then
@@ -50,8 +51,39 @@ handle_interrupt() {
 
 trap handle_interrupt HUP INT TERM
 
-echo "Pulling $IMAGE"
-docker pull "$IMAGE"
+pull_image() {
+    attempt=1
+    while ! docker pull "$IMAGE"; do
+        if [ "$attempt" -ge "$PULL_ATTEMPTS" ]; then
+            echo "Failed to pull $IMAGE after $PULL_ATTEMPTS attempts." >&2
+            return 1
+        fi
+
+        delay=$((attempt * 5))
+        echo "Image pull attempt $attempt failed; retrying in ${delay}s." >&2
+        sleep "$delay"
+        attempt=$((attempt + 1))
+    done
+}
+
+echo "Pulling $IMAGE (up to $PULL_ATTEMPTS attempts)"
+pull_image
+
+network=$(sed -n 's/^DOCKER_NETWORK=//p' .env | tail -n 1)
+network=${network:-chat-web-infrastructure}
+case "$network" in
+    *[!A-Za-z0-9_.-]*|'')
+        echo "Invalid DOCKER_NETWORK in .env" >&2
+        exit 1
+        ;;
+esac
+
+echo "Applying account database schema migrations"
+docker run --rm \
+    --network "$network" \
+    --env-file .env \
+    --entrypoint node \
+    "$IMAGE" dist/cli/apply-schema.js
 
 echo "Starting $SERVICE"
 deployment_started=1

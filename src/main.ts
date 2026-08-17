@@ -6,6 +6,7 @@ import { AppModule } from '@/app.module'
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule)
+    app.enableShutdownHooks()
     const port = Number(process.env.PORT ?? app.get(ConfigService).get<number>('server.port', 3000))
     return await setupSwagger(app, {
         title: `Chat Web 账号服务 API`,
