@@ -4,6 +4,26 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-18：HTTP 业务异常改用响应体状态码
+
+- 影响范围：Company、Home 账号服务及管理端 API 调用。
+- 关联版本：账号服务本次统一响应兼容提交；后续接入新版 `@wlisfes/chat-web-base-schema` 公共响应模块。
+- 变更内容：HTTP JSON 业务异常的传输状态统一为 `200`，真实业务状态写入 `{ data, code, message, timestamp }` 的 `code`；SVG 等原始响应不受影响，`/health`、`/health/ready` 继续保留原生错误状态供 Docker 判定健康。
+- 机器侧操作：构建并滚动替换账号服务镜像；端口、Nacos、Redis、数据库和环境变量均不变。
+
+### 验证
+
+```bash
+yarn test
+curl -i http://127.0.0.1:3000/auth/me
+```
+
+未携带 Token 时预期 HTTP 状态为 `200`，响应体 `code` 为 `401`；服务日志仍记录原始业务状态。
+
+### 回滚
+
+- 回滚到上一版账号服务镜像；无需回滚数据库、Redis 或 Nacos 配置。
+
 ## 2026-08-18：旧平台账号、组织、角色和菜单数据迁移工具
 
 - 影响范围：Company 账号数据库；Home 不导入 Company 业务数据。
@@ -64,7 +84,7 @@ docker logs --tail 100 chat-web-account-service
 - Redis 用于3分钟图形验证码和可撤销 JWT 登录会话，Token 续期时原会话会被轮换删除，主动退出会立即撤销会话。
 - 新增 `/auth/captcha`、`/auth/refresh`、`/auth/logout`；`/auth/me` 返回完整当前用户信息。
 - 验证码 SVG 明确禁止浏览器和网关缓存，SID Cookie 固定为根路径；登录、续期和退出接口统一返回 HTTP 200，兼容管理端既有响应约定。
-- HTTP JSON 响应兼容管理端原有 `{ data, code, message, timestamp }` 格式，同时保留真实 HTTP 错误状态。
+- HTTP JSON 响应兼容管理端原有 `{ data, code, message, timestamp }` 格式；后续版本将业务异常传输状态统一为 HTTP 200，由响应体 `code` 表达结果。
 - `/health` 新增 Redis `PING` 就绪检查；Redis 不可用时容器不会进入健康状态。
 
 ### 机器侧操作

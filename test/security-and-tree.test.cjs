@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const { BadRequestException } = require('@nestjs/common')
 
 const { buildTree, assertValidTree } = require('../dist/common/tree')
 const { generateUid } = require('../dist/common/uid')
@@ -10,6 +11,7 @@ const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
+const { HttpExceptionFilter } = require('../dist/common/http-exception.filter')
 
 function config(values) {
     return {
@@ -188,7 +190,11 @@ test('就绪检查会报告缺失的数据库表', async () => {
             }
         },
         config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }),
-        { async ping() { return true } }
+        {
+            async ping() {
+                return true
+            }
+        }
     )
     const result = await service.getReadiness()
     assert.equal(result.status, 'DOWN')
@@ -203,7 +209,11 @@ test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
             return [{ tableName: 'table_a' }]
         }
     }
-    const redis = { async ping() { return true } }
+    const redis = {
+        async ping() {
+            return true
+        }
+    }
     const missing = await new HealthService(dataSource, config({}), redis).getReadiness()
     const valid = await new HealthService(dataSource, config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }), redis).getReadiness()
     assert.equal(missing.status, 'DOWN')
@@ -220,11 +230,71 @@ test('就绪检查会拒绝不可用的 Redis 会话存储', async () => {
             return [{ tableName: 'table_a' }]
         }
     }
-    const result = await new HealthService(
-        dataSource,
-        config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }),
-        { async ping() { return false } }
-    ).getReadiness()
+    const result = await new HealthService(dataSource, config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }), {
+        async ping() {
+            return false
+        }
+    }).getReadiness()
     assert.equal(result.status, 'DOWN')
     assert.equal(result.redis.connected, false)
+})
+
+test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
+    const response = {
+        statusCode: undefined,
+        body: undefined,
+        status(code) {
+            this.statusCode = code
+            return this
+        },
+        json(body) {
+            this.body = body
+        }
+    }
+    const host = {
+        switchToHttp() {
+            return {
+                getRequest() {
+                    return { originalUrl: '/auth/login' }
+                },
+                getResponse() {
+                    return response
+                }
+            }
+        }
+    }
+
+    new HttpExceptionFilter().catch(new BadRequestException(['验证码错误']), host)
+
+    assert.equal(response.statusCode, 200)
+    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'timestamp'])
+    assert.equal(response.body.code, 400)
+    assert.equal(response.body.message, '验证码错误')
+    assert.match(response.body.timestamp, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+})
+
+test('健康检查异常保留原生 HTTP 状态', () => {
+    const response = {
+        statusCode: undefined,
+        status(code) {
+            this.statusCode = code
+            return this
+        },
+        json() {}
+    }
+    const host = {
+        switchToHttp() {
+            return {
+                getRequest() {
+                    return { originalUrl: '/health/ready' }
+                },
+                getResponse() {
+                    return response
+                }
+            }
+        }
+    }
+
+    new HttpExceptionFilter().catch(new BadRequestException('健康检查失败'), host)
+    assert.equal(response.statusCode, 400)
 })
