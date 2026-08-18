@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-18：Finance Home Runner 环境同步兼容修复
+
+- 影响机器：Home。
+- 关联版本：Account 部署工作流本次修复提交；Finance 镜像 `260bd2fd2df4b9b07d01dcfaf73264fdbcd6f319`。
+- 变更内容：Finance 专用 Home Runner 已完成镜像下载和仓库注册；将共享环境变量筛选脚本中的 awk 循环变量由内置函数名 `index` 改为普通变量 `i`，兼容 Home Runner 当前 awk 实现，避免在复制 JWT、Redis、Nacos 参数时出现语法错误。筛选白名单、目标 Docker 卷和文件权限保持不变。
+- 机器侧操作：合并后重新运行 `Register Finance Home runner`；工作流复用已缓存镜像和已注册 Runner 卷，成功后立即删除 Account 仓库临时 Secret `FINANCE_RUNNER_REGISTRATION_TOKEN`。无需修改端口、Nacos、Redis 或完整 `.env`。
+- 验证命令：确认注册工作流成功；`gh api repos/Wlisfes/chat-web-finance-service/actions/runners --jq '.runners[] | select(.name == "chat-server-home-finance") | [.status, .busy]'` 返回 `online`；Finance 的 `Deploy to home` 任务完成并通过容器内 `/health` 检查。
+- 回滚方法：回滚本次工作流提交不会影响已运行服务；如需撤销 Finance Home Runner，先从 Finance 仓库移除对应 Runner，再停止并删除 `chat-web-finance-runner-home` 容器和注册卷，保留部署卷以便恢复。
+
 ## 2026-08-18：健康检查真实 HTTP 状态修复
 
 - 影响机器：Company、Home。
