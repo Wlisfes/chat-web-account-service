@@ -23,6 +23,7 @@ jobs:
                   image=ghcr.io/actions/actions-runner:latest
                   container=chat-web-finance-runner-home
                   volume=chat-web-finance-runner-home
+                  deploy_volume=chat-web-finance-deploy-home
                   token_file="$RUNNER_TEMP/finance-runner-token"
                   socket_group=$(stat -c '%g' /var/run/docker.sock)
                   runner_uid=$(id -u)
@@ -40,6 +41,7 @@ jobs:
 
                   docker pull "$image"
                   docker volume create "$volume" >/dev/null
+                  docker volume create "$deploy_volume" >/dev/null
                   docker run --rm \
                     --user root \
                     --add-host host.docker.internal:host-gateway \
@@ -76,8 +78,20 @@ jobs:
                       chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /runner-config
                     '
 
-                  docker run --rm --volume /opt:/host-opt alpine:3.22 \
-                    sh -c "mkdir -p /host-opt/chat-web-finance-service && chown $runner_uid:$runner_gid /host-opt/chat-web-finance-service && chmod 0755 /host-opt/chat-web-finance-service"
+                  awk -F= '
+                    BEGIN {
+                      split("JWT_SECRET REDIS_URL REDIS_HOST REDIS_PORT REDIS_DATABASE REDIS_USERNAME REDIS_PASSWORD REDIS_TLS NACOS_SERVER NACOS_NAMESPACE NACOS_CONFIG_GROUP NACOS_USERNAME NACOS_PASSWORD", names, " ")
+                      for (index in names) allowed[names[index]] = 1
+                    }
+                    allowed[$1] { print }
+                  ' /opt/chat-web-account-service/.env |
+                    docker run --rm -i \
+                      --user root \
+                      --env HOST_RUNNER_UID="$runner_uid" \
+                      --env HOST_RUNNER_GID="$runner_gid" \
+                      --volume "$volume:/runner-config" \
+                      alpine:3.22 \
+                      sh -c 'umask 077; cat > /runner-config/account.env; chown "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /runner-config/account.env'
 
                   docker rm -f "$container" >/dev/null 2>&1 || true
                   docker run -d \
@@ -89,9 +103,8 @@ jobs:
                     --env HTTP_PROXY="$http_proxy_value" \
                     --env HTTPS_PROXY="$https_proxy_value" \
                     --volume "$volume:/home/runner" \
+                    --volume "$deploy_volume:/opt/chat-web-finance-service" \
                     --volume /var/run/docker.sock:/var/run/docker.sock \
-                    --volume /opt/chat-web-finance-service:/opt/chat-web-finance-service \
-                    --volume /opt/chat-web-account-service:/opt/chat-web-account-service:ro \
                     "$image" \
                     bash -lc 'exec ./run.sh'
 
