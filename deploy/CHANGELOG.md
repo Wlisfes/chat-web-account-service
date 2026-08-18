@@ -9,7 +9,7 @@
 - 影响范围：Company、Home 账号服务及管理端 API 调用。
 - 关联版本：账号服务本次统一响应兼容提交；`@wlisfes/chat-web-base-schema@1.0.6`。
 - 变更内容：账号服务改为导入共享 `HttpResponseModule` 并删除本地重复 filter/interceptor；HTTP JSON 业务异常的传输状态统一为 `200`，真实业务状态写入 `{ data, code, message, timestamp }` 的 `code`；SVG 等原始响应不受影响，`/health`、`/health/ready` 使用 `@PreserveHttpStatus()` 保留原生错误状态供 Docker 判定健康。
-- 机器侧操作：构建并滚动替换账号服务镜像；端口、Nacos、Redis、数据库和环境变量均不变。
+- 机器侧操作：构建并滚动替换账号服务镜像；Docker 构建使用临时 `GITHUB_TOKEN` 查询固定版本的 GitHub Packages tarball 地址并继续冻结锁文件安装，Token 和下载地址不写入仓库或最终镜像；端口、Nacos、Redis、数据库和环境变量均不变。
 
 ### 验证
 
