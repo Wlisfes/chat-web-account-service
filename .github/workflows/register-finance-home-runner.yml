@@ -114,6 +114,12 @@ jobs:
                   http_proxy_value=${http_proxy_value//127.0.0.1/host.docker.internal}
                   https_proxy_value=${https_proxy_value//127.0.0.1/host.docker.internal}
 
+                  current_state=$(docker inspect "$FINANCE_RUNNER_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || true)
+                  if [ "$current_state" = running ]; then
+                    echo "Finance repository runner container is already running"
+                    exit 0
+                  fi
+
                   docker rm -f "$FINANCE_RUNNER_CONTAINER" >/dev/null 2>&1 || true
                   docker run -d \
                     --name "$FINANCE_RUNNER_CONTAINER" \
