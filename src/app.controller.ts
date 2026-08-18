@@ -1,4 +1,5 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
+import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import { Public } from '@/modules/auth/auth.decorator'
 import { HealthService } from '@/modules/health/health.service'
 import { AppService } from '@/app.service'
@@ -18,6 +19,7 @@ export class AppController {
 
     @Public()
     @Get('health')
+    @PreserveHttpStatus()
     async health() {
         const result = await this.healthService.getReadiness()
         if (result.status !== 'UP') {
@@ -34,6 +36,7 @@ export class AppController {
 
     @Public()
     @Get('health/ready')
+    @PreserveHttpStatus()
     async readiness() {
         return this.health()
     }

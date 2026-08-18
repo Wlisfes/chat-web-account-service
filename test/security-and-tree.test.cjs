@@ -11,7 +11,7 @@ const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
-const { HttpExceptionFilter } = require('../dist/common/http-exception.filter')
+const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 
 function config(values) {
     return {
@@ -282,7 +282,15 @@ test('健康检查异常保留原生 HTTP 状态', () => {
         },
         json() {}
     }
+    const healthHandler = () => undefined
+    PreserveHttpStatus()(healthHandler)
     const host = {
+        getHandler() {
+            return healthHandler
+        },
+        getClass() {
+            return class HealthController {}
+        },
         switchToHttp() {
             return {
                 getRequest() {
