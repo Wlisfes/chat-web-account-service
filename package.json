@@ -11,6 +11,7 @@
         "build": "nest build",
         "password:hash": "yarn build && node scripts/hash-password.cjs",
         "legacy:migrate": "node dist/cli/migrate-legacy-platform.js",
+        "menu:repair-finance": "node dist/cli/repair-finance-menus.js",
         "test": "yarn build && node --test test/*.test.cjs",
         "start": "nest start",
         "dev": "nest start --watch",

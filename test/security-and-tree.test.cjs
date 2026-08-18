@@ -11,6 +11,7 @@ const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { RedisService } = require('../dist/modules/redis/redis.service')
 const { NacosService } = require('../dist/modules/nacos/nacos.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
+const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
@@ -214,6 +215,22 @@ test('旧平台迁移映射状态并按父子依赖排序', () => {
         ['root', 'child']
     )
     assert.throws(() => sortTree([{ key_id: 'child', pid: 'missing' }], '测试树'), /循环或缺失父节点/)
+})
+
+test('财务菜单种子覆盖现有前端路由并按父级在前排序', () => {
+    const paths = FINANCE_MENU_SEEDS.map(item => item.path)
+    assert.equal(new Set(paths).size, paths.length)
+    assert.deepEqual(paths.filter(path => path.split('/').length === 4), [
+        '/finance/deploy/brand',
+        '/finance/deploy/currency',
+        '/finance/deploy/exchange',
+        '/finance/deploy/country',
+        '/finance/account/consumer',
+        '/finance/rates/sms'
+    ])
+    for (const item of FINANCE_MENU_SEEDS) {
+        if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
+    }
 })
 
 test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
