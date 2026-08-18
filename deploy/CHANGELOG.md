@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-18：Finance Home Runner 安装分步与故障可观测性
+
+- 影响机器：Home。
+- 关联版本：Account 部署工作流本次修复提交；Finance 镜像 `260bd2fd2df4b9b07d01dcfaf73264fdbcd6f319`。
+- 变更内容：将 Finance 专用 Runner 安装拆分为运行时准备、共享配置同步、容器启动和上线验证四个步骤；共享配置直接经 stdin 写入已缓存的官方 Runner 镜像，不再依赖额外 Alpine 镜像。启动时明确工作目录并兼容 Runner 用户为 root 的情况；容器提前退出时立即输出不含业务密钥的 Runner 日志并失败，避免等待超时且便于定位。
+- 机器侧操作：合并后重新运行 `Register Finance Home runner`；成功后立即删除 Account 仓库临时 Secret `FINANCE_RUNNER_REGISTRATION_TOKEN`。无需修改端口、Nacos、Redis 或完整 `.env`。
+- 验证命令：确认四个安装步骤全部成功；`gh api repos/Wlisfes/chat-web-finance-service/actions/runners --jq '.runners[] | select(.name == "chat-server-home-finance") | [.status, .busy]'` 返回 `online`；Finance 的 `Deploy to home` 任务完成并通过容器内 `/health` 检查。
+- 回滚方法：回滚本次工作流提交不影响已运行服务；如需撤销 Finance Home Runner，先从 Finance 仓库移除对应 Runner，再停止并删除 `chat-web-finance-runner-home` 容器和注册卷，保留部署卷以便恢复。
+
 ## 2026-08-18：Finance Home Runner 环境同步兼容修复
 
 - 影响机器：Home。
