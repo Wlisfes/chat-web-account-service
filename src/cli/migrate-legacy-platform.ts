@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 import yaml from 'js-yaml'
 import type { ExecuteValues } from 'mysql2'
 import mysql, { Connection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
+import { repairFinanceMenus } from '@/cli/finance-menu.seed'
 
-type DatabaseConfig = {
+export type DatabaseConfig = {
     host: string
     port?: number | string
     username: string
@@ -104,6 +105,7 @@ const ROUTE_PATH_MAP = new Map([
 
 const VISIBLE_ROUTE_PATHS = new Set([
     '/manager',
+    '/finance',
     '/deploy',
     '/deploy/system',
     '/deploy/system/sheet',
@@ -152,7 +154,7 @@ function sourceTable(sourceDatabase: string, table: string): string {
     return `\`${assertIdentifier(sourceDatabase, '旧库名称')}\`.\`${assertIdentifier(table, '旧表名称')}\``
 }
 
-async function loadDatabaseConfig(): Promise<DatabaseConfig> {
+export async function loadDatabaseConfig(): Promise<DatabaseConfig> {
     const directHost = process.env.ACCOUNT_MYSQL_HOST?.trim()
     const directUsername = process.env.ACCOUNT_MYSQL_USERNAME?.trim()
     const directPassword = process.env.ACCOUNT_MYSQL_PASSWORD
@@ -493,7 +495,8 @@ async function migrate(connection: Connection, options: MigrationOptions, superA
     for (const menu of menus) {
         const parentKeyId = menu.pid ? menuKeyMap.get(menu.pid) : null
         const mappedPath = menu.router ? ROUTE_PATH_MAP.get(menu.router) || menu.router : null
-        const type = menu.type === 'button' ? 'button' : childParentKeys.has(menu.key_id) ? 'directory' : 'menu'
+        const type =
+            menu.type === 'button' ? 'button' : childParentKeys.has(menu.key_id) || mappedPath === '/finance' ? 'directory' : 'menu'
         const parentVisible = menu.pid ? menuVisibleMap.get(menu.pid) === true : true
         const visible = menu.type === 'button' ? parentVisible : Boolean(mappedPath && VISIBLE_ROUTE_PATHS.has(mappedPath))
         const permissionCode = PERMISSION_CODE_MAP.get(menu.key) || menu.key
@@ -546,6 +549,8 @@ async function migrate(connection: Connection, options: MigrationOptions, superA
         )
     }
 
+    const financeMenus = await repairFinanceMenus(connection)
+
     const admin = selectedAdmin[0]
     await connection.execute(`UPDATE tb_account_user SET password = ? WHERE uid = ?`, [
         options.initialAdminPasswordHash || resetRequiredPassword(),
@@ -583,6 +588,7 @@ async function migrate(connection: Connection, options: MigrationOptions, superA
             roleMenus: roleMenus.length
         },
         targetCounts,
+        financeMenus,
         duplicateEmailsResetToNull,
         placeholderAdminUsed: !options.initialAdminAccount
     }

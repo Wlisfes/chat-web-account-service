@@ -30,8 +30,38 @@ export class RolesService {
         private readonly permissionsService: PermissionsService
     ) {}
 
-    findAll(): Promise<TbAccountRole[]> {
-        return this.roleRepository.find({ order: { sort: 'ASC', keyId: 'ASC' } })
+    async findAll() {
+        const roles = await this.roleRepository.find({ order: { sort: 'ASC', keyId: 'ASC' } })
+        const roleKeyIds = roles.map(role => role.keyId)
+        if (!roleKeyIds.length) {
+            return []
+        }
+
+        const dataScopes = await this.roleRepository.manager.find(TbAccountRoleDataScope, {
+            where: { roleKeyId: In(roleKeyIds) },
+            order: { keyId: 'ASC' }
+        })
+        const dataScopeKeyIds = dataScopes.map(scope => scope.keyId)
+        const scopeOrganizations = dataScopeKeyIds.length
+            ? await this.roleRepository.manager.find(TbAccountRoleDataScopeOrganization, {
+                  where: { dataScopeKeyId: In(dataScopeKeyIds) },
+                  order: { keyId: 'ASC' }
+              })
+            : []
+        const organizationsByScope = new Map<number, TbAccountRoleDataScopeOrganization[]>()
+        for (const organization of scopeOrganizations) {
+            const organizations = organizationsByScope.get(organization.dataScopeKeyId) ?? []
+            organizations.push(organization)
+            organizationsByScope.set(organization.dataScopeKeyId, organizations)
+        }
+        const scopesByRole = new Map<number, Array<TbAccountRoleDataScope & { organizations: TbAccountRoleDataScopeOrganization[] }>>()
+        for (const scope of dataScopes) {
+            const scopes = scopesByRole.get(scope.roleKeyId) ?? []
+            scopes.push({ ...scope, organizations: organizationsByScope.get(scope.keyId) ?? [] })
+            scopesByRole.set(scope.roleKeyId, scopes)
+        }
+
+        return roles.map(role => ({ ...role, dataScopes: scopesByRole.get(role.keyId) ?? [] }))
     }
 
     async findOne(keyId: number) {
