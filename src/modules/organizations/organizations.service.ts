@@ -6,9 +6,10 @@ import {
     TbAccountOrganizationStatus,
     TbAccountRoleDataScopeOrganization,
     TbAccountUser,
-    TbAccountUserOrganization
+    TbAccountUserOrganization,
+    TbAccountUserOrganizationStatus
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { EntityManager, Repository } from 'typeorm'
+import { EntityManager, In, Repository } from 'typeorm'
 import { assertUid } from '@/common/uid'
 import { assertValidTree, buildTree } from '@/common/tree'
 import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organizations/dto/organization.dto'
@@ -19,7 +20,25 @@ export class OrganizationsService {
 
     async getTree() {
         const organizations = await this.organizationRepository.find({ order: { sort: 'ASC', keyId: 'ASC' } })
-        return buildTree(organizations)
+        const memberships = await this.organizationRepository.manager.find(TbAccountUserOrganization, {
+            where: { status: TbAccountUserOrganizationStatus.ENABLED }
+        })
+        const leaderUids = [...new Set(organizations.map(item => item.leaderUserUid).filter(Boolean))]
+        const leaders = leaderUids.length
+            ? await this.organizationRepository.manager.find(TbAccountUser, { where: { uid: In(leaderUids) } })
+            : []
+        const leaderByUid = new Map(leaders.map(item => [item.uid, item]))
+        const memberCounts = memberships.reduce((counts, item) => {
+            counts.set(item.organizationKeyId, (counts.get(item.organizationKeyId) ?? 0) + 1)
+            return counts
+        }, new Map<number, number>())
+        return buildTree(
+            organizations.map(organization => ({
+                ...organization,
+                memberCount: memberCounts.get(organization.keyId) ?? 0,
+                leader: organization.leaderUserUid ? leaderByUid.get(organization.leaderUserUid) ?? null : null
+            }))
+        )
     }
 
     async findOne(keyId: number): Promise<TbAccountOrganization> {
