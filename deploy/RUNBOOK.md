@@ -22,6 +22,8 @@
 
 `.env.example` 中的值只是示例，不代表任何机器的运行基线。Namespace ID 是每台 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例或另一台机器猜测。
 
+配置优先级为容器显式环境变量高于 Nacos 远端配置。Nacos 仍负责数据库等未在环境中指定的配置；同名环境键即使值为空也表示明确覆盖，例如部署脚本用空 `REDIS_URL` 清除旧远端 URL、再通过唯一 `REDIS_HOST` 固定同机容器。启动日志只记录已应用和被环境覆盖的键名，不记录值。
+
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。

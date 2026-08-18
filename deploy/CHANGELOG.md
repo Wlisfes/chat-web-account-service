@@ -8,7 +8,7 @@
 
 - 影响范围：Company、Home 账号服务自动部署；重点修复 Home Redis 已启用密码、Account `.env` 未同步密码时的新镜像健康检查失败。
 - 关联版本：账号服务本次 Redis 部署兼容提交；`@wlisfes/chat-web-base-schema@1.0.6`。
-- 变更内容：已带密码的 `REDIS_URL` 保持优先；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时由应用合并认证信息。仅当 Redis 目标能匹配同机容器名称或网络别名、Account 未显式配置密码时，部署脚本才从账号服务所在 Docker 网络使用目标容器的唯一短 ID DNS 名执行 `PING`，避免重复网络别名让探测和 Account 命中不同 Redis。匿名访问可用时，当前部署进程会用唯一名称覆盖 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`；要求认证时，从 Redis 容器环境键或独立 `--requirepass` 参数读取密码，再从同一网络验证并传递给 Compose。唯一名称和密码都不写回 `.env`；各分支只记录不含地址和密码的判定结果。远程 Redis、ACL 文件和自定义配置文件保持显式配置模式。
+- 变更内容：容器显式环境变量改为优先于同名 Nacos 远端键，空环境值也表示明确覆盖；Nacos 启动日志只记录键名。已带密码的 `REDIS_URL` 保持优先；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时由应用合并认证信息。仅当 Redis 目标能匹配同机容器名称或网络别名、Account 未显式配置密码时，部署脚本才从账号服务所在 Docker 网络使用目标容器的唯一短 ID DNS 名执行 `PING`，避免重复网络别名让探测和 Account 命中不同 Redis。匿名访问可用时，当前部署进程会用唯一名称覆盖 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`；要求认证时，从 Redis 容器环境键或独立 `--requirepass` 参数读取密码，再从同一网络验证并传递给 Compose。唯一名称和密码都不写回 `.env`；各分支只记录不含地址和密码的判定结果。远程 Redis、ACL 文件和自定义配置文件保持显式配置模式。
 - 机器侧操作：无需人工复制现有同机 Redis 密码；重新执行 `Build and deploy`。若部署日志报告未找到受支持的凭据来源，应在机器侧安全配置 `/opt/chat-web-account-service/.env`，不得把密码写入 Actions 命令、文档或提交。
 
 ### 验证

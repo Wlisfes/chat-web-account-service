@@ -111,6 +111,8 @@ export class NacosService implements OnModuleInit, OnModuleDestroy {
         }
 
         const config = parsed as Record<string, unknown>
+        const appliedKeys: string[] = []
+        const environmentOverrideKeys: string[] = []
         // 清除新配置中已经不存在的旧配置项。
         for (const key of this.remoteConfigKeys) {
             if (!(key in config)) {
@@ -118,15 +120,21 @@ export class NacosService implements OnModuleInit, OnModuleDestroy {
             }
         }
         for (const [key, value] of Object.entries(config)) {
+            if (Object.prototype.hasOwnProperty.call(process.env, key)) {
+                environmentOverrideKeys.push(key)
+                continue
+            }
             this.configService.set(key, value)
+            appliedKeys.push(key)
         }
 
         this.remoteConfigKeys.clear()
-        Object.keys(config).forEach(key => this.remoteConfigKeys.add(key))
+        appliedKeys.forEach(key => this.remoteConfigKeys.add(key))
         this.currentContent = content
 
         this.logger.log(
-            `Nacos 配置${action}：dataId=${dataId}, group=${group}, namespace=${namespace}, 配置项=${Object.keys(config).join(',')}`
+            `Nacos 配置${action}：dataId=${dataId}, group=${group}, namespace=${namespace}, ` +
+                `已应用=${appliedKeys.join(',') || '无'}, 环境变量优先=${environmentOverrideKeys.join(',') || '无'}`
         )
     }
 

@@ -9,6 +9,7 @@ const { TokenService } = require('../dist/modules/auth/token.service')
 const { AuthSessionService } = require('../dist/modules/auth/auth-session.service')
 const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { RedisService } = require('../dist/modules/redis/redis.service')
+const { NacosService } = require('../dist/modules/nacos/nacos.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
@@ -165,6 +166,38 @@ test('无认证信息的 REDIS_URL 会合并显式 Redis 用户名和密码', ()
     assert.equal(resolved.pathname, '/2')
     assert.equal(resolved.username, 'default')
     assert.equal(resolved.password, 'p%40ss%2Fword')
+})
+
+test('Nacos 远端配置不会覆盖显式环境变量', () => {
+    const previousHost = process.env.REDIS_HOST
+    const previousUrl = process.env.REDIS_URL
+    process.env.REDIS_HOST = 'pinned-local-redis'
+    process.env.REDIS_URL = ''
+    const values = new Map()
+    const configService = {
+        set(key, value) {
+            values.set(key, value)
+        }
+    }
+
+    try {
+        const service = new NacosService(configService, {})
+        service.applyRemoteConfig(
+            'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
+            '已加载',
+            'test.yaml',
+            'DEFAULT_GROUP',
+            'test'
+        )
+        assert.equal(values.has('REDIS_HOST'), false)
+        assert.equal(values.has('REDIS_URL'), false)
+        assert.equal(values.get('remoteOnly'), 'enabled')
+    } finally {
+        if (previousHost === undefined) delete process.env.REDIS_HOST
+        else process.env.REDIS_HOST = previousHost
+        if (previousUrl === undefined) delete process.env.REDIS_URL
+        else process.env.REDIS_URL = previousUrl
+    }
 })
 
 test('旧平台迁移映射状态并按父子依赖排序', () => {
