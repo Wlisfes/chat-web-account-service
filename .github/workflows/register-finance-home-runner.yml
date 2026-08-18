@@ -103,6 +103,7 @@ jobs:
                       bash -c 'umask 077; cat > account.env'
 
             - name: Start Finance repository runner
+              id: start_runner
               shell: bash
               run: |
                   set -eu
@@ -117,6 +118,7 @@ jobs:
                   current_state=$(docker inspect "$FINANCE_RUNNER_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || true)
                   if [ "$current_state" = running ]; then
                     echo "Finance repository runner container is already running"
+                    echo "already_running=true" >> "$GITHUB_OUTPUT"
                     exit 0
                   fi
 
@@ -139,8 +141,15 @@ jobs:
 
             - name: Verify Finance repository runner
               shell: bash
+              env:
+                  RUNNER_ALREADY_RUNNING: ${{ steps.start_runner.outputs.already_running }}
               run: |
                   set -eu
+                  if [ "$RUNNER_ALREADY_RUNNING" = true ]; then
+                    docker inspect "$FINANCE_RUNNER_CONTAINER" --format '{{.Name}} {{.State.Status}}'
+                    exit 0
+                  fi
+
                   elapsed=0
                   until docker logs "$FINANCE_RUNNER_CONTAINER" 2>&1 | grep -q 'Listening for Jobs'; do
                     state=$(docker inspect "$FINANCE_RUNNER_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || true)
