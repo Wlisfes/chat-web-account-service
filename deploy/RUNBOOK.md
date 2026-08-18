@@ -47,6 +47,7 @@ docker ps --filter "name=chat-web-mysql" --filter "name=chat-web-nacos"
 ```
 
 Account、MySQL、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，不能是 `127.0.0.1`。
+Redis 主机必须使用稳定 Docker DNS 名 `chat-web-redis`，禁止在服务器 `.env` 中固定容器 IP；基础设施容器重建后 IP 会变化并可能被其他服务复用。
 
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 
