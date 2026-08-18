@@ -19,6 +19,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       TZ: ${TZ:-Asia/Shanghai}
+      REDIS_URL: ${REDIS_URL-}
       REDIS_HOST: ${REDIS_HOST:-chat-web-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_DATABASE: ${REDIS_DATABASE:-0}

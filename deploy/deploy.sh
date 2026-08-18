@@ -90,15 +90,18 @@ resolve_local_redis_password() {
         return
     fi
 
+    redis_unique_host=$(docker inspect --format '{{.Id}}' "$local_redis_container" | cut -c 1-12)
     redis_client_image=$(docker inspect --format '{{.Config.Image}}' "$local_redis_container")
     if docker run --rm \
         --network "$network" \
         --entrypoint redis-cli \
         "$redis_client_image" \
-        -h "$redis_host" \
+        -h "$redis_unique_host" \
         -p "$redis_port" \
         ping >/dev/null 2>&1; then
-        echo "Redis deployment target accepts anonymous PING from the service network."
+        export REDIS_HOST="$redis_unique_host"
+        export REDIS_URL=
+        echo "Pinned Account to the validated local Redis container; anonymous PING succeeded."
         return
     fi
 
@@ -134,7 +137,7 @@ resolve_local_redis_password() {
         -e REDISCLI_AUTH="$redis_password" \
         --entrypoint redis-cli \
         "$redis_client_image" \
-        -h "$redis_host" \
+        -h "$redis_unique_host" \
         -p "$redis_port" \
         ping >/dev/null 2>&1; then
         unset redis_password
@@ -143,8 +146,10 @@ resolve_local_redis_password() {
     fi
 
     export REDIS_PASSWORD="$redis_password"
+    export REDIS_HOST="$redis_unique_host"
+    export REDIS_URL=
     unset redis_password
-    echo "Using the validated Redis credential from $credential_source for this deployment process."
+    echo "Pinned Account to the authenticated local Redis container using the validated credential from $credential_source."
 }
 
 rollback() {
