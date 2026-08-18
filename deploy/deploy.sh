@@ -7,6 +7,7 @@ SERVICE=account-service
 CONTAINER=chat-web-account-service
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
 PULL_ATTEMPTS=${PULL_ATTEMPTS:-3}
+REDIS_CONTAINER=${REDIS_CONTAINER:-chat-web-redis}
 deployment_started=0
 
 if [ ! -f "$COMPOSE_FILE" ]; then
@@ -23,6 +24,66 @@ old_image=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null
 
 compose() {
     IMAGE="$IMAGE" docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+read_env_value() {
+    key=$1
+    sed -n "s/^${key}=//p" .env | tail -n 1 | tr -d '\r'
+}
+
+resolve_local_redis_password() {
+    redis_url=$(read_env_value REDIS_URL)
+    redis_password=$(read_env_value REDIS_PASSWORD)
+    redis_host=$(read_env_value REDIS_HOST)
+    redis_host=${redis_host:-$REDIS_CONTAINER}
+
+    if [ -n "$redis_url" ] || [ -n "$redis_password" ] || [ "$redis_host" != "$REDIS_CONTAINER" ]; then
+        return
+    fi
+
+    if ! docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
+        echo "Local Redis container $REDIS_CONTAINER was not found; keeping the explicit .env configuration." >&2
+        return
+    fi
+
+    if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+        return
+    fi
+
+    container_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$REDIS_CONTAINER")
+    for key in REDIS_PASSWORD REDIS_PASS REDISCLI_AUTH; do
+        redis_password=$(printf '%s\n' "$container_environment" | sed -n "s/^${key}=//p" | tail -n 1)
+        if [ -n "$redis_password" ]; then
+            credential_source="container environment key $key"
+            break
+        fi
+    done
+    unset container_environment
+
+    if [ -z "$redis_password" ]; then
+        container_command=$(docker inspect --format '{{range .Config.Cmd}}{{println .}}{{end}}' "$REDIS_CONTAINER")
+        redis_password=$(printf '%s\n' "$container_command" | awk 'previous == "--requirepass" { print; exit } { previous = $0 }')
+        unset container_command
+        if [ -n "$redis_password" ]; then
+            credential_source="separate --requirepass container argument"
+        fi
+    fi
+
+    if [ -z "$redis_password" ]; then
+        echo "Redis requires authentication, but no explicit Account credential or supported local container credential source was found." >&2
+        echo "Set REDIS_URL/REDIS_PASSWORD in the deployment .env, or expose REDIS_PASSWORD, REDIS_PASS, REDISCLI_AUTH, or a separate --requirepass argument on $REDIS_CONTAINER." >&2
+        return 1
+    fi
+
+    if ! docker exec -e REDISCLI_AUTH="$redis_password" "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+        unset redis_password
+        echo "The Redis credential discovered from $credential_source failed validation." >&2
+        return 1
+    fi
+
+    export REDIS_PASSWORD="$redis_password"
+    unset redis_password
+    echo "Using the validated Redis credential from $credential_source for this deployment process."
 }
 
 rollback() {
@@ -84,6 +145,8 @@ docker run --rm \
     --env-file .env \
     --entrypoint node \
     "$IMAGE" dist/cli/apply-schema.js
+
+resolve_local_redis_password
 
 echo "Starting $SERVICE"
 deployment_started=1

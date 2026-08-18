@@ -87,6 +87,8 @@ docker exec chat-web-redis redis-cli ping
 
 Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，Redis 主机应为 `chat-web-redis`，不能是 `127.0.0.1`。
 
+部署脚本始终优先使用账号服务 `.env` 中显式配置的 `REDIS_URL` 或 `REDIS_PASSWORD`。当目标为同机 `chat-web-redis`、Account 未配置密码且 Redis 拒绝匿名 `PING` 时，脚本会从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，验证通过后只在当前部署进程中传递给新容器；密码不会输出到日志、上传 GitHub 或写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
+
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 
 ```powershell
@@ -122,7 +124,7 @@ Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像�
 | Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                    |
 | 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                     |
 | `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署             |
-| `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping` 并核对 `REDIS_*` 配置           |
+| `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
 | 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT` |
 
 ## 恢复顺序

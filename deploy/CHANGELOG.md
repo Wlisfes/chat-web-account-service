@@ -4,6 +4,29 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-18：同机 Redis 认证自动传递
+
+- 影响范围：Company、Home 账号服务自动部署；重点修复 Home Redis 已启用密码、Account `.env` 未同步密码时的新镜像健康检查失败。
+- 关联版本：账号服务本次 Redis 部署兼容提交；`@wlisfes/chat-web-base-schema@1.0.6`。
+- 变更内容：部署脚本继续优先使用显式 `REDIS_URL/REDIS_PASSWORD`；仅当目标是同机 `chat-web-redis`、未显式配置密码且匿名 `PING` 被拒绝时，才从 Redis 容器环境键或独立 `--requirepass` 参数读取密码，先用 `REDISCLI_AUTH` 验证，再仅通过当前部署进程传递给 Compose。密码不写入日志、GitHub、仓库或最终镜像；远程 Redis、ACL 文件和自定义配置文件保持显式配置模式。
+- 机器侧操作：无需人工复制现有同机 Redis 密码；重新执行 `Build and deploy`。若部署日志报告未找到受支持的凭据来源，应在机器侧安全配置 `/opt/chat-web-account-service/.env`，不得把密码写入 Actions 命令、文档或提交。
+
+### 验证
+
+```bash
+sh -n deploy/deploy.sh
+docker exec chat-web-redis redis-cli ping
+docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3000/health
+```
+
+无密码 Redis 预期匿名 `PING` 返回 `PONG`；有密码 Redis 预期匿名检查失败但部署日志显示本地凭据验证成功，最终容器为 `healthy`，`/health` 中 `redis.connected` 为 `true`。Home 将健康检查端口改为 `3001`。
+
+### 回滚
+
+- 回滚到上一版账号服务提交和镜像；部署脚本会恢复为仅使用机器侧 `.env` 的 Redis 配置。
+- 数据库 Schema、Redis 数据和 Redis 密码均不变，无需数据回滚。
+
 ## 2026-08-18：HTTP 业务异常改用响应体状态码
 
 - 影响范围：Company、Home 账号服务及管理端 API 调用。
