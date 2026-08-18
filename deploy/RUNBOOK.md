@@ -24,6 +24,8 @@
 
 配置优先级为容器显式环境变量高于 Nacos 远端配置。Nacos 仍负责数据库等未在环境中指定的配置；同名环境键即使值为空也表示明确覆盖，例如部署脚本用空 `REDIS_URL` 清除旧远端 URL、再通过唯一 `REDIS_HOST` 固定同机容器。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
+Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。部署脚本固定同机 Redis 时，还会比较受保护 `.env` 与新容器实际收到的 `REDIS_HOST/REDIS_URL/REDIS_PASSWORD`；只比较值且不输出，不一致会在健康检查前回滚。
+
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
@@ -89,7 +91,7 @@ docker exec chat-web-redis redis-cli ping
 
 Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，Redis 主机应为 `chat-web-redis`，不能是 `127.0.0.1`。
 
-部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称、旧短 ID、当前容器地址或网络别名、Account 未配置密码时，脚本使用该容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，与 Node Redis 6 的 `HELLO 3` 握手一致，避免 RESP2 PING 可用但 HELLO 要求认证的假阳性，同时完全绕过重复别名和客户端 DNS 差异。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致地址变化时，下次部署会自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，使用 RESP3 验证后同样安全写入机器侧 `.env`。地址值和密码都不会输出到日志或上传 GitHub，密码也不写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
+部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称、旧短 ID、当前容器地址或网络别名、Account 未配置密码时，脚本使用该容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，并要求命令输出精确等于 `PONG`，不能只根据 `redis-cli` 进程退出码判断；这与 Node Redis 6 的 `HELLO 3` 握手一致，避免服务端返回 `NOAUTH` 但客户端退出码仍为 0 的假阳性，同时完全绕过重复别名和客户端 DNS 差异。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致地址变化时，下次部署会自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，要求经过认证的 RESP3 命令同样精确返回 `PONG` 后才安全写入机器侧 `.env`。地址值和密码都不会输出到日志或上传 GitHub，密码也不写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
 
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 

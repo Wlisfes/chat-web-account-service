@@ -9,6 +9,7 @@ HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
 PULL_ATTEMPTS=${PULL_ATTEMPTS:-3}
 REDIS_CONTAINER=${REDIS_CONTAINER:-chat-web-redis}
 deployment_started=0
+redis_target_pinned=0
 
 if [ ! -f "$COMPOSE_FILE" ]; then
     echo "Compose file not found: $COMPOSE_FILE" >&2
@@ -62,6 +63,30 @@ pin_local_redis_target() {
     write_env_value REDIS_URL ""
     export REDIS_HOST="$redis_direct_host"
     export REDIS_URL=
+    redis_target_pinned=1
+}
+
+verify_pinned_redis_environment() {
+    if [ "$redis_target_pinned" -ne 1 ]; then
+        return
+    fi
+
+    expected_host=$(read_env_value REDIS_HOST)
+    expected_password=$(read_env_value REDIS_PASSWORD)
+    actual_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER")
+    actual_host=$(printf '%s\n' "$actual_environment" | sed -n 's/^REDIS_HOST=//p' | tail -n 1)
+    actual_url=$(printf '%s\n' "$actual_environment" | sed -n 's/^REDIS_URL=//p' | tail -n 1)
+    actual_password=$(printf '%s\n' "$actual_environment" | sed -n 's/^REDIS_PASSWORD=//p' | tail -n 1)
+    unset actual_environment
+
+    if [ "$actual_host" != "$expected_host" ] ||
+        [ -n "$actual_url" ] ||
+        [ "$actual_password" != "$expected_password" ]; then
+        echo "The new Account container did not receive the pinned Redis environment." >&2
+        return 1
+    fi
+
+    echo "Verified the pinned Redis environment on the new Account container."
 }
 
 resolve_local_redis_password() {
@@ -133,18 +158,22 @@ resolve_local_redis_password() {
         return 1
     fi
     redis_client_image=$(docker inspect --format '{{.Config.Image}}' "$local_redis_container")
-    if docker run --rm \
+    redis_ping_output=$(docker run --rm \
         --network "$network" \
         --entrypoint redis-cli \
         "$redis_client_image" \
         -h "$redis_direct_host" \
         -p "$redis_port" \
         -3 \
-        ping >/dev/null 2>&1; then
+        ping 2>/dev/null || true)
+    redis_ping_output=$(printf '%s' "$redis_ping_output" | tr -d '\r\n')
+    if [ "$redis_ping_output" = "PONG" ]; then
+        unset redis_ping_output
         pin_local_redis_target "$redis_direct_host"
         echo "Pinned Account to the validated local Redis container in the protected deployment .env; anonymous RESP3 PING succeeded."
         return
     fi
+    unset redis_ping_output
 
     echo "Redis deployment target requires authentication; resolving a local credential source."
 
@@ -173,7 +202,7 @@ resolve_local_redis_password() {
         return 1
     fi
 
-    if ! docker run --rm \
+    redis_ping_output=$(docker run --rm \
         --network "$network" \
         -e REDISCLI_AUTH="$redis_password" \
         --entrypoint redis-cli \
@@ -181,11 +210,15 @@ resolve_local_redis_password() {
         -h "$redis_direct_host" \
         -p "$redis_port" \
         -3 \
-        ping >/dev/null 2>&1; then
+        ping 2>/dev/null || true)
+    redis_ping_output=$(printf '%s' "$redis_ping_output" | tr -d '\r\n')
+    if [ "$redis_ping_output" != "PONG" ]; then
+        unset redis_ping_output
         unset redis_password
         echo "The Redis credential discovered from $credential_source failed validation." >&2
         return 1
     fi
+    unset redis_ping_output
 
     write_env_value REDIS_PASSWORD "$redis_password"
     export REDIS_PASSWORD="$redis_password"
@@ -259,6 +292,10 @@ resolve_local_redis_password
 echo "Starting $SERVICE"
 deployment_started=1
 if ! compose up -d --no-deps "$SERVICE"; then
+    rollback
+    exit 1
+fi
+if ! verify_pinned_redis_environment; then
     rollback
     exit 1
 fi

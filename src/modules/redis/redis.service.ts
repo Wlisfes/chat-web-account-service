@@ -8,8 +8,15 @@ export class RedisService implements OnApplicationBootstrap, OnApplicationShutdo
     private readonly client: ReturnType<typeof createClient>
 
     constructor(private readonly configService: ConfigService) {
+        const connectionUrl = this.getConnectionUrl()
+        const parsedConnectionUrl = new URL(connectionUrl)
+        this.logger.log(
+            `Redis连接配置已解析：source=${this.configService.get<string>('REDIS_URL')?.trim() ? 'url' : 'host'}, ` +
+                `authenticated=${Boolean(parsedConnectionUrl.password)}, tls=${parsedConnectionUrl.protocol === 'rediss:'}, ` +
+                `database=${parsedConnectionUrl.pathname.slice(1) || '0'}`
+        )
         this.client = createClient({
-            url: this.getConnectionUrl(),
+            url: connectionUrl,
             socket: {
                 connectTimeout: this.getInteger('REDIS_CONNECT_TIMEOUT_MS', 5000, 100, 60_000),
                 reconnectStrategy: retries => Math.min(retries * 200, 3000)
