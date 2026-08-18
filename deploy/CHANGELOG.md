@@ -4,10 +4,10 @@
 
 - 影响机器：Company、Home。
 - 关联版本：`@wlisfes/chat-web-base-schema@1.0.8`。
-- 变更内容：共享异常过滤器在真实 Nest `ArgumentsHost` 中通过请求标记识别 `PreserveHttpStatus`；账号 readiness 失败恢复 HTTP 503，并将数据库、Redis、JWT 就绪详情放入响应 `data`。普通业务异常继续返回 HTTP 200 和自定义 `code`。新增受控的手动工作流，用现有 Account Home Runner 安装 Finance 仓库专用 Home Runner。
+- 变更内容：共享异常过滤器在真实 Nest `ArgumentsHost` 中通过请求标记识别 `PreserveHttpStatus`；账号 readiness 失败恢复 HTTP 503，并将数据库、Redis、JWT 就绪详情放入响应 `data`。普通业务异常继续返回 HTTP 200 和自定义 `code`。新增受控的手动工作流，用现有 Account Home Runner 和 GitHub 官方 Actions Runner 容器安装 Finance 仓库专用 Home Runner，无需主机 sudo。
 - 机器侧操作：账号服务无需修改端口、Nacos 或 `.env`，由流水线重建并滚动部署镜像。首次安装 Finance Home Runner 时临时设置 `FINANCE_RUNNER_REGISTRATION_TOKEN`，运行 `Register Finance Home runner` 后立即删除该 Secret。
 - 验证命令：`curl -i http://127.0.0.1:3000/health`；健康时为 HTTP 200，依赖故障时为 HTTP 503。
-- 回滚方法：恢复上一条健康 SHA 镜像；无需回滚数据库和配置。如需撤销 Finance Home Runner，先在 Finance 仓库删除 Runner，再停止并删除对应 systemd 服务，保留 `/opt/chat-web-finance-service` 数据目录。
+- 回滚方法：恢复上一条健康 SHA 镜像；无需回滚数据库和配置。如需撤销 Finance Home Runner，先在 Finance 仓库删除 Runner，再停止并删除 `chat-web-finance-runner-home` 容器及其持久卷，保留 `/opt/chat-web-finance-service` 数据目录。
 
 本文件只记录会影响服务器构建、部署、启动或运行的变更，不记录密码、Token、私钥和真实 `.env`。
 
