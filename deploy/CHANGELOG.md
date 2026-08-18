@@ -63,6 +63,7 @@ docker logs --tail 100 chat-web-account-service
 
 - Redis 用于3分钟图形验证码和可撤销 JWT 登录会话，Token 续期时原会话会被轮换删除，主动退出会立即撤销会话。
 - 新增 `/auth/captcha`、`/auth/refresh`、`/auth/logout`；`/auth/me` 返回完整当前用户信息。
+- 验证码 SVG 明确禁止浏览器和网关缓存，SID Cookie 固定为根路径；登录、续期和退出接口统一返回 HTTP 200，兼容管理端既有响应约定。
 - HTTP JSON 响应兼容管理端原有 `{ data, code, message, timestamp }` 格式，同时保留真实 HTTP 错误状态。
 - `/health` 新增 Redis `PING` 就绪检查；Redis 不可用时容器不会进入健康状态。
 

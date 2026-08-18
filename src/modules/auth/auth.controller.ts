@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { Request, Response } from 'express'
 import { AuthService } from '@/modules/auth/auth.service'
@@ -23,23 +23,31 @@ export class AuthController {
         response.cookie(AUTH_CAPTCHA_COOKIE, captcha.sid, {
             httpOnly: true,
             maxAge: this.captchaService.expiresIn * 1000,
+            path: '/',
             sameSite: 'lax',
             secure: request.secure || request.header('x-forwarded-proto') === 'https'
+        })
+        response.set({
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0'
         })
         return response.type('image/svg+xml').send(captcha.svg)
     }
 
     @Public()
     @Post('login')
+    @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: '使用工号、手机号或邮箱登录' })
     @ApiOkResponse({ description: '登录成功并返回 Bearer Token' })
     async login(@Req() request: Request, @Res({ passthrough: true }) response: Response, @Body() input: LoginDto) {
         const result = await this.authService.login(input, this.getCookie(request, AUTH_CAPTCHA_COOKIE))
-        response.clearCookie(AUTH_CAPTCHA_COOKIE)
+        response.clearCookie(AUTH_CAPTCHA_COOKIE, { path: '/' })
         return result
     }
 
     @Post('refresh')
+    @HttpCode(HttpStatus.OK)
     @ApiBearerAuth('authorization')
     @ApiOperation({ summary: '续期并轮换当前登录会话' })
     refresh(@CurrentPrincipal() principal: AuthPrincipal) {
@@ -47,6 +55,7 @@ export class AuthController {
     }
 
     @Post('logout')
+    @HttpCode(HttpStatus.OK)
     @ApiBearerAuth('authorization')
     @ApiOperation({ summary: '退出并撤销当前登录会话' })
     async logout(@CurrentPrincipal() principal: AuthPrincipal) {

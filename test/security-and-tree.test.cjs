@@ -21,8 +21,10 @@ function config(values) {
 
 function fakeRedis() {
     const values = new Map()
+    const ttls = new Map()
     return {
         values,
+        ttls,
         async get(key) {
             return values.get(key) ?? null
         },
@@ -34,6 +36,7 @@ function fakeRedis() {
         async setEx(key, seconds, value) {
             assert.ok(seconds > 0)
             values.set(key, value)
+            ttls.set(key, seconds)
         },
         async del(key) {
             values.delete(key)
@@ -138,6 +141,8 @@ test('图形验证码忽略大小写且只能使用一次', async () => {
     const [key, expected] = [...redis.values.entries()][0]
 
     assert.match(key, /^chat-web:account:captcha:/)
+    assert.equal(redis.ttls.get(key), service.expiresIn)
+    assert.equal(service.expiresIn, 180)
     assert.equal(captcha.sid, key.slice(key.lastIndexOf(':') + 1))
     assert.match(captcha.svg, /^<svg/)
     await service.verify(captcha.sid, expected.toLowerCase())
