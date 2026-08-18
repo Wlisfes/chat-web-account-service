@@ -29,7 +29,6 @@ jobs:
                   token_file="$RUNNER_TEMP/finance-runner-token"
                   runner_uid=$(id -u)
                   runner_gid=$(id -g)
-                  test -n "$RUNNER_REGISTRATION_TOKEN" || { echo "Missing FINANCE_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
 
                   http_proxy_value=${HTTP_PROXY:-${http_proxy:-}}
                   https_proxy_value=${HTTPS_PROXY:-${https_proxy:-}}
@@ -52,6 +51,7 @@ jobs:
                     --env HTTP_PROXY="$http_proxy_value" \
                     --env HTTPS_PROXY="$https_proxy_value" \
                     --volume "$FINANCE_RUNNER_VOLUME:/runner-config" \
+                    --volume "$FINANCE_DEPLOY_VOLUME:/deploy-target" \
                     --volume "$token_file:/run/runner-token:ro" \
                     "$FINANCE_RUNNER_IMAGE" \
                     bash -lc '
@@ -61,6 +61,7 @@ jobs:
                       fi
                       cd /runner-config
                       if [ ! -f .runner ]; then
+                        test -s /run/runner-token || { echo "Missing FINANCE_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
                         ./config.sh \
                           --unattended \
                           --url https://github.com/Wlisfes/chat-web-finance-service \
@@ -77,6 +78,8 @@ jobs:
                         chmod 0755 .docker/cli-plugins/docker-compose
                       fi
                       chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /runner-config
+                      chmod 0755 /deploy-target
+                      chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /deploy-target
                     '
 
             - name: Synchronize shared runtime settings

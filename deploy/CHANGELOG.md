@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-18：Finance Home 部署卷权限与无 Token 维护重跑
+
+- 影响机器：Home。
+- 关联版本：Account Runner 安装工作流本次修复提交；Finance 镜像 `1362bda26d2e42d4c00577c05c12ffa5f73a3741`。
+- 变更内容：Runner 准备阶段把独立的 `chat-web-finance-deploy-home` Docker 卷挂载到辅助容器，并将卷根目录及已有内容归属到实际 Runner UID/GID，确保 `/opt/chat-web-finance-service` 可写。临时注册 Token 仅在注册卷中不存在 `.runner` 时才是必需项；已注册 Runner 的权限修复和维护重跑不再要求恢复已删除的 Secret。
+- 机器侧操作：合并后重新运行 `Register Finance Home runner`，随后重跑 Finance 部署失败任务；无需重新创建 `FINANCE_RUNNER_REGISTRATION_TOKEN`，无需修改完整 `.env`、Nacos、端口或 Docker 网络。
+- 验证命令：注册工作流成功；Finance Home 的 `Validate local Docker host` 通过目录可写检查；`docker inspect chat-web-finance-service --format '{{.Config.Image}} {{.State.Health.Status}}'` 返回目标完整 SHA 和 `healthy`。
+- 回滚方法：回滚本次工作流提交不会撤销已修正的卷属主；如确需恢复，停止 Finance Runner 后按部署前备份恢复卷权限。不要删除包含部署状态的 `chat-web-finance-deploy-home` 卷。
+
 ## 2026-08-18：Finance Home Runner 安装分步与故障可观测性
 
 - 影响机器：Home。
