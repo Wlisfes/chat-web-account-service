@@ -89,7 +89,7 @@ docker exec chat-web-redis redis-cli ping
 
 Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，Redis 主机应为 `chat-web-redis`，不能是 `127.0.0.1`。
 
-部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称或网络别名、Account 未配置密码时，脚本从账号服务所在 Docker 网络使用该容器的唯一短 ID DNS 名执行 `PING`，避免共享网络上的重复别名把一次性检查和 Account 长连接路由到不同 Redis。匿名访问可用时，当前部署进程会用该唯一名称覆盖 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`；目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，并从同一服务网络验证后传递。唯一名称和密码都不写回 `.env`；密码不会输出到日志、上传 GitHub 或写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
+部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称或网络别名、Account 未配置密码时，脚本从账号服务所在 Docker 网络使用该容器的唯一短 ID DNS 名执行 `PING`，避免共享网络上的重复别名把一次性检查和 Account 长连接路由到不同 Redis。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致短 ID 变化时，下次部署会识别旧短 ID并自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，验证后同样安全写入机器侧 `.env`。密码不会输出到日志、上传 GitHub 或写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
 
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 

@@ -31,6 +31,39 @@ read_env_value() {
     sed -n "s/^${key}=//p" .env | tail -n 1 | tr -d '\r'
 }
 
+write_env_value() {
+    key=$1
+    value=$2
+    temporary_env=$(mktemp .env.XXXXXX)
+    if ! ENV_VALUE="$value" awk -v key="$key" '
+        BEGIN { replaced = 0 }
+        $0 ~ "^" key "=" {
+            if (!replaced) {
+                print key "=" ENVIRON["ENV_VALUE"]
+                replaced = 1
+            }
+            next
+        }
+        { print }
+        END {
+            if (!replaced) print key "=" ENVIRON["ENV_VALUE"]
+        }
+    ' .env > "$temporary_env"; then
+        rm -f "$temporary_env"
+        return 1
+    fi
+    chmod 600 "$temporary_env"
+    mv "$temporary_env" .env
+}
+
+pin_local_redis_target() {
+    redis_unique_host=$1
+    write_env_value REDIS_HOST "$redis_unique_host"
+    write_env_value REDIS_URL ""
+    export REDIS_HOST="$redis_unique_host"
+    export REDIS_URL=
+}
+
 resolve_local_redis_password() {
     redis_url=$(read_env_value REDIS_URL)
     redis_password=$(read_env_value REDIS_PASSWORD)
@@ -79,7 +112,8 @@ resolve_local_redis_password() {
         local_redis_container=$redis_host
     elif docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
         container_aliases=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{range .Aliases}}{{println .}}{{end}}{{end}}' "$REDIS_CONTAINER")
-        if printf '%s\n' "$container_aliases" | grep -Fx -- "$redis_host" >/dev/null 2>&1; then
+        if printf '%s\n' "$container_aliases" | grep -Fx -- "$redis_host" >/dev/null 2>&1 ||
+            printf '%s\n' "$redis_host" | grep -Eq '^[0-9a-f]{12}$'; then
             local_redis_container=$REDIS_CONTAINER
         fi
         unset container_aliases
@@ -99,9 +133,8 @@ resolve_local_redis_password() {
         -h "$redis_unique_host" \
         -p "$redis_port" \
         ping >/dev/null 2>&1; then
-        export REDIS_HOST="$redis_unique_host"
-        export REDIS_URL=
-        echo "Pinned Account to the validated local Redis container; anonymous PING succeeded."
+        pin_local_redis_target "$redis_unique_host"
+        echo "Pinned Account to the validated local Redis container in the protected deployment .env; anonymous PING succeeded."
         return
     fi
 
@@ -145,11 +178,11 @@ resolve_local_redis_password() {
         return 1
     fi
 
+    write_env_value REDIS_PASSWORD "$redis_password"
     export REDIS_PASSWORD="$redis_password"
-    export REDIS_HOST="$redis_unique_host"
-    export REDIS_URL=
+    pin_local_redis_target "$redis_unique_host"
     unset redis_password
-    echo "Pinned Account to the authenticated local Redis container using the validated credential from $credential_source."
+    echo "Pinned Account to the authenticated local Redis container in the protected deployment .env using the validated credential from $credential_source."
 }
 
 rollback() {
