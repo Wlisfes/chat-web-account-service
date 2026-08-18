@@ -57,10 +57,10 @@ write_env_value() {
 }
 
 pin_local_redis_target() {
-    redis_unique_host=$1
-    write_env_value REDIS_HOST "$redis_unique_host"
+    redis_direct_host=$1
+    write_env_value REDIS_HOST "$redis_direct_host"
     write_env_value REDIS_URL ""
-    export REDIS_HOST="$redis_unique_host"
+    export REDIS_HOST="$redis_direct_host"
     export REDIS_URL=
 }
 
@@ -112,11 +112,14 @@ resolve_local_redis_password() {
         local_redis_container=$redis_host
     elif docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
         container_aliases=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{range .Aliases}}{{println .}}{{end}}{{end}}' "$REDIS_CONTAINER")
+        container_ip=$(docker inspect --format "{{with index .NetworkSettings.Networks \"$network\"}}{{.IPAddress}}{{end}}" "$REDIS_CONTAINER")
         if printf '%s\n' "$container_aliases" | grep -Fx -- "$redis_host" >/dev/null 2>&1 ||
-            printf '%s\n' "$redis_host" | grep -Eq '^[0-9a-f]{12}$'; then
+            printf '%s\n' "$redis_host" | grep -Eq '^[0-9a-f]{12}$' ||
+            [ "$redis_host" = "$container_ip" ]; then
             local_redis_container=$REDIS_CONTAINER
         fi
         unset container_aliases
+        unset container_ip
     fi
 
     if [ -z "$local_redis_container" ]; then
@@ -124,16 +127,20 @@ resolve_local_redis_password() {
         return
     fi
 
-    redis_unique_host=$(docker inspect --format '{{.Id}}' "$local_redis_container" | cut -c 1-12)
+    redis_direct_host=$(docker inspect --format "{{with index .NetworkSettings.Networks \"$network\"}}{{.IPAddress}}{{end}}" "$local_redis_container")
+    if ! printf '%s\n' "$redis_direct_host" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
+        echo "The validated local Redis container has no usable IPv4 address on the deployment network." >&2
+        return 1
+    fi
     redis_client_image=$(docker inspect --format '{{.Config.Image}}' "$local_redis_container")
     if docker run --rm \
         --network "$network" \
         --entrypoint redis-cli \
         "$redis_client_image" \
-        -h "$redis_unique_host" \
+        -h "$redis_direct_host" \
         -p "$redis_port" \
         ping >/dev/null 2>&1; then
-        pin_local_redis_target "$redis_unique_host"
+        pin_local_redis_target "$redis_direct_host"
         echo "Pinned Account to the validated local Redis container in the protected deployment .env; anonymous PING succeeded."
         return
     fi
@@ -170,7 +177,7 @@ resolve_local_redis_password() {
         -e REDISCLI_AUTH="$redis_password" \
         --entrypoint redis-cli \
         "$redis_client_image" \
-        -h "$redis_unique_host" \
+        -h "$redis_direct_host" \
         -p "$redis_port" \
         ping >/dev/null 2>&1; then
         unset redis_password
@@ -180,7 +187,7 @@ resolve_local_redis_password() {
 
     write_env_value REDIS_PASSWORD "$redis_password"
     export REDIS_PASSWORD="$redis_password"
-    pin_local_redis_target "$redis_unique_host"
+    pin_local_redis_target "$redis_direct_host"
     unset redis_password
     echo "Pinned Account to the authenticated local Redis container in the protected deployment .env using the validated credential from $credential_source."
 }
