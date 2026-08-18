@@ -20,45 +20,85 @@ jobs:
                   RUNNER_REGISTRATION_TOKEN: ${{ secrets.FINANCE_RUNNER_REGISTRATION_TOKEN }}
               run: |
                   set -eu
-                  runner_dir=/opt/actions-runner-finance-home
-                  deploy_dir=/opt/chat-web-finance-service
-                  runner_version=2.336.0
+                  image=ghcr.io/actions/actions-runner:latest
+                  container=chat-web-finance-runner-home
+                  volume=chat-web-finance-runner-home
+                  token_file="$RUNNER_TEMP/finance-runner-token"
+                  socket_group=$(stat -c '%g' /var/run/docker.sock)
+                  runner_uid=$(id -u)
+                  runner_gid=$(id -g)
+                  test -n "$RUNNER_REGISTRATION_TOKEN" || { echo "Missing FINANCE_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
 
-                  sudo -n true
-                  sudo install -d -o "$USER" -g "$USER" -m 0755 "$runner_dir" "$deploy_dir"
+                  http_proxy_value=${HTTP_PROXY:-${http_proxy:-}}
+                  https_proxy_value=${HTTPS_PROXY:-${https_proxy:-}}
+                  http_proxy_value=${http_proxy_value//127.0.0.1/host.docker.internal}
+                  https_proxy_value=${https_proxy_value//127.0.0.1/host.docker.internal}
 
-                  if [ ! -x "$runner_dir/config.sh" ]; then
-                    curl -fsSL "https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz" |
-                      tar -xz -C "$runner_dir"
-                  fi
+                  umask 077
+                  printf '%s' "$RUNNER_REGISTRATION_TOKEN" > "$token_file"
+                  trap 'rm -f "$token_file"' EXIT
 
-                  cd "$runner_dir"
-                  if [ ! -f .runner ]; then
-                    test -n "$RUNNER_REGISTRATION_TOKEN" || { echo "Missing FINANCE_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
-                    ./config.sh \
-                      --unattended \
-                      --url https://github.com/Wlisfes/chat-web-finance-service \
-                      --token "$RUNNER_REGISTRATION_TOKEN" \
-                      --name chat-server-home-finance \
-                      --labels chat-server-home \
-                      --work _work \
-                      --replace
-                  fi
+                  docker pull "$image"
+                  docker volume create "$volume" >/dev/null
+                  docker run --rm \
+                    --user root \
+                    --add-host host.docker.internal:host-gateway \
+                    --env RUNNER_ALLOW_RUNASROOT=1 \
+                    --env HOST_RUNNER_UID="$runner_uid" \
+                    --env HOST_RUNNER_GID="$runner_gid" \
+                    --env HTTP_PROXY="$http_proxy_value" \
+                    --env HTTPS_PROXY="$https_proxy_value" \
+                    --volume "$volume:/runner-config" \
+                    --volume "$token_file:/run/runner-token:ro" \
+                    "$image" \
+                    bash -lc '
+                      set -eu
+                      if [ ! -x /runner-config/config.sh ]; then
+                        cp -a /home/runner/. /runner-config/
+                      fi
+                      cd /runner-config
+                      if [ ! -f .runner ]; then
+                        ./config.sh \
+                          --unattended \
+                          --url https://github.com/Wlisfes/chat-web-finance-service \
+                          --token "$(cat /run/runner-token)" \
+                          --name chat-server-home-finance \
+                          --labels chat-server-home \
+                          --work _work \
+                          --replace
+                      fi
+                      install -d -m 0755 .docker/cli-plugins
+                      if [ ! -x .docker/cli-plugins/docker-compose ]; then
+                        curl -fsSL https://github.com/docker/compose/releases/download/v2.39.2/docker-compose-linux-x86_64 \
+                          -o .docker/cli-plugins/docker-compose
+                        chmod 0755 .docker/cli-plugins/docker-compose
+                      fi
+                      chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /runner-config
+                    '
 
-                  if [ ! -f .service ]; then
-                    sudo ./svc.sh install "$USER"
-                  fi
+                  docker run --rm --volume /opt:/host-opt alpine:3.22 \
+                    sh -c "mkdir -p /host-opt/chat-web-finance-service && chown $runner_uid:$runner_gid /host-opt/chat-web-finance-service && chmod 0755 /host-opt/chat-web-finance-service"
 
-                  service_name=$(cat .service)
-                  drop_in="/etc/systemd/system/${service_name}.d"
-                  sudo install -d -m 0755 "$drop_in"
-                  printf '%s\n' \
-                    '[Service]' \
-                    "ExecStartPre=/bin/sh -c 'until /usr/local/bin/docker info >/dev/null 2>&1; do sleep 5; done'" \
-                    'Restart=always' \
-                    'RestartSec=10' \
-                    'TimeoutStartSec=0' |
-                    sudo tee "$drop_in/docker-host.conf" >/dev/null
-                  sudo systemctl daemon-reload
-                  sudo ./svc.sh start
-                  sudo systemctl is-active "$service_name"
+                  docker rm -f "$container" >/dev/null 2>&1 || true
+                  docker run -d \
+                    --name "$container" \
+                    --restart unless-stopped \
+                    --user "$runner_uid:$runner_gid" \
+                    --group-add "$socket_group" \
+                    --add-host host.docker.internal:host-gateway \
+                    --env HTTP_PROXY="$http_proxy_value" \
+                    --env HTTPS_PROXY="$https_proxy_value" \
+                    --volume "$volume:/home/runner" \
+                    --volume /var/run/docker.sock:/var/run/docker.sock \
+                    --volume /opt/chat-web-finance-service:/opt/chat-web-finance-service \
+                    --volume /opt/chat-web-account-service:/opt/chat-web-account-service:ro \
+                    "$image" \
+                    bash -lc 'exec ./run.sh'
+
+                  elapsed=0
+                  until docker logs "$container" 2>&1 | grep -q 'Listening for Jobs'; do
+                    test "$elapsed" -lt 120 || { docker logs "$container"; exit 1; }
+                    sleep 3
+                    elapsed=$((elapsed + 3))
+                  done
+                  docker inspect "$container" --format '{{.Name}} {{.State.Status}}'
