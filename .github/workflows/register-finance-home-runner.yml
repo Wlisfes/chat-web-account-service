@@ -81,7 +81,7 @@ jobs:
                   awk -F= '
                     BEGIN {
                       split("JWT_SECRET REDIS_URL REDIS_HOST REDIS_PORT REDIS_DATABASE REDIS_USERNAME REDIS_PASSWORD REDIS_TLS NACOS_SERVER NACOS_NAMESPACE NACOS_CONFIG_GROUP NACOS_USERNAME NACOS_PASSWORD", names, " ")
-                      for (index in names) allowed[names[index]] = 1
+                      for (i in names) allowed[names[i]] = 1
                     }
                     allowed[$1] { print }
                   ' /opt/chat-web-account-service/.env |
