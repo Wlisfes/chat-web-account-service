@@ -35,8 +35,11 @@ resolve_local_redis_password() {
     redis_url=$(read_env_value REDIS_URL)
     redis_password=$(read_env_value REDIS_PASSWORD)
     redis_host=$(read_env_value REDIS_HOST)
+    redis_port=$(read_env_value REDIS_PORT)
+    redis_port=${redis_port:-6379}
 
     if [ -n "$redis_password" ]; then
+        echo "Redis deployment configuration contains an explicit password."
         return
     fi
 
@@ -51,8 +54,20 @@ resolve_local_redis_password() {
                 redis_user_info=${redis_authority%%@*}
                 redis_authority=${redis_authority#*@}
                 case "$redis_user_info" in
-                    *:*) return ;;
+                    *:*)
+                        redis_url_password=${redis_user_info#*:}
+                        if [ -n "$redis_url_password" ]; then
+                            echo "Redis deployment URL already contains authentication information."
+                            return
+                        fi
+                        ;;
                 esac
+                ;;
+        esac
+        case "$redis_authority" in
+            *:*)
+                redis_port=${redis_authority##*:}
+                redis_authority=${redis_authority%:*}
                 ;;
         esac
         redis_host=${redis_authority%%:*}
@@ -71,13 +86,23 @@ resolve_local_redis_password() {
     fi
 
     if [ -z "$local_redis_container" ]; then
-        echo "Redis target $redis_host is not a matching local container; keeping the explicit .env configuration."
+        echo "Redis deployment target does not match a local container; keeping the explicit configuration."
         return
     fi
 
-    if docker exec "$local_redis_container" redis-cli ping >/dev/null 2>&1; then
+    redis_client_image=$(docker inspect --format '{{.Config.Image}}' "$local_redis_container")
+    if docker run --rm \
+        --network "$network" \
+        --entrypoint redis-cli \
+        "$redis_client_image" \
+        -h "$redis_host" \
+        -p "$redis_port" \
+        ping >/dev/null 2>&1; then
+        echo "Redis deployment target accepts anonymous PING from the service network."
         return
     fi
+
+    echo "Redis deployment target requires authentication; resolving a local credential source."
 
     container_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$local_redis_container")
     for key in REDIS_PASSWORD REDIS_PASS REDISCLI_AUTH; do
@@ -104,7 +129,14 @@ resolve_local_redis_password() {
         return 1
     fi
 
-    if ! docker exec -e REDISCLI_AUTH="$redis_password" "$local_redis_container" redis-cli ping >/dev/null 2>&1; then
+    if ! docker run --rm \
+        --network "$network" \
+        -e REDISCLI_AUTH="$redis_password" \
+        --entrypoint redis-cli \
+        "$redis_client_image" \
+        -h "$redis_host" \
+        -p "$redis_port" \
+        ping >/dev/null 2>&1; then
         unset redis_password
         echo "The Redis credential discovered from $credential_source failed validation." >&2
         return 1
