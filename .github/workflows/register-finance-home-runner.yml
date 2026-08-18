@@ -1,0 +1,64 @@
+name: Register Finance Home runner
+
+on:
+    workflow_dispatch:
+
+jobs:
+    register:
+        name: Register repository runner
+        runs-on:
+            - self-hosted
+            - linux
+            - chat-server-home
+        permissions:
+            contents: read
+
+        steps:
+            - name: Install Finance repository runner
+              shell: bash
+              env:
+                  RUNNER_REGISTRATION_TOKEN: ${{ secrets.FINANCE_RUNNER_REGISTRATION_TOKEN }}
+              run: |
+                  set -eu
+                  runner_dir=/opt/actions-runner-finance-home
+                  deploy_dir=/opt/chat-web-finance-service
+                  runner_version=2.336.0
+
+                  sudo -n true
+                  sudo install -d -o "$USER" -g "$USER" -m 0755 "$runner_dir" "$deploy_dir"
+
+                  if [ ! -x "$runner_dir/config.sh" ]; then
+                    curl -fsSL "https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz" |
+                      tar -xz -C "$runner_dir"
+                  fi
+
+                  cd "$runner_dir"
+                  if [ ! -f .runner ]; then
+                    test -n "$RUNNER_REGISTRATION_TOKEN" || { echo "Missing FINANCE_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
+                    ./config.sh \
+                      --unattended \
+                      --url https://github.com/Wlisfes/chat-web-finance-service \
+                      --token "$RUNNER_REGISTRATION_TOKEN" \
+                      --name chat-server-home-finance \
+                      --labels chat-server-home \
+                      --work _work \
+                      --replace
+                  fi
+
+                  if [ ! -f .service ]; then
+                    sudo ./svc.sh install "$USER"
+                  fi
+
+                  service_name=$(cat .service)
+                  drop_in="/etc/systemd/system/${service_name}.d"
+                  sudo install -d -m 0755 "$drop_in"
+                  printf '%s\n' \
+                    '[Service]' \
+                    "ExecStartPre=/bin/sh -c 'until /usr/local/bin/docker info >/dev/null 2>&1; do sleep 5; done'" \
+                    'Restart=always' \
+                    'RestartSec=10' \
+                    'TimeoutStartSec=0' |
+                    sudo tee "$drop_in/docker-host.conf" >/dev/null
+                  sudo systemctl daemon-reload
+                  sudo ./svc.sh start
+                  sudo systemctl is-active "$service_name"
