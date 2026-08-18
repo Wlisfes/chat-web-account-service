@@ -23,7 +23,7 @@ export class AppController {
     async health() {
         const result = await this.healthService.getReadiness()
         if (result.status !== 'UP') {
-            throw new ServiceUnavailableException(result)
+            throw new ServiceUnavailableException({ message: '账号服务尚未就绪', data: result })
         }
         return result
     }
