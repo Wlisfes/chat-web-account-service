@@ -115,12 +115,39 @@ export class UsersService {
         if (query.status) {
             builder.andWhere('user.status = :status', { status: query.status })
         }
+        if (query.organizationKeyIds?.length) {
+            builder.andWhere(
+                `EXISTS (
+                    SELECT 1
+                    FROM tb_account_user_organization filter_user_org
+                    WHERE filter_user_org.user_uid = user.uid
+                      AND filter_user_org.organization_key_id IN (:...filterOrganizationKeyIds)
+                      AND filter_user_org.status = :filterMembershipStatus
+                )`,
+                {
+                    filterOrganizationKeyIds: query.organizationKeyIds,
+                    filterMembershipStatus: TbAccountUserOrganizationStatus.ENABLED
+                }
+            )
+        }
+        if (query.roleKeyId) {
+            builder.andWhere(
+                `EXISTS (
+                    SELECT 1
+                    FROM tb_account_user_role filter_user_role
+                    WHERE filter_user_role.user_uid = user.uid
+                      AND filter_user_role.role_key_id = :filterRoleKeyId
+                )`,
+                { filterRoleKeyId: query.roleKeyId }
+            )
+        }
         builder
             .orderBy('user.keyId', 'DESC')
             .skip((query.page - 1) * query.pageSize)
             .take(query.pageSize)
         const [items, total] = await builder.getManyAndCount()
-        return { items, total, page: query.page, pageSize: query.pageSize }
+        const enrichedItems = await this.enrichUsers(items)
+        return { items: enrichedItems, total, page: query.page, pageSize: query.pageSize }
     }
 
     async findOne(actorUid: string, targetUid: string) {
@@ -130,11 +157,31 @@ export class UsersService {
         if (!user) {
             throw new NotFoundException('账号不存在')
         }
-        const [organizations, roleRelations] = await Promise.all([
+        const [memberships, roleRelations] = await Promise.all([
             this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
             this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: normalizedTargetUid } })
         ])
-        return { ...user, organizations, roleKeyIds: roleRelations.map(item => item.roleKeyId) }
+        const organizationKeyIds = memberships.map(item => item.organizationKeyId)
+        const roleKeyIds = roleRelations.map(item => item.roleKeyId)
+        const [organizations, roles] = await Promise.all([
+            organizationKeyIds.length
+                ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
+                : [],
+            roleKeyIds.length ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : []
+        ])
+        const membershipByOrganization = new Map(memberships.map(item => [item.organizationKeyId, item]))
+        return {
+            ...user,
+            memberships,
+            organizations: organizations.map(organization => ({
+                ...organization,
+                isPrimary: membershipByOrganization.get(organization.keyId)?.isPrimary ?? false,
+                positionName: membershipByOrganization.get(organization.keyId)?.positionName,
+                membershipStatus: membershipByOrganization.get(organization.keyId)?.status
+            })),
+            roleKeyIds,
+            roles
+        }
     }
 
     async replaceOrganizations(actorUid: string, targetUid: string, input: ReplaceUserOrganizationsDto): Promise<void> {
@@ -290,6 +337,52 @@ export class UsersService {
             TbAccountUserRole,
             roleKeyIds.map(roleKeyId => ({ userUid, roleKeyId }))
         )
+    }
+
+    private async enrichUsers(users: TbAccountUser[]) {
+        const userUids = users.map(user => user.uid)
+        if (!userUids.length) {
+            return []
+        }
+        const [memberships, roleRelations] = await Promise.all([
+            this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
+            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: In(userUids) } })
+        ])
+        const organizationKeyIds = [...new Set(memberships.map(item => item.organizationKeyId))]
+        const roleKeyIds = [...new Set(roleRelations.map(item => item.roleKeyId))]
+        const [organizations, roles] = await Promise.all([
+            organizationKeyIds.length
+                ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
+                : [],
+            roleKeyIds.length ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : []
+        ])
+        const organizationByKeyId = new Map<number, TbAccountOrganization>()
+        organizations.forEach(item => organizationByKeyId.set(item.keyId, item))
+        const roleByKeyId = new Map<number, TbAccountRole>()
+        roles.forEach(item => roleByKeyId.set(item.keyId, item))
+        return users.map(user => {
+            const userMemberships = memberships.filter(item => item.userUid === user.uid)
+            const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
+            return {
+                ...user,
+                memberships: userMemberships,
+                organizations: userMemberships
+                    .map(membership => {
+                        const organization = organizationByKeyId.get(membership.organizationKeyId)
+                        return organization
+                            ? {
+                                  ...organization,
+                                  isPrimary: membership.isPrimary,
+                                  positionName: membership.positionName,
+                                  membershipStatus: membership.status
+                              }
+                            : undefined
+                    })
+                    .filter(Boolean),
+                roleKeyIds: userRoleRelations.map(item => item.roleKeyId),
+                roles: userRoleRelations.map(item => roleByKeyId.get(item.roleKeyId)).filter(Boolean)
+            }
+        })
     }
 
     private async assertCanAssignOrganizations(actorUid: string, organizationKeyIds: number[]): Promise<void> {

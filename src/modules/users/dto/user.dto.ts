@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional, PartialType, PickType } from '@nestjs/swagger'
 import {
     TbAccountUserDto,
@@ -33,6 +33,26 @@ export class UserQueryDto extends PageDto {
     @IsOptional()
     @IsEnum(TbAccountUserStatus, { message: '账号状态格式错误' })
     status?: TbAccountUserStatus
+
+    @ApiPropertyOptional({ description: '按组织主键筛选，多个主键使用英文逗号分隔', type: [Number] })
+    @IsOptional()
+    @Transform(({ value }) => {
+        const values = Array.isArray(value) ? value : String(value).split(',')
+        return values.filter(item => String(item).trim()).map(item => Number(item))
+    })
+    @IsArray({ message: '组织主键列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单次最多筛选100个组织' })
+    @ArrayUnique({ message: '组织主键不能重复' })
+    @IsInt({ each: true, message: '组织主键必须是整数' })
+    @Min(1, { each: true, message: '组织主键必须大于0' })
+    organizationKeyIds?: number[]
+
+    @ApiPropertyOptional({ description: '按角色主键筛选', example: 1 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt({ message: '角色主键必须是整数' })
+    @Min(1, { message: '角色主键必须大于0' })
+    roleKeyId?: number
 }
 
 export class UserOrganizationMembershipDto {
@@ -128,6 +148,6 @@ export class ResetUserPasswordDto {
     @ApiProperty({ description: '新密码', example: 'NewPassword2026', writeOnly: true })
     @IsString({ message: '新密码必须是字符串' })
     @IsNotEmpty({ message: '新密码必填' })
-    @Length(8, 128, { message: '新密码长度必须保持8-128位' })
+    @Length(6, 32, { message: '新密码长度必须保持6-32位' })
     password: string
 }
