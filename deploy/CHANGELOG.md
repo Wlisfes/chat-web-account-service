@@ -4,6 +4,28 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-18：GHCR 镜像拉取重试增强
+
+- 影响范围：Company、Home 账号服务自动部署；重点处理 Company 到 GHCR/容器 Blob 存储链路的间歇性 EOF。
+- 关联版本：账号管理查询兼容版本 `25caaf614fede9b965c251aa2f9a458a0745b34a` 的后续部署可靠性提交。
+- 变更内容：部署脚本默认镜像拉取次数从 3 次提高到 8 次，继续使用逐次增加 5 秒的退避间隔；拉取完成前不会切换现有容器，因此网络失败不会影响当前健康版本。
+- 机器侧操作：无需修改 `.env`；重新执行 `Build and deploy`，Runner 会覆盖安装新版部署脚本并继续拉取同一提交 SHA 对应镜像。
+
+### 验证
+
+```bash
+sh -n deploy/deploy.sh
+docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3000/health
+```
+
+预期网络短暂 EOF 时会继续重试，成功后容器镜像切换到目标 SHA 且状态为 `healthy`。
+
+### 回滚
+
+- 将 `PULL_ATTEMPTS` 默认值恢复为 3，或在机器侧临时设置 `PULL_ATTEMPTS=3`；不涉及数据库、Redis、Nacos 或业务数据回滚。
+- 若全部重试仍失败，保持当前健康容器不变，待 GHCR 链路恢复后重新执行流水线。
+
 ## 2026-08-18：同机 Redis 认证自动传递
 
 - 影响范围：Company、Home 账号服务自动部署；重点修复 Home Redis 已启用密码、Account `.env` 未同步密码时的新镜像健康检查失败。
