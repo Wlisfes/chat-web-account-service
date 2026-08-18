@@ -8,6 +8,7 @@ const { PasswordService } = require('../dist/modules/auth/password.service')
 const { TokenService } = require('../dist/modules/auth/token.service')
 const { AuthSessionService } = require('../dist/modules/auth/auth-session.service')
 const { CaptchaService } = require('../dist/modules/auth/captcha.service')
+const { RedisService } = require('../dist/modules/redis/redis.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
@@ -149,6 +150,21 @@ test('图形验证码忽略大小写且只能使用一次', async () => {
     assert.match(captcha.svg, /^<svg/)
     await service.verify(captcha.sid, expected.toLowerCase())
     await assert.rejects(() => service.verify(captcha.sid, expected), /验证码错误或已过期/)
+})
+
+test('无认证信息的 REDIS_URL 会合并显式 Redis 用户名和密码', () => {
+    const service = new RedisService(
+        config({
+            REDIS_URL: 'redis://chat-web-redis:6379/2',
+            REDIS_USERNAME: 'default',
+            REDIS_PASSWORD: 'p@ss/word'
+        })
+    )
+    const resolved = new URL(service.getConnectionUrl())
+    assert.equal(resolved.hostname, 'chat-web-redis')
+    assert.equal(resolved.pathname, '/2')
+    assert.equal(resolved.username, 'default')
+    assert.equal(resolved.password, 'p%40ss%2Fword')
 })
 
 test('旧平台迁移映射状态并按父子依赖排序', () => {

@@ -35,22 +35,51 @@ resolve_local_redis_password() {
     redis_url=$(read_env_value REDIS_URL)
     redis_password=$(read_env_value REDIS_PASSWORD)
     redis_host=$(read_env_value REDIS_HOST)
+
+    if [ -n "$redis_password" ]; then
+        return
+    fi
+
+    if [ -n "$redis_url" ]; then
+        redis_authority=${redis_url#*://}
+        if [ "$redis_authority" = "$redis_url" ]; then
+            return
+        fi
+        redis_authority=${redis_authority%%/*}
+        case "$redis_authority" in
+            *@*)
+                redis_user_info=${redis_authority%%@*}
+                redis_authority=${redis_authority#*@}
+                case "$redis_user_info" in
+                    *:*) return ;;
+                esac
+                ;;
+        esac
+        redis_host=${redis_authority%%:*}
+    fi
     redis_host=${redis_host:-$REDIS_CONTAINER}
 
-    if [ -n "$redis_url" ] || [ -n "$redis_password" ] || [ "$redis_host" != "$REDIS_CONTAINER" ]; then
+    local_redis_container=
+    if docker inspect "$redis_host" >/dev/null 2>&1; then
+        local_redis_container=$redis_host
+    elif docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
+        container_aliases=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{range .Aliases}}{{println .}}{{end}}{{end}}' "$REDIS_CONTAINER")
+        if printf '%s\n' "$container_aliases" | grep -Fx -- "$redis_host" >/dev/null 2>&1; then
+            local_redis_container=$REDIS_CONTAINER
+        fi
+        unset container_aliases
+    fi
+
+    if [ -z "$local_redis_container" ]; then
+        echo "Redis target $redis_host is not a matching local container; keeping the explicit .env configuration."
         return
     fi
 
-    if ! docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
-        echo "Local Redis container $REDIS_CONTAINER was not found; keeping the explicit .env configuration." >&2
+    if docker exec "$local_redis_container" redis-cli ping >/dev/null 2>&1; then
         return
     fi
 
-    if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
-        return
-    fi
-
-    container_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$REDIS_CONTAINER")
+    container_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$local_redis_container")
     for key in REDIS_PASSWORD REDIS_PASS REDISCLI_AUTH; do
         redis_password=$(printf '%s\n' "$container_environment" | sed -n "s/^${key}=//p" | tail -n 1)
         if [ -n "$redis_password" ]; then
@@ -61,7 +90,7 @@ resolve_local_redis_password() {
     unset container_environment
 
     if [ -z "$redis_password" ]; then
-        container_command=$(docker inspect --format '{{range .Config.Cmd}}{{println .}}{{end}}' "$REDIS_CONTAINER")
+        container_command=$(docker inspect --format '{{range .Config.Cmd}}{{println .}}{{end}}' "$local_redis_container")
         redis_password=$(printf '%s\n' "$container_command" | awk 'previous == "--requirepass" { print; exit } { previous = $0 }')
         unset container_command
         if [ -n "$redis_password" ]; then
@@ -71,11 +100,11 @@ resolve_local_redis_password() {
 
     if [ -z "$redis_password" ]; then
         echo "Redis requires authentication, but no explicit Account credential or supported local container credential source was found." >&2
-        echo "Set REDIS_URL/REDIS_PASSWORD in the deployment .env, or expose REDIS_PASSWORD, REDIS_PASS, REDISCLI_AUTH, or a separate --requirepass argument on $REDIS_CONTAINER." >&2
+        echo "Set authenticated REDIS_URL/REDIS_PASSWORD in the deployment .env, or expose REDIS_PASSWORD, REDIS_PASS, REDISCLI_AUTH, or a separate --requirepass argument on $local_redis_container." >&2
         return 1
     fi
 
-    if ! docker exec -e REDISCLI_AUTH="$redis_password" "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+    if ! docker exec -e REDISCLI_AUTH="$redis_password" "$local_redis_container" redis-cli ping >/dev/null 2>&1; then
         unset redis_password
         echo "The Redis credential discovered from $credential_source failed validation." >&2
         return 1

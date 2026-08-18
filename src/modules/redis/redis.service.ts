@@ -66,6 +66,15 @@ export class RedisService implements OnApplicationBootstrap, OnApplicationShutdo
             if (!['redis:', 'rediss:'].includes(url.protocol)) {
                 throw new Error('REDIS_URL 必须使用 redis:// 或 rediss://')
             }
+            const password = this.configService.get<string>('REDIS_PASSWORD')
+            if (!url.password && password) {
+                const username = this.configService.get<string>('REDIS_USERNAME')?.trim()
+                if (username && !url.username) {
+                    url.username = username
+                }
+                url.password = password
+                return url.toString()
+            }
             return configuredUrl
         }
 
