@@ -4,7 +4,7 @@
 
 - 影响机器：Home。
 - 关联版本：Account Runner 安装工作流本次修复提交；Finance 镜像 `1362bda26d2e42d4c00577c05c12ffa5f73a3741`。
-- 变更内容：Runner 启动阶段先读取 `chat-web-finance-runner-home` 容器状态；容器已运行时保留现有 GitHub 会话，只执行前置的配置同步与卷权限维护，不再强制删除重建。容器缺失、停止或退出时仍按原流程重建并验证，避免维护重跑触发短暂的 GitHub `session already exists` 冲突。
+- 变更内容：Runner 启动阶段先读取 `chat-web-finance-runner-home` 容器状态；容器已运行时保留现有 GitHub 会话，只执行前置的配置同步与卷权限维护，不再强制删除重建，并通过步骤输出让验证阶段直接确认容器仍为 `running`。容器缺失、停止或退出时仍按原流程重建并等待 `Listening for Jobs`，避免维护重跑触发短暂的 GitHub `session already exists` 冲突或误等历史启动日志。
 - 机器侧操作：无需修改 Secret、`.env`、Nacos、端口或网络；合并后可直接运行 `Register Finance Home runner` 验证幂等维护。
 - 验证命令：重复运行注册工作流应全部成功；日志显示 Runner 容器已运行，Finance 仓库 Runner 状态保持 `online`；随后 `docker inspect chat-web-finance-service --format '{{.Config.Image}} {{.State.Health.Status}}'` 仍返回目标 SHA 和 `healthy`。
 - 回滚方法：回滚本次工作流提交即可恢复强制重建行为；不涉及服务容器、数据库或持久卷数据回滚。
