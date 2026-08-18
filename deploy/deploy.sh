@@ -139,9 +139,10 @@ resolve_local_redis_password() {
         "$redis_client_image" \
         -h "$redis_direct_host" \
         -p "$redis_port" \
+        -3 \
         ping >/dev/null 2>&1; then
         pin_local_redis_target "$redis_direct_host"
-        echo "Pinned Account to the validated local Redis container in the protected deployment .env; anonymous PING succeeded."
+        echo "Pinned Account to the validated local Redis container in the protected deployment .env; anonymous RESP3 PING succeeded."
         return
     fi
 
@@ -179,6 +180,7 @@ resolve_local_redis_password() {
         "$redis_client_image" \
         -h "$redis_direct_host" \
         -p "$redis_port" \
+        -3 \
         ping >/dev/null 2>&1; then
         unset redis_password
         echo "The Redis credential discovered from $credential_source failed validation." >&2

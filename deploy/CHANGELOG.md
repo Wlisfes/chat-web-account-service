@@ -8,7 +8,7 @@
 
 - 影响范围：Company、Home 账号服务自动部署；重点修复 Home Redis 已启用密码、Account `.env` 未同步密码时的新镜像健康检查失败。
 - 关联版本：账号服务本次 Redis 部署兼容提交；`@wlisfes/chat-web-base-schema@1.0.6`。
-- 变更内容：容器显式环境变量改为优先于同名 Nacos 远端键，空环境值也表示明确覆盖；Nacos 启动日志只记录键名。已带密码的 `REDIS_URL` 保持优先；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时由应用合并认证信息。仅当 Redis 目标能匹配同机容器名称、旧短 ID、当前容器地址或网络别名、Account 未显式配置密码时，部署脚本才使用目标容器在账号服务 Docker 网络上的当前 IPv4 地址执行 `PING`，完全绕过重复网络别名和客户端 DNS 差异。验证通过后，脚本以 `0600` 权限原子更新机器侧 `.env` 的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`；Redis 重建后的下次部署会自动刷新地址。要求认证时，从 Redis 容器环境键或独立 `--requirepass` 参数读取密码，验证后同样只写入受保护的机器侧 `.env`。各分支只记录不含地址和密码的判定结果；地址值和密码不写入日志或 GitHub，密码也不写入仓库或最终镜像。远程 Redis、ACL 文件和自定义配置文件保持显式配置模式。
+- 变更内容：容器显式环境变量改为优先于同名 Nacos 远端键，空环境值也表示明确覆盖；Nacos 启动日志只记录键名。已带密码的 `REDIS_URL` 保持优先；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时由应用合并认证信息。仅当 Redis 目标能匹配同机容器名称、旧短 ID、当前容器地址或网络别名、Account 未显式配置密码时，部署脚本才使用目标容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，与 Node Redis 6 的 `HELLO 3` 握手一致，避免 RESP2 PING 可用但 HELLO 要求认证的假阳性，并绕过重复网络别名和客户端 DNS 差异。验证通过后，脚本以 `0600` 权限原子更新机器侧 `.env` 的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`；Redis 重建后的下次部署会自动刷新地址。要求认证时，从 Redis 容器环境键或独立 `--requirepass` 参数读取密码，使用 RESP3 验证后同样只写入受保护的机器侧 `.env`。各分支只记录不含地址和密码的判定结果；地址值和密码不写入日志或 GitHub，密码也不写入仓库或最终镜像。远程 Redis、ACL 文件和自定义配置文件保持显式配置模式。
 - 机器侧操作：无需人工复制现有同机 Redis 密码；重新执行 `Build and deploy`，脚本会自动维护 `/opt/chat-web-account-service/.env` 中的本机 Redis 路由和认证信息。若部署日志报告未找到受支持的凭据来源，应在机器侧安全配置该文件，不得把密码写入 Actions 命令、文档或提交。
 
 ### 验证
@@ -20,7 +20,7 @@ docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Hea
 curl -fsS http://127.0.0.1:3000/health
 ```
 
-无密码 Redis 预期匿名 `PING` 返回 `PONG`；有密码 Redis 预期匿名检查失败但部署日志显示本地凭据验证成功，最终容器为 `healthy`，`/health` 中 `redis.connected` 为 `true`。Home 将健康检查端口改为 `3001`。
+无密码 Redis 预期匿名 RESP3 `PING` 返回 `PONG`；要求认证的 Redis 预期匿名 RESP3 检查失败但部署日志显示本地凭据验证成功，最终容器为 `healthy`，`/health` 中 `redis.connected` 为 `true`。Home 将健康检查端口改为 `3001`。
 
 ### 回滚
 
