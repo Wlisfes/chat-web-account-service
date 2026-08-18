@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common'
-import { APP_GUARD } from '@nestjs/core'
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
 import { DatabaseModule } from '@/modules/database/database.module'
+import { HttpExceptionFilter } from '@/common/http-exception.filter'
+import { HttpResponseInterceptor } from '@/common/http-response.interceptor'
 import { NacosModule } from '@/modules/nacos/nacos.module'
+import { RedisModule } from '@/modules/redis/redis.module'
 import { AuthModule } from '@/modules/auth/auth.module'
 import { JwtAuthGuard } from '@/modules/auth/jwt-auth.guard'
 import { MenusModule } from '@/modules/menus/menus.module'
@@ -19,6 +22,7 @@ import { AppService } from '@/app.service'
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         NacosModule.forRoot(),
+        RedisModule,
         DatabaseModule,
         AuthModule,
         HealthModule,
@@ -29,6 +33,12 @@ import { AppService } from '@/app.service'
         UsersModule
     ],
     controllers: [AppController],
-    providers: [AppService, { provide: APP_GUARD, useExisting: JwtAuthGuard }, { provide: APP_GUARD, useExisting: PermissionGuard }]
+    providers: [
+        AppService,
+        { provide: APP_GUARD, useExisting: JwtAuthGuard },
+        { provide: APP_GUARD, useExisting: PermissionGuard },
+        { provide: APP_INTERCEPTOR, useClass: HttpResponseInterceptor },
+        { provide: APP_FILTER, useClass: HttpExceptionFilter }
+    ]
 })
 export class AppModule {}

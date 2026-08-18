@@ -10,6 +10,7 @@
         "schema:update": "yarn upgrade @wlisfes/chat-web-base-schema --latest",
         "build": "nest build",
         "password:hash": "yarn build && node scripts/hash-password.cjs",
+        "legacy:migrate": "node dist/cli/migrate-legacy-platform.js",
         "test": "yarn build && node --test test/*.test.cjs",
         "start": "nest start",
         "dev": "nest start --watch",
@@ -31,8 +32,10 @@
         "js-yaml": "^4.1.0",
         "mysql2": "3.23.3",
         "nacos": "^2.6.0",
+        "redis": "6.2.1",
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
+        "svg-captcha": "1.4.0",
         "typeorm": "0.3.31"
     },
     "devDependencies": {

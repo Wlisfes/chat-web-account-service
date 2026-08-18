@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
+import { RedisService } from '@/modules/redis/redis.service'
 
 type TableRow = {
     tableName: string
@@ -11,7 +12,8 @@ type TableRow = {
 export class HealthService {
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
-        private readonly configService: ConfigService
+        private readonly configService: ConfigService,
+        private readonly redisService: RedisService
     ) {}
 
     getLiveness() {
@@ -22,6 +24,8 @@ export class HealthService {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
         const jwtSecret = this.configService.get<string>('JWT_SECRET') || this.configService.get<string>('security.jwt.secret')
         const jwtConfigured = typeof jwtSecret === 'string' && jwtSecret.length >= 32
+        let database: Record<string, unknown>
+        let databaseReady = false
         try {
             const placeholders = requiredTables.map(() => '?').join(', ')
             const rows = (await this.dataSource.query(
@@ -33,26 +37,34 @@ export class HealthService {
             )) as TableRow[]
             const existingTables = new Set(rows.map(row => row.tableName))
             const missingTables = requiredTables.filter(tableName => !existingTables.has(tableName))
-            return {
-                status: missingTables.length || !jwtConfigured ? 'DOWN' : 'UP',
-                database: {
-                    connected: this.dataSource.isInitialized,
-                    requiredTableCount: requiredTables.length,
-                    missingTables
-                },
-                security: { jwtConfigured },
-                timestamp: new Date().toISOString()
+            databaseReady = this.dataSource.isInitialized && !missingTables.length
+            database = {
+                connected: this.dataSource.isInitialized,
+                requiredTableCount: requiredTables.length,
+                missingTables
             }
         } catch (error) {
-            return {
-                status: 'DOWN',
-                database: {
-                    connected: false,
-                    error: error instanceof Error ? error.message : String(error)
-                },
-                security: { jwtConfigured },
-                timestamp: new Date().toISOString()
+            database = {
+                connected: false,
+                error: error instanceof Error ? error.message : String(error)
             }
+        }
+
+        let redis: Record<string, unknown>
+        let redisReady = false
+        try {
+            redisReady = await this.redisService.ping()
+            redis = { connected: redisReady }
+        } catch (error) {
+            redis = { connected: false, error: error instanceof Error ? error.message : String(error) }
+        }
+
+        return {
+            status: databaseReady && redisReady && jwtConfigured ? 'UP' : 'DOWN',
+            database,
+            redis,
+            security: { jwtConfigured },
+            timestamp: new Date().toISOString()
         }
     }
 }

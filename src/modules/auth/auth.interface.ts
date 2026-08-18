@@ -2,6 +2,7 @@ import type { Request } from 'express'
 
 export interface AuthPrincipal {
     uid: string
+    sessionId: string
 }
 
 export type AuthenticatedRequest = Request & {

@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountUser, TbAccountUserEmploymentStatus, TbAccountUserStatus } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Repository } from 'typeorm'
 import { AuthPrincipal } from '@/modules/auth/auth.interface'
+import { AuthSessionService } from '@/modules/auth/auth-session.service'
+import { CaptchaService } from '@/modules/auth/captcha.service'
 import { LoginDto } from '@/modules/auth/dto/login.dto'
 import { PasswordService } from '@/modules/auth/password.service'
 import { TokenService } from '@/modules/auth/token.service'
@@ -12,10 +14,13 @@ export class AuthService {
     constructor(
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
         private readonly passwordService: PasswordService,
-        private readonly tokenService: TokenService
+        private readonly tokenService: TokenService,
+        private readonly sessionService: AuthSessionService,
+        private readonly captchaService: CaptchaService
     ) {}
 
-    async login(input: LoginDto) {
+    async login(input: LoginDto, captchaSid?: string) {
+        await this.captchaService.verify(captchaSid, input.code)
         const account = input.account.trim()
         const user = await this.userRepository
             .createQueryBuilder('user')
@@ -29,7 +34,9 @@ export class AuthService {
         this.assertActiveUser(user)
 
         await this.userRepository.update({ uid: user.uid }, { lastLoginTime: new Date() })
-        const token = this.tokenService.issueAccessToken(user.uid)
+        const issued = this.tokenService.issueAccessToken(user.uid)
+        await this.sessionService.create(issued.claims)
+        const { claims: _claims, ...token } = issued
         return {
             ...token,
             user: {
@@ -43,12 +50,33 @@ export class AuthService {
 
     async authenticateToken(token: string): Promise<AuthPrincipal> {
         const claims = this.tokenService.verifyAccessToken(token)
+        await this.sessionService.assertActive(claims)
         const user = await this.userRepository.findOne({ where: { uid: claims.sub } })
         if (!user) {
             throw new UnauthorizedException('账号不存在')
         }
         this.assertActiveUser(user)
-        return { uid: user.uid }
+        return { uid: user.uid, sessionId: claims.jti }
+    }
+
+    async refresh(principal: AuthPrincipal) {
+        const issued = this.tokenService.issueAccessToken(principal.uid)
+        await this.sessionService.rotate(principal.sessionId, issued.claims)
+        const { claims: _claims, ...token } = issued
+        return token
+    }
+
+    async logout(principal: AuthPrincipal): Promise<void> {
+        await this.sessionService.revoke(principal.sessionId)
+    }
+
+    async getCurrentUser(principal: AuthPrincipal) {
+        const user = await this.userRepository.findOne({ where: { uid: principal.uid } })
+        if (!user) {
+            throw new UnauthorizedException('账号不存在')
+        }
+        this.assertActiveUser(user)
+        return user
     }
 
     private assertActiveUser(user: TbAccountUser): void {

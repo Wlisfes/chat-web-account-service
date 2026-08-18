@@ -12,7 +12,7 @@ type JwtHeader = {
 export class TokenService {
     constructor(private readonly configService: ConfigService) {}
 
-    issueAccessToken(userUid: string): { accessToken: string; tokenType: 'Bearer'; expiresIn: number } {
+    issueAccessToken(userUid: string): { accessToken: string; tokenType: 'Bearer'; expiresIn: number; claims: AccessTokenClaims } {
         const now = Math.floor(Date.now() / 1000)
         const expiresIn = this.getTtlSeconds()
         const header: JwtHeader = { alg: 'HS256', typ: 'JWT' }
@@ -28,7 +28,7 @@ export class TokenService {
         const encodedClaims = this.encodeJson(claims)
         const signingInput = `${encodedHeader}.${encodedClaims}`
         const signature = this.sign(signingInput)
-        return { accessToken: `${signingInput}.${signature}`, tokenType: 'Bearer', expiresIn }
+        return { accessToken: `${signingInput}.${signature}`, tokenType: 'Bearer', expiresIn, claims }
     }
 
     verifyAccessToken(token: string): AccessTokenClaims {

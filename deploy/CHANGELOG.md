@@ -4,6 +4,91 @@
 
 新增记录必须包含：影响范围、关联版本、变更内容、机器侧操作、验证方式和回滚方式。最新记录放在最前面。
 
+## 2026-08-18：旧平台账号、组织、角色和菜单数据迁移工具
+
+- 影响范围：Company 账号数据库；Home 不导入 Company 业务数据。
+- 关联版本：账号服务本次旧平台迁移提交；源转储 SHA-256 `5CBA81FE63CF4BF78E5ABD36AE1ACF11C8ED71FD5D207DA0CCCA83FDF3543E50`。
+- 容器与端口：服务端口不变；迁移 CLI 在账号服务构建产物 `dist/cli` 中运行。
+- Nacos 与网络：沿用 `database.chat-web-account`；旧数据先进入同一 MySQL 实例的独立 staging 库。
+
+### 变更内容
+
+- 新增默认回滚、显式 `--apply` 才提交的旧平台数据迁移 CLI。
+- 旧用户 UID 保留，其他旧 19 位业务 ID 只用于建立自增 `key_id` 映射，不写入目标主键。
+- 旧 bcrypt 密码统一改为不可登录的随机重置标记；初始超级管理员使用单独生成的 `scrypt-v1` 哈希。
+- 部门角色映射为对应组织及其子组织的 `CUSTOM` 数据范围；双部门用户保留两条组织和角色关系，并确定一个主组织。
+- 旧菜单路径映射到当前管理端路由，未实现页面默认隐藏；补齐账号、组织、角色和菜单管理接口所需权限码。
+- 一个重复邮箱按旧记录顺序保留首条，其余置空，避免目标唯一索引冲突。
+
+### 机器侧操作
+
+1. 在 Company 备份当前账号库，并确认备份文件可读。
+2. 把旧转储导入独立 staging 库，先运行默认 dry-run 并核对汇总数量。
+3. 通过安全渠道指定旧工号和离线生成的初始管理员密码哈希，再使用 `--apply` 提交。
+4. 验证完成后删除 staging 库；禁止在文档、Actions 或完整 `.env` 中保存初始密码和密码哈希。
+
+### 验证
+
+```bash
+LEGACY_MYSQL_DATABASE=legacy_platform_20260818 yarn legacy:migrate
+curl -fsS http://127.0.0.1:3000/health
+docker logs --tail 100 chat-web-account-service
+```
+
+本次源数据干跑预期：491 用户、53 组织、178 组织闭包、53 角色、52 数据范围、3 用户组织关系、4 用户角色关系、29 菜单/权限节点。dry-run 后目标库仍应保持 0 用户、0 组织、0 菜单和 1 个内置角色。
+
+### Company 实际执行结果
+
+- 2026-08-18 已在 Company 当前账号库完成迁移；执行时短暂停止 `chat-web-account-service`，事务提交后恢复原容器。正式容器仍使用镜像 `ghcr.io/wlisfes/chat-web-account-service:1bba9dd1af3f9d2eb8a950360260906f366660e0`，状态为 `healthy`。
+- 迁移前备份位于 `C:\Users\Administrator\Downloads\chat-web-account-before-legacy-import-20260818-094538.sql`，大小 21871 bytes，SHA-256 为 `6105F6854449AE51FDB58F4C551DA9C7FACFCA6304A3DE91D7AA5BF3F077217C`。
+- 初始管理员按旧工号 `1233` 唯一匹配并授予 `super_admin`；临时密码及其哈希未写入仓库、文档或命令输出。
+- 提交后核对结果：491 用户、53 组织、178 组织闭包、53 角色、52 数据范围及组织授权、3 用户组织关系、4 用户角色关系、29 菜单/权限节点；490 个账号处于密码待重置状态，1 个账号使用 `scrypt-v1`，`account:*` 权限码 19 个，关联孤儿总数为 0。
+- 使用当前本地构建产物在 `127.0.0.1:3001` 启动一次性验证容器，并关闭 Nacos 服务注册。验证码 Cookie 与 Redis、`1233` 登录、`permissions/me.superAdmin`、退出登录及旧 Token 返回 HTTP 401 均验证通过；验证容器随后已删除。
+- 迁移验证通过后已删除 staging 库 `legacy_platform_20260818`；源压缩包和迁移前目标库备份保留在机器侧。
+
+### 回滚
+
+- dry-run 始终回滚，无需数据回滚。
+- 正式提交后若验证失败，停止账号服务写入，删除或重建目标账号库并恢复迁移前备份。
+- 不要把旧转储直接恢复到目标库；旧转储包含 `DROP TABLE tb_system_*`，只允许用于 staging。
+
+## 2026-08-18：登录授权接入 Redis 会话与验证码
+
+- 影响范围：Company、Home。
+- 关联版本：账号服务本次登录授权提交；前端 `chat-web-base-manager` 对接版本。
+- 容器与端口：账号服务端口保持 `3000`；新增依赖基础设施容器 `chat-web-redis:6379`。
+- Nacos 与网络：Nacos 路由不变；Account 与 Redis 必须同时加入 `chat-web-infrastructure`。
+
+### 变更内容
+
+- Redis 用于3分钟图形验证码和可撤销 JWT 登录会话，Token 续期时原会话会被轮换删除，主动退出会立即撤销会话。
+- 新增 `/auth/captcha`、`/auth/refresh`、`/auth/logout`；`/auth/me` 返回完整当前用户信息。
+- HTTP JSON 响应兼容管理端原有 `{ data, code, message, timestamp }` 格式，同时保留真实 HTTP 错误状态。
+- `/health` 新增 Redis `PING` 就绪检查；Redis 不可用时容器不会进入健康状态。
+
+### 机器侧操作
+
+1. 确认每台机器的 `chat-web-redis` 正常运行并加入 `chat-web-infrastructure`。
+2. 无密码的现有基础设施不需修改 `.env`；启用 ACL、密码或 TLS 时设置对应 `REDIS_USERNAME`、`REDIS_PASSWORD` 或 `REDIS_URL`。
+3. 不要在 Git、Actions 日志或文档中记录真实 Redis 密码和完整连接串。
+
+### 验证
+
+```bash
+docker exec chat-web-redis redis-cli ping
+docker inspect chat-web-account-service --format '{{.State.Health.Status}}'
+curl -fsS http://127.0.0.1:3000/health
+curl -I http://127.0.0.1:3000/auth/captcha
+```
+
+正常结果：Redis 返回 `PONG`，容器为 `healthy`，健康检查响应中的 `redis.connected` 为 `true`，验证码接口返回 SVG。
+
+### 回滚
+
+- 回滚到上一条账号服务镜像，并恢复部署前的 compose 和 `.env`；数据库 Schema 不需要回滚。
+- 旧镜像不会读取 Redis 会话键，可保留等待 TTL 自动过期，或仅删除 `chat-web:account:session:*` 和 `chat-web:account:captcha:*` 前缀键。
+- 不要清空 Redis 中其他服务的数据。
+
 ## 2026-08-17：本地 Docker 数据库初始化与配置示例说明
 
 - 影响范围：Home；文档同步覆盖 Company。
