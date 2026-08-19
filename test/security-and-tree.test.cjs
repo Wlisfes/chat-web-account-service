@@ -55,10 +55,20 @@ function fakeRedis() {
     }
 }
 
-test('账号鉴权内省只返回守卫已验证的身份主体', () => {
-    const controller = new AuthController({}, {})
+test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
     const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
-    assert.equal(controller.introspect(principal), principal)
+    const controller = new AuthController(
+        {
+            async authenticateToken(token) {
+                assert.equal(token, 'account-token')
+                return principal
+            }
+        },
+        {}
+    )
+    const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
+    assert.equal(await controller.introspect(request), principal)
+    assert.throws(() => controller.introspect({ header: () => undefined }), /缺少 Bearer/)
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
