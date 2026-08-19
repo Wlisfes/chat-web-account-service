@@ -1,7 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { BadRequestException, Injectable } from '@nestjs/common'
+import { RedisService } from '@wlisfes/chat-web-base-schema/redis'
 import { create } from 'svg-captcha'
-import { RedisService } from '@/modules/redis/redis.service'
 
 export const AUTH_CAPTCHA_COOKIE = 'chat-web-account-captcha'
 

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { CurrentPrincipal, RequirePermissions } from '@/modules/auth/auth.decorator'
-import type { AuthPrincipal } from '@/modules/auth/auth.interface'
+import { CurrentPrincipal, RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import {
     CreateUserDto,
     ReplaceUserOrganizationsDto,

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { RequirePermissions } from '@/modules/auth/auth.decorator'
+import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organizations/dto/organization.dto'
 import { OrganizationsService } from '@/modules/organizations/organizations.service'
 

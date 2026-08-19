@@ -5,11 +5,10 @@ const { BadRequestException } = require('@nestjs/common')
 const { buildTree, assertValidTree } = require('../dist/common/tree')
 const { generateUid } = require('../dist/common/uid')
 const { PasswordService } = require('../dist/modules/auth/password.service')
-const { TokenService } = require('../dist/modules/auth/token.service')
-const { AuthSessionService } = require('../dist/modules/auth/auth-session.service')
+const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-schema/auth')
+const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
+const { RedisService } = require('@wlisfes/chat-web-base-schema/redis')
 const { CaptchaService } = require('../dist/modules/auth/captcha.service')
-const { RedisService } = require('../dist/modules/redis/redis.service')
-const { NacosService } = require('../dist/modules/nacos/nacos.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { HealthService } = require('../dist/modules/health/health.service')
@@ -182,7 +181,7 @@ test('Nacos 远端配置不会覆盖显式环境变量', () => {
     }
 
     try {
-        const service = new NacosService(configService, {})
+        const service = new NacosService(configService, { serviceName: 'chat-web-account-service', defaultPort: 3000 })
         service.applyRemoteConfig(
             'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
             '已加载',
@@ -220,14 +219,17 @@ test('旧平台迁移映射状态并按父子依赖排序', () => {
 test('财务菜单种子覆盖现有前端路由并按父级在前排序', () => {
     const paths = FINANCE_MENU_SEEDS.map(item => item.path)
     assert.equal(new Set(paths).size, paths.length)
-    assert.deepEqual(paths.filter(path => path.split('/').length === 4), [
-        '/finance/deploy/brand',
-        '/finance/deploy/currency',
-        '/finance/deploy/exchange',
-        '/finance/deploy/country',
-        '/finance/account/consumer',
-        '/finance/rates/sms'
-    ])
+    assert.deepEqual(
+        paths.filter(path => path.split('/').length === 4),
+        [
+            '/finance/deploy/brand',
+            '/finance/deploy/currency',
+            '/finance/deploy/exchange',
+            '/finance/deploy/country',
+            '/finance/account/consumer',
+            '/finance/rates/sms'
+        ]
+    )
     for (const item of FINANCE_MENU_SEEDS) {
         if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
     }

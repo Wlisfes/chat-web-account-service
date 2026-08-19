@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { CurrentPrincipal } from '@/modules/auth/auth.decorator'
-import type { AuthPrincipal } from '@/modules/auth/auth.interface'
+import { CurrentPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { PermissionsService } from '@/modules/permissions/permissions.service'
 
 @ApiTags('当前用户权限')

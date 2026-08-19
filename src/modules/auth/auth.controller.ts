@@ -1,9 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { CurrentPrincipal, Public } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import type { Request, Response } from 'express'
 import { AuthService } from '@/modules/auth/auth.service'
-import { CurrentPrincipal, Public } from '@/modules/auth/auth.decorator'
-import type { AuthPrincipal } from '@/modules/auth/auth.interface'
 import { AUTH_CAPTCHA_COOKIE, CaptchaService } from '@/modules/auth/captcha.service'
 import { LoginDto } from '@/modules/auth/dto/login.dto'
 

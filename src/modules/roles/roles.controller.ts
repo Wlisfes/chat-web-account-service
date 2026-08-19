@@ -1,8 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { RequirePermissions } from '@/modules/auth/auth.decorator'
-import { CurrentPrincipal } from '@/modules/auth/auth.decorator'
-import type { AuthPrincipal } from '@/modules/auth/auth.interface'
+import { CurrentPrincipal, RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { CreateRoleDto, ReplaceRoleDataScopesDto, ReplaceRoleMenusDto, UpdateRoleDto } from '@/modules/roles/dto/role.dto'
 import { RolesService } from '@/modules/roles/roles.service'
 
