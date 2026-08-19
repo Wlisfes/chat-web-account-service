@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-19：服务数据边界与内部鉴权接口
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.2`；Account 本次完整 Git SHA 镜像。
+- 变更内容：新增受全局 Bearer Guard 保护并保留真实协议状态的 `/auth/introspect`，供其他服务通过强类型 HTTP 客户端获取 `AuthPrincipal`；Account 继续独占 Redis index `0`。部署在 Schema 升级前幂等轮换 Account/Finance 旧全局账号为随机专用凭据并更新各自 Nacos，随后授权检查只允许 `USAGE ON *.*` 和本服务数据库权限，拒绝全局、跨库和角色权限。
+- 机器侧操作：在两台机器使用 Account 数据库账号执行 `SELECT DATABASE(), CURRENT_USER()` 与 `SHOW GRANTS FOR CURRENT_USER()`；若账号同时可访问 Finance 或其他库，先由 MySQL 管理员创建/切换为 Account 专用账号并仅授权 `chat_web_account.*`，再更新 Account Nacos 数据库配置。Company 已完成专用账号创建、Nacos 凭据轮换和授权验证；Home 由部署前隔离引导执行同一规则。数据库必须预先存在，不修改端口、Runner、部署目录或外部网络。
+- 验证命令：`yarn test`；部署后执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'`、`curl -fsS http://127.0.0.1:3000/health`，并用有效/失效 Bearer Token 验证 `/auth/introspect` 分别返回身份主体/HTTP 401。
+- 回滚方法：将两台机器恢复到上一条健康 Account SHA；保留独立 MySQL 授权和 Redis index `0`。Finance 已切换远程内省后，不得回滚到缺少 `/auth/introspect` 的 Account 版本，除非先回滚 Finance。
+
 ## 2026-08-19：共享运行时模块接入
 
 - 影响机器：Company、Home。

@@ -280,6 +280,13 @@ case "$network" in
         ;;
 esac
 
+echo "Ensuring Account and Finance database accounts are isolated"
+docker run --rm \
+    --network "$network" \
+    --env-file .env \
+    --entrypoint node \
+    "$IMAGE" dist/cli/isolate-service-databases.js
+
 echo "Applying account database schema migrations"
 docker run --rm \
     --network "$network" \

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { assertMysqlDatabaseIsolation } from '@wlisfes/chat-web-base-schema/database'
 import yaml from 'js-yaml'
 import mysql, { RowDataPacket } from 'mysql2/promise'
 
@@ -74,6 +75,11 @@ async function main(): Promise<void> {
     })
 
     try {
+        const [grantRows] = await connection.query<RowDataPacket[]>('SHOW GRANTS FOR CURRENT_USER()')
+        assertMysqlDatabaseIsolation(
+            grantRows.flatMap(row => Object.values(row).filter((value): value is string => typeof value === 'string')),
+            databaseName
+        )
         await connection.query(
             `CREATE TABLE IF NOT EXISTS \`${MIGRATION_TABLE}\` (
                 \`filename\` varchar(255) NOT NULL COMMENT '增量SQL文件名',
