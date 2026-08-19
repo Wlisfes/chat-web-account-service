@@ -241,6 +241,34 @@ curl -I http://127.0.0.1:3000/auth/captcha
 - 回滚到上一条账号服务镜像，并恢复部署前的 compose 和 `.env`；数据库 Schema 不需要回滚。
 - 旧镜像不会读取 Redis 会话键，可保留等待 TTL 自动过期，或仅删除 `chat-web:account:session:*` 和 `chat-web:account:captcha:*` 前缀键。
 - 不要清空 Redis 中其他服务的数据。
+## 2026-08-18：Home Redis 地址改用稳定容器名
+
+- 影响范围：Home 当前 Docker Desktop 主机；Company 配置不变。
+- 关联版本：Account 镜像 `1fdd744d4b1519fa427a36065a2dc1beb3753fcc`；Manager 部署联调修复。
+- 容器与端口：`chat-web-account-service` 继续使用宿主机 `127.0.0.1:3001`、容器 `3000`。
+- Nacos 与网络：Namespace、Data ID、Group 均不变；继续使用 `chat-web-infrastructure`。
+
+### 变更内容与机器侧操作
+
+- 将 Home `/opt/chat-web-account-service/.env` 的 `REDIS_HOST` 从易失的容器 IP 改为 Docker DNS 名 `chat-web-redis`。
+- 使用现有 Compose 文件重建 Account 容器，使新环境变量生效；不修改 Redis 数据、密码或 Nacos 配置。
+- 原 IP 在基础设施容器重启后已被 MySQL 使用，导致 Account 持续连接错误并使 Gateway 返回业务 502。
+
+### 验证
+
+```powershell
+docker inspect chat-web-account-service --format "{{.State.Status}} {{.State.Health.Status}}"
+docker exec chat-web-account-service getent hosts chat-web-redis
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3001/health
+Invoke-WebRequest -UseBasicParsing https://chat.lisfes.com/api/account/health
+```
+
+预期 Account 为 `running healthy`，Docker DNS 返回当前 Redis 地址，直连及经 Manager/Gateway 的健康检查均返回成功业务体。
+
+### 回滚
+
+- 只有在 `chat-web-redis` 容器名不再存在且已提供另一个稳定 DNS 名时，才将 `REDIS_HOST` 改为新的稳定名称并重建 Account。
+- 不要回滚为固定容器 IP；容器重建后 IP 会变化，固定 IP 会再次造成服务不可用。
 
 ## 2026-08-17：本地 Docker 数据库初始化与配置示例说明
 

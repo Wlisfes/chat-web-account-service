@@ -107,7 +107,7 @@ docker exec chat-web-redis redis-cli ping
 
 Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，Redis 主机应为 `chat-web-redis`，不能是 `127.0.0.1`。
 
-部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称、旧短 ID、当前容器地址或网络别名、Account 未配置密码时，脚本使用该容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，并要求命令输出精确等于 `PONG`，不能只根据 `redis-cli` 进程退出码判断；这与 Node Redis 6 的 `HELLO 3` 握手一致，避免服务端返回 `NOAUTH` 但客户端退出码仍为 0 的假阳性，同时完全绕过重复别名和客户端 DNS 差异。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致地址变化时，下次部署会自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，要求经过认证的 RESP3 命令同样精确返回 `PONG` 后才安全写入机器侧 `.env`。地址值和密码都不会输出到日志或上传 GitHub，密码也不写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
+部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。不要在服务器 `.env` 中手工固定容器 IP；默认连接应使用稳定 Docker DNS 名 `chat-web-redis`。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称、旧短 ID、当前容器地址或网络别名、Account 未配置密码时，脚本使用该容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，并要求命令输出精确等于 `PONG`，不能只根据 `redis-cli` 进程退出码判断；这与 Node Redis 6 的 `HELLO 3` 握手一致，避免服务端返回 `NOAUTH` 但客户端退出码仍为 0 的假阳性，同时完全绕过重复别名和客户端 DNS 差异。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致地址变化时，下次部署会自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，要求经过认证的 RESP3 命令同样精确返回 `PONG` 后才安全写入机器侧 `.env`。地址值和密码都不会输出到日志或上传 GitHub，密码也不写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
 
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 
