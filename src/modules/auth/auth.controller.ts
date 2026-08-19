@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res, UnauthorizedException } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { CurrentPrincipal, Public } from '@wlisfes/chat-web-base-schema/auth'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
@@ -72,11 +72,14 @@ export class AuthController {
     }
 
     @Get('introspect')
+    @Public()
     @PreserveHttpStatus()
     @ApiBearerAuth('authorization')
     @ApiOperation({ summary: '供内部服务校验访问令牌并获取身份主体' })
-    introspect(@CurrentPrincipal() principal: AuthPrincipal): AuthPrincipal {
-        return principal
+    introspect(@Req() request: Request): Promise<AuthPrincipal> {
+        const match = request.header('authorization')?.match(/^Bearer\s+([^\s]+)$/i)
+        if (!match) throw new UnauthorizedException('缺少 Bearer 访问令牌')
+        return this.authService.authenticateToken(match[1])
     }
 
     private getCookie(request: Request, name: string): string | undefined {
