@@ -9,8 +9,10 @@ const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-sch
 const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
 const { RedisService } = require('@wlisfes/chat-web-base-schema/redis')
 const { CaptchaService } = require('../dist/modules/auth/captcha.service')
+const { AuthController } = require('../dist/modules/auth/auth.controller')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
+const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
@@ -52,6 +54,27 @@ function fakeRedis() {
         }
     }
 }
+
+test('账号鉴权内省只返回守卫已验证的身份主体', () => {
+    const controller = new AuthController({}, {})
+    const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
+    assert.equal(controller.introspect(principal), principal)
+})
+
+test('部署迁移只接受本服务数据库授权', () => {
+    assert.equal(
+        grantsAreIsolated(
+            [
+                'GRANT USAGE ON *.* TO `chat_web_account_service`@`%`',
+                'GRANT ALL PRIVILEGES ON `chat_web_account`.* TO `chat_web_account_service`@`%`'
+            ],
+            'chat_web_account'
+        ),
+        true
+    )
+    assert.equal(grantsAreIsolated(['GRANT ALL PRIVILEGES ON *.* TO `root`@`%`'], 'chat_web_account'), false)
+    assert.equal(grantsAreIsolated(['GRANT SELECT ON `chat_web_finance`.* TO `service`@`%`'], 'chat_web_account'), false)
+})
 
 test('组织和菜单树按 sort 排序并保留层级', () => {
     const nodes = [

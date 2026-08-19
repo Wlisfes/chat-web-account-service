@@ -12,7 +12,10 @@
 | 容器/Nacos 注册端口  | `3000`                          |
 | 部署目录             | `/opt/chat-web-account-service` |
 | Docker 网络          | `chat-web-infrastructure`       |
+| 数据库                | `chat_web_account`              |
+| MySQL 授权边界        | 仅 `chat_web_account.*`         |
 | Redis 容器            | `chat-web-redis`                |
+| Redis index           | `0`                             |
 | Nacos Data ID        | `chat-web-account-service.yaml` |
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
@@ -30,7 +33,18 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
-本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat-web-account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
+部署会在 Schema 升级前运行幂等隔离器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；发现旧全局账号时会在进程内生成随机专用凭据、只授权 `chat_web_account.*` / `chat_web_finance.*`、回写各自 Nacos 并复连验证。密码不输出、不写仓库。隔离完成后 Schema 升级器再次执行 `SHOW GRANTS FOR CURRENT_USER()`，全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
+
+核对命令在使用本服务连接参数进入 MySQL 后执行：
+
+```sql
+SELECT DATABASE(), CURRENT_USER();
+SHOW GRANTS FOR CURRENT_USER();
+```
+
+预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/auth/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
+
+本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
 ## 旧平台数据迁移
 
@@ -39,7 +53,7 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 安全约束：
 
 - 目标用户、组织、菜单和关联表必须为空，角色表只能包含内置 `super_admin`；不满足时迁移器会拒绝执行。
-- 旧表必须先导入独立 staging 库，禁止把旧转储直接导入 `chat-web-account`。
+- 旧表必须先导入独立 staging 库，禁止把旧转储直接导入 `chat_web_account`。
 - 正式迁移前必须备份当前账号库，并验证备份可以读取。
 - 旧 bcrypt 密码不会迁移。普通账号写入不可登录的随机重置标记，之后由超级管理员逐个重置。
 - 初始管理员密码使用 `scripts/hash-password.cjs` 在可信机器离线生成；明文和哈希都不能写入 Git、文档或命令日志。
@@ -48,7 +62,7 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 ```bash
 # 1. 备份目标库；连接参数从机器侧安全配置读取，不写进命令历史。
-mysqldump --single-transaction --routines --triggers chat-web-account > account-before-legacy-migration.sql
+mysqldump --single-transaction --routines --triggers chat_web_account > account-before-legacy-migration.sql
 
 # 2. 创建 staging 库并导入旧转储。
 mysql -e "CREATE DATABASE legacy_platform_20260818 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
@@ -96,7 +110,7 @@ Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos �
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 
 ```powershell
-docker exec -it chat-web-mysql mysql -uroot -p -e "SHOW DATABASES LIKE 'chat-web-account';"
+docker exec -it chat-web-mysql mysql -uroot -p -e "SHOW DATABASES LIKE 'chat_web_account';"
 ```
 
 数据库不存在时先修复基础设施初始化配置，再部署账号服务；不要开启 TypeORM 自动建库或自动建表。
@@ -135,7 +149,7 @@ Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像�
 
 1. 启动 Docker Desktop 和基础设施容器。
 2. 确认 `chat-web-infrastructure` 网络存在。
-3. 确认 MySQL 中存在 `chat-web-account` 数据库；全新数据卷应由基础设施初始化 SQL 创建。
+3. 确认 MySQL 中存在 `chat_web_account` 数据库；全新数据卷应由基础设施初始化 SQL 创建。
 4. 确认 `/opt/chat-web-account-service/.env` 中只包含本机部署参数和 Nacos 启动参数；Home 使用 `HOST_PORT=3001`，Company 使用 `HOST_PORT=3000`。
 5. 启动 WSL 保活任务和 Account Runner。
 6. 在 GitHub Actions 手动运行当前稳定分支的 `Build and deploy`。

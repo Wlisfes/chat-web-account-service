@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, Res } fr
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { CurrentPrincipal, Public } from '@wlisfes/chat-web-base-schema/auth'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import type { Request, Response } from 'express'
 import { AuthService } from '@/modules/auth/auth.service'
 import { AUTH_CAPTCHA_COOKIE, CaptchaService } from '@/modules/auth/captcha.service'
@@ -68,6 +69,14 @@ export class AuthController {
     @ApiOperation({ summary: '获取当前登录身份' })
     getCurrentPrincipal(@CurrentPrincipal() principal: AuthPrincipal) {
         return this.authService.getCurrentUser(principal)
+    }
+
+    @Get('introspect')
+    @PreserveHttpStatus()
+    @ApiBearerAuth('authorization')
+    @ApiOperation({ summary: '供内部服务校验访问令牌并获取身份主体' })
+    introspect(@CurrentPrincipal() principal: AuthPrincipal): AuthPrincipal {
+        return principal
     }
 
     private getCookie(request: Request, name: string): string | undefined {

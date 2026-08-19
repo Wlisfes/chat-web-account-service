@@ -17,6 +17,13 @@
 
 排障命令和当前运行基线维护在 `deploy/RUNBOOK.md`。
 
+## 服务数据边界
+
+- 本服务独占 MySQL 数据库 `chat_web_account`，运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
+- 本服务独占 Redis index `0`，登录会话、验证码和缓存不得写入其他 index。
+- 本服务是身份与会话的唯一所有者。其他服务只能通过受 Bearer Guard 保护的 `/auth/introspect` 等强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话。
+- 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
+
 ## 共享 Schema 依赖联动
 
 - 当任务包含 `chat-web-base-schema` 公共能力变更时，Agent 必须自行等待共享包发布，随后将本服务升级到明确的新版本，不得要求用户手动更新依赖。
