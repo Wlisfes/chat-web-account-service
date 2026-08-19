@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { RequirePermissions } from '@/modules/auth/auth.decorator'
+import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { CreateMenuDto, UpdateMenuDto } from '@/modules/menus/dto/menu.dto'
 import { MenusService } from '@/modules/menus/menus.service'
 

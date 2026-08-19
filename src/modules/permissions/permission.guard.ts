@@ -1,7 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { REQUIRED_PERMISSIONS } from '@/modules/auth/auth.decorator'
-import { AuthenticatedRequest } from '@/modules/auth/auth.interface'
+import { AuthenticatedRequest, REQUIRED_PERMISSIONS } from '@wlisfes/chat-web-base-schema/auth'
 import { PermissionsService } from '@/modules/permissions/permissions.service'
 
 @Injectable()

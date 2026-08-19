@@ -1,9 +1,9 @@
 import { Global, Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
-import { createAccountMysqlOptions } from '@/modules/database/database.options'
-import { NacosService } from '@/modules/nacos/nacos.service'
+import { createMysqlOptions } from '@wlisfes/chat-web-base-schema/database'
+import { NacosService } from '@wlisfes/chat-web-base-schema/nacos'
+import { ACCOUNT_MYSQL_CONFIG_KEY, ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
 
 @Global()
 @Module({
@@ -13,7 +13,12 @@ import { NacosService } from '@/modules/nacos/nacos.service'
             inject: [ConfigService, NacosService],
             useFactory: async (configService: ConfigService, nacosService: NacosService) => {
                 await nacosService.loadConfig()
-                return createAccountMysqlOptions(configService)
+                return createMysqlOptions(configService, {
+                    configKey: ACCOUNT_MYSQL_CONFIG_KEY,
+                    entities: [...ACCOUNT_MYSQL_ENTITIES],
+                    environmentPrefix: 'ACCOUNT_MYSQL',
+                    environmentOverrides: ['host', 'port', 'database']
+                })
             }
         }),
         TypeOrmModule.forFeature([...ACCOUNT_MYSQL_ENTITIES])

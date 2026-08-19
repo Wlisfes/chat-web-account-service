@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-19：共享运行时模块接入
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.1`；账号服务本次完整 Git SHA 镜像。
+- 变更内容：Redis 连接与生命周期、Nacos 配置加载和实例注册、JWT/Redis 会话、Bearer Guard 以及 MySQL 配置解析改为使用共享包的隔离子路径；账号服务只保留登录、验证码、密码、账号状态和权限等业务实现。保持 Nacos Data ID、服务名、端口 3000、Redis 会话键前缀、数据库环境变量覆盖白名单和健康检查语义不变。
+- 机器侧操作：无需修改 `.env`、Nacos、Redis、数据库、端口、Runner、部署目录或外部网络；合并后由现有双机矩阵部署同一完整 SHA。
+- 验证命令：`yarn test`；部署后分别执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'`、`curl -fsS http://127.0.0.1:3000/health`，并通过网关验证登录和 `/auth/me`。
+- 回滚方法：将两台机器恢复到上一条健康账号服务 SHA；共享包 1.1.1 为新增子路径且向后兼容，无需回滚数据库、Nacos 或 Redis 数据。
+
 ## 2026-08-18：Finance Home Runner 维护重跑幂等化
 
 - 影响机器：Home。

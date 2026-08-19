@@ -1,16 +1,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { AuthSessionService, TokenService } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal, AuthTokenAuthenticator } from '@wlisfes/chat-web-base-schema/auth'
 import { TbAccountUser, TbAccountUserEmploymentStatus, TbAccountUserStatus } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Repository } from 'typeorm'
-import { AuthPrincipal } from '@/modules/auth/auth.interface'
-import { AuthSessionService } from '@/modules/auth/auth-session.service'
 import { CaptchaService } from '@/modules/auth/captcha.service'
 import { LoginDto } from '@/modules/auth/dto/login.dto'
 import { PasswordService } from '@/modules/auth/password.service'
-import { TokenService } from '@/modules/auth/token.service'
 
 @Injectable()
-export class AuthService {
+export class AuthService implements AuthTokenAuthenticator {
     constructor(
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
         private readonly passwordService: PasswordService,
