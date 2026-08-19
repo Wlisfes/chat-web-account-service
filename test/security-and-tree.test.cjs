@@ -74,6 +74,10 @@ test('部署迁移只接受本服务数据库授权', () => {
     )
     assert.equal(grantsAreIsolated(['GRANT ALL PRIVILEGES ON *.* TO `root`@`%`'], 'chat_web_account'), false)
     assert.equal(grantsAreIsolated(['GRANT SELECT ON `chat_web_finance`.* TO `service`@`%`'], 'chat_web_account'), false)
+    assert.equal(
+        grantsAreIsolated(['GRANT ALL PRIVILEGES ON `chat-web-account`.* TO `chat_web_account_service`@`%`'], 'chat-web-account'),
+        true
+    )
 })
 
 test('组织和菜单树按 sort 排序并保留层级', () => {
