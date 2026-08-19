@@ -68,7 +68,7 @@ test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
     )
     const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
     assert.equal(await controller.introspect(request), principal)
-    await assert.rejects(() => controller.introspect({ header: () => undefined }), /缺少 Bearer/)
+    assert.throws(() => controller.introspect({ header: () => undefined }), /缺少 Bearer/)
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
