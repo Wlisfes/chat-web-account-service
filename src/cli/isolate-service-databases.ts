@@ -16,7 +16,7 @@ type DatabaseConfig = {
 type ServiceBoundary = {
     dataId: string
     configKey: string
-    database: string
+    databases: readonly string[]
     username: string
 }
 
@@ -24,13 +24,13 @@ const SERVICES: readonly ServiceBoundary[] = [
     {
         dataId: 'chat-web-account-service.yaml',
         configKey: 'chat-web-account',
-        database: 'chat_web_account',
+        databases: ['chat_web_account', 'chat-web-account'],
         username: 'chat_web_account_service'
     },
     {
         dataId: 'chat-web-finance-service.yaml',
         configKey: 'chat-web-finance',
-        database: 'chat_web_finance',
+        databases: ['chat_web_finance', 'chat-web-finance'],
         username: 'chat_web_finance_service'
     }
 ]
@@ -76,7 +76,7 @@ async function publishNacosConfig(dataId: string, config: Record<string, unknown
     }
 }
 
-function getDatabaseConfig(root: Record<string, unknown>, boundary: ServiceBoundary): DatabaseConfig {
+function getDatabaseConfig(root: Record<string, unknown>, boundary: ServiceBoundary): { config: DatabaseConfig; database: string } {
     const databases = root.database
     if (!databases || typeof databases !== 'object' || Array.isArray(databases)) {
         throw new Error(`缺少 Nacos 数据库配置根节点：${boundary.dataId}`)
@@ -87,13 +87,13 @@ function getDatabaseConfig(root: Record<string, unknown>, boundary: ServiceBound
     }
     const database = config as DatabaseConfig
     const databaseName = database.database?.trim() || database.name?.trim()
-    if (databaseName !== boundary.database) {
-        throw new Error(`${boundary.configKey} 数据库必须是 ${boundary.database}`)
+    if (!databaseName || !boundary.databases.includes(databaseName)) {
+        throw new Error(`${boundary.configKey} 数据库必须是 ${boundary.databases.join(' 或 ')}`)
     }
     if (!database.host?.trim() || !database.username?.trim() || typeof database.password !== 'string') {
         throw new Error(`${boundary.configKey} 数据库连接配置不完整`)
     }
-    return database
+    return { config: database, database: databaseName }
 }
 
 async function connect(config: DatabaseConfig, database: string): Promise<Connection> {
@@ -126,12 +126,12 @@ function grantsAreIsolated(grants: readonly string[], database: string): boolean
 
 async function isolateService(boundary: ServiceBoundary): Promise<'already-isolated' | 'migrated'> {
     const root = await readNacosConfig(boundary.dataId)
-    const config = getDatabaseConfig(root, boundary)
-    const source = await connect(config, boundary.database)
+    const { config, database } = getDatabaseConfig(root, boundary)
+    const source = await connect(config, database)
     const grants = await getGrants(source)
-    if (grantsAreIsolated(grants, boundary.database)) {
+    if (grantsAreIsolated(grants, database)) {
         await source.end()
-        process.stdout.write(`Database account already isolated: ${boundary.database}\n`)
+        process.stdout.write(`Database account already isolated: ${database}\n`)
         return 'already-isolated'
     }
 
@@ -141,26 +141,26 @@ async function isolateService(boundary: ServiceBoundary): Promise<'already-isola
         await source.query(`CREATE USER IF NOT EXISTS ${principal} IDENTIFIED BY ?`, [password])
         await source.query(`ALTER USER ${principal} IDENTIFIED BY ?`, [password])
         await source.query(`REVOKE ALL PRIVILEGES, GRANT OPTION FROM ${principal}`)
-        await source.query(`GRANT ALL PRIVILEGES ON \`${boundary.database}\`.* TO ${principal}`)
+        await source.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO ${principal}`)
     } finally {
         await source.end()
     }
 
-    config.name = boundary.database
+    config.name = database
     delete config.database
     config.username = boundary.username
     config.password = password
     await publishNacosConfig(boundary.dataId, root)
 
-    const verification = await connect(config, boundary.database)
+    const verification = await connect(config, database)
     try {
-        if (!grantsAreIsolated(await getGrants(verification), boundary.database)) {
-            throw new Error(`专用数据库账号授权验证失败：${boundary.database}`)
+        if (!grantsAreIsolated(await getGrants(verification), database)) {
+            throw new Error(`专用数据库账号授权验证失败：${database}`)
         }
     } finally {
         await verification.end()
     }
-    process.stdout.write(`Database account migrated and isolated: ${boundary.database}\n`)
+    process.stdout.write(`Database account migrated and isolated: ${database}\n`)
     return 'migrated'
 }
 

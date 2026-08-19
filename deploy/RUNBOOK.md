@@ -35,6 +35,8 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 部署会在 Schema 升级前运行幂等隔离器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；发现旧全局账号时会在进程内生成随机专用凭据、只授权 `chat_web_account.*` / `chat_web_finance.*`、回写各自 Nacos 并复连验证。密码不输出、不写仓库。隔离完成后 Schema 升级器再次执行 `SHOW GRANTS FOR CURRENT_USER()`，全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
 
+新环境数据库名统一使用下划线形式。为兼容 Home 的历史数据卷，隔离器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名授权；部署不会在线重命名数据库。
+
 核对命令在使用本服务连接参数进入 MySQL 后执行：
 
 ```sql
