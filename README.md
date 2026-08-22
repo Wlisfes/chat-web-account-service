@@ -59,7 +59,7 @@ $ yarn run test:cov
 
 ## Deployment
 
-本项目已配置 Docker 自动部署。向 `master` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过两台内网服务器上的 Self-hosted Runner 独立部署；失败时自动回滚。
+本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过两台内网服务器上的 Self-hosted Runner 独立部署；失败时自动回滚。
 
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 
