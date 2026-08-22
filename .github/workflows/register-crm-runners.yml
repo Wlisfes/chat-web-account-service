@@ -1,0 +1,156 @@
+name: Register CRM runners
+
+on:
+    workflow_dispatch:
+
+jobs:
+    register:
+        name: Register CRM runner on ${{ matrix.server }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - server: company
+                      hostRunner: chat-server-company
+                    - server: home
+                      hostRunner: chat-server-home
+        runs-on:
+            - self-hosted
+            - linux
+            - ${{ matrix.hostRunner }}
+        permissions:
+            contents: read
+        env:
+            CRM_RUNNER_IMAGE: ghcr.io/actions/actions-runner:latest
+            CRM_RUNNER_CONTAINER: chat-web-crm-runner-${{ matrix.server }}
+            CRM_RUNNER_VOLUME: chat-web-crm-runner-${{ matrix.server }}
+            CRM_DEPLOY_VOLUME: chat-web-crm-deploy-${{ matrix.server }}
+            FINANCE_DEPLOY_VOLUME: chat-web-finance-deploy-${{ matrix.server }}
+
+        steps:
+            - name: Prepare CRM runner runtime
+              shell: bash
+              env:
+                  RUNNER_REGISTRATION_TOKEN: ${{ secrets.CRM_RUNNER_REGISTRATION_TOKEN }}
+              run: |
+                  set -eu
+                  token_file="$RUNNER_TEMP/crm-runner-token"
+                  runner_uid=$(id -u)
+                  runner_gid=$(id -g)
+
+                  http_proxy_value=${HTTP_PROXY:-${http_proxy:-}}
+                  https_proxy_value=${HTTPS_PROXY:-${https_proxy:-}}
+                  http_proxy_value=${http_proxy_value//127.0.0.1/host.docker.internal}
+                  https_proxy_value=${https_proxy_value//127.0.0.1/host.docker.internal}
+
+                  umask 077
+                  printf '%s' "$RUNNER_REGISTRATION_TOKEN" > "$token_file"
+                  trap 'rm -f "$token_file"' EXIT
+
+                  docker pull "$CRM_RUNNER_IMAGE"
+                  docker volume create "$CRM_RUNNER_VOLUME" >/dev/null
+                  docker volume create "$CRM_DEPLOY_VOLUME" >/dev/null
+                  docker volume inspect "$FINANCE_DEPLOY_VOLUME" >/dev/null
+                  docker run --rm \
+                    --user root \
+                    --add-host host.docker.internal:host-gateway \
+                    --env RUNNER_ALLOW_RUNASROOT=1 \
+                    --env HOST_RUNNER_UID="$runner_uid" \
+                    --env HOST_RUNNER_GID="$runner_gid" \
+                    --env HTTP_PROXY="$http_proxy_value" \
+                    --env HTTPS_PROXY="$https_proxy_value" \
+                    --volume "$CRM_RUNNER_VOLUME:/runner-config" \
+                    --volume "$CRM_DEPLOY_VOLUME:/deploy-target" \
+                    --volume "$token_file:/run/runner-token:ro" \
+                    "$CRM_RUNNER_IMAGE" \
+                    bash -lc '
+                      set -eu
+                      if [ ! -x /runner-config/config.sh ]; then
+                        cp -a /home/runner/. /runner-config/
+                      fi
+                      cd /runner-config
+                      if [ ! -f .runner ]; then
+                        test -s /run/runner-token || { echo "Missing CRM_RUNNER_REGISTRATION_TOKEN" >&2; exit 1; }
+                        ./config.sh \
+                          --unattended \
+                          --url https://github.com/Wlisfes/chat-web-crm-service \
+                          --token "$(cat /run/runner-token)" \
+                          --name "chat-server-${{ matrix.server }}-crm" \
+                          --labels "chat-server-${{ matrix.server }}" \
+                          --work _work \
+                          --replace
+                      fi
+                      install -d -m 0755 .docker/cli-plugins
+                      if [ ! -x .docker/cli-plugins/docker-compose ]; then
+                        curl -fsSL https://github.com/docker/compose/releases/download/v2.39.2/docker-compose-linux-x86_64 \
+                          -o .docker/cli-plugins/docker-compose
+                        chmod 0755 .docker/cli-plugins/docker-compose
+                      fi
+                      chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /runner-config
+                      chmod 0755 /deploy-target
+                      chown -R "$HOST_RUNNER_UID:$HOST_RUNNER_GID" /deploy-target
+                    '
+
+            - name: Start CRM repository runner
+              id: start_runner
+              shell: bash
+              run: |
+                  set -eu
+                  socket_group=$(stat -c '%g' /var/run/docker.sock)
+                  runner_uid=$(id -u)
+                  runner_gid=$(id -g)
+                  http_proxy_value=${HTTP_PROXY:-${http_proxy:-}}
+                  https_proxy_value=${HTTPS_PROXY:-${https_proxy:-}}
+                  http_proxy_value=${http_proxy_value//127.0.0.1/host.docker.internal}
+                  https_proxy_value=${https_proxy_value//127.0.0.1/host.docker.internal}
+
+                  current_state=$(docker inspect "$CRM_RUNNER_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || true)
+                  if [ "$current_state" = running ]; then
+                    echo "CRM repository runner container is already running"
+                    echo "already_running=true" >> "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+
+                  docker rm -f "$CRM_RUNNER_CONTAINER" >/dev/null 2>&1 || true
+                  docker run -d \
+                    --name "$CRM_RUNNER_CONTAINER" \
+                    --restart unless-stopped \
+                    --user "$runner_uid:$runner_gid" \
+                    --group-add "$socket_group" \
+                    --add-host host.docker.internal:host-gateway \
+                    --env RUNNER_ALLOW_RUNASROOT=1 \
+                    --env HTTP_PROXY="$http_proxy_value" \
+                    --env HTTPS_PROXY="$https_proxy_value" \
+                    --volume "$CRM_RUNNER_VOLUME:/home/runner" \
+                    --volume "$CRM_DEPLOY_VOLUME:/opt/chat-web-crm-service" \
+                    --volume "$FINANCE_DEPLOY_VOLUME:/opt/chat-web-finance-service:ro" \
+                    --volume /var/run/docker.sock:/var/run/docker.sock \
+                    --workdir /home/runner \
+                    "$CRM_RUNNER_IMAGE" \
+                    bash -c 'exec ./run.sh'
+
+            - name: Verify CRM repository runner
+              shell: bash
+              env:
+                  RUNNER_ALREADY_RUNNING: ${{ steps.start_runner.outputs.already_running }}
+              run: |
+                  set -eu
+                  if [ "$RUNNER_ALREADY_RUNNING" = true ]; then
+                    docker inspect "$CRM_RUNNER_CONTAINER" --format '{{.Name}} {{.State.Status}}'
+                    exit 0
+                  fi
+
+                  elapsed=0
+                  until docker logs "$CRM_RUNNER_CONTAINER" 2>&1 | grep -q 'Listening for Jobs'; do
+                    state=$(docker inspect "$CRM_RUNNER_CONTAINER" --format '{{.State.Status}}' 2>/dev/null || true)
+                    case "$state" in
+                      exited|dead)
+                        docker logs "$CRM_RUNNER_CONTAINER" 2>&1 || true
+                        exit 1
+                        ;;
+                    esac
+                    test "$elapsed" -lt 120 || { docker logs "$CRM_RUNNER_CONTAINER" 2>&1 || true; exit 1; }
+                    sleep 3
+                    elapsed=$((elapsed + 3))
+                  done
+                  docker inspect "$CRM_RUNNER_CONTAINER" --format '{{.Name}} {{.State.Status}}'
