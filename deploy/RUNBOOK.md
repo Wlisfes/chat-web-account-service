@@ -46,7 +46,7 @@ SELECT DATABASE(), CURRENT_USER();
 SHOW GRANTS FOR CURRENT_USER();
 ```
 
-预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/auth/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
+预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/auth/token/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
 
 本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
@@ -94,10 +94,13 @@ yarn legacy:migrate --apply
 ```powershell
 docker ps -a --filter "name=chat-web-account-service"
 docker inspect chat-web-account-service --format "{{.Config.Image}} {{.State.Status}} {{.State.Health.Status}}"
+docker inspect chat-web-account-service --format "{{json .HostConfig.LogConfig}}"
 docker logs --tail 200 chat-web-account-service
 $accountPort = 3001 # Home；Company 改为 3000
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$accountPort/health"
 ```
+
+日志配置预期为 `json-file`、`max-size=20m`、`max-file=30`。请求日志应包含 `logId`、方法、URL、状态码和耗时；登录请求中的密码、验证码和 Token 必须显示为 `[已隐藏]`。
 
 ### 2. 检查基础设施网络
 

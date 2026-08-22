@@ -21,7 +21,7 @@
 
 - 本服务独占 MySQL 数据库 `chat_web_account`，运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
 - 本服务独占 Redis index `0`，登录会话、验证码和缓存不得写入其他 index。
-- 本服务是身份与会话的唯一所有者。其他服务只能通过受 Bearer Guard 保护的 `/auth/introspect` 等强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话。
+- 本服务是身份与会话的唯一所有者。其他服务只能通过 `/auth/token/introspect` 等强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 
 ## 共享 Schema 依赖联动

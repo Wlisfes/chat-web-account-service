@@ -20,14 +20,14 @@ import {
     ReplaceRoleMenusDto,
     RoleDataScopeRuleDto,
     UpdateRoleDto
-} from '@/modules/roles/dto/role.dto'
-import { PermissionsService } from '@/modules/permissions/permissions.service'
+} from '@/modules/role/dto/role.dto'
+import { PermissionService } from '@/modules/permission/permission.service'
 
 @Injectable()
-export class RolesService {
+export class RoleService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
-        private readonly permissionsService: PermissionsService
+        private readonly permissionService: PermissionService
     ) {}
 
     async findAll() {
@@ -104,7 +104,7 @@ export class RolesService {
         if (role.builtin && input.code && input.code !== role.code) {
             throw new ConflictException('系统内置角色不能修改编码')
         }
-        if (role.builtin && !(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (role.builtin && !(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ConflictException('只有超级管理员可以修改系统内置角色')
         }
         if (role.code === 'super_admin' && input.status === TbAccountRoleStatus.DISABLED) {
@@ -235,7 +235,7 @@ export class RolesService {
     }
 
     private async assertSuperAdmin(actorUid: string): Promise<void> {
-        if (!(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ConflictException('只有超级管理员可以配置角色权限')
         }
     }

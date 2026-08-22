@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { ApiProperty, ApiPropertyOptional, PartialType, PickType } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import {
     TbAccountRoleDataScopeStatus,
     TbAccountRoleDataScopeType,
@@ -82,3 +82,17 @@ export class ReplaceRoleDataScopesDto {
     @Type(() => RoleDataScopeRuleDto)
     rules: RoleDataScopeRuleDto[]
 }
+
+export class RoleKeyDto {
+    @ApiProperty({ description: '角色主键', example: 1 })
+    @Type(() => Number)
+    @IsInt({ message: '角色主键必须是整数' })
+    @Min(1, { message: '角色主键必须大于0' })
+    keyId: number
+}
+
+export class UpdateRolePayloadDto extends IntersectionType(RoleKeyDto, UpdateRoleDto) {}
+
+export class ReplaceRoleMenusPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleMenusDto) {}
+
+export class ReplaceRoleDataScopesPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleDataScopesDto) {}

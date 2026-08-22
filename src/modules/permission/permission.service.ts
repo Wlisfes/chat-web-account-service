@@ -17,14 +17,14 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { In, Repository } from 'typeorm'
 import { assertUid, buildTree } from '@wlisfes/chat-web-base-schema/utils'
-import { EffectiveAccess, EffectiveDataScope } from '@/modules/permissions/permissions.interface'
-import { selectEffectiveScopeRules } from '@/modules/permissions/permissions.policy'
+import { EffectiveAccess, EffectiveDataScope } from '@/modules/permission/permission.interface'
+import { selectEffectiveScopeRules } from '@/modules/permission/permission.policy'
 
 const SUPER_ADMIN_ROLE_CODE = 'super_admin'
 const DEFAULT_RESOURCE_CODE = '*'
 
 @Injectable()
-export class PermissionsService {
+export class PermissionService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
         @InjectRepository(TbAccountMenu) private readonly menuRepository: Repository<TbAccountMenu>,

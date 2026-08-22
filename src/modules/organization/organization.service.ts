@@ -11,10 +11,10 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, In, Repository } from 'typeorm'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
-import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organizations/dto/organization.dto'
+import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organization/dto/organization.dto'
 
 @Injectable()
-export class OrganizationsService {
+export class OrganizationService {
     constructor(@InjectRepository(TbAccountOrganization) private readonly organizationRepository: Repository<TbAccountOrganization>) {}
 
     async getTree() {
@@ -35,7 +35,7 @@ export class OrganizationsService {
             organizations.map(organization => ({
                 ...organization,
                 memberCount: memberCounts.get(organization.keyId) ?? 0,
-                leader: organization.leaderUserUid ? leaderByUid.get(organization.leaderUserUid) ?? null : null
+                leader: organization.leaderUserUid ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
             }))
         )
     }
@@ -73,7 +73,7 @@ export class OrganizationsService {
                 throw new NotFoundException('组织不存在')
             }
 
-            const nextParentKeyId = input.parentKeyId === undefined ? organization.parentKeyId : input.parentKeyId ?? null
+            const nextParentKeyId = input.parentKeyId === undefined ? organization.parentKeyId : (input.parentKeyId ?? null)
             if (nextParentKeyId === keyId) {
                 throw new BadRequestException('组织不能成为自己的父节点')
             }

@@ -8,13 +8,13 @@ import { RedisModule } from '@wlisfes/chat-web-base-schema/redis'
 import { DatabaseModule } from '@/modules/database/database.module'
 import { AuthModule } from '@/modules/auth/auth.module'
 import { ConsumerModule } from '@/modules/consumer/consumer.module'
-import { MenusModule } from '@/modules/menus/menus.module'
+import { MenuModule } from '@/modules/menu/menu.module'
 import { HealthModule } from '@/modules/health/health.module'
-import { OrganizationsModule } from '@/modules/organizations/organizations.module'
-import { PermissionGuard } from '@/modules/permissions/permission.guard'
-import { PermissionsModule } from '@/modules/permissions/permissions.module'
-import { RolesModule } from '@/modules/roles/roles.module'
-import { UsersModule } from '@/modules/users/users.module'
+import { OrganizationModule } from '@/modules/organization/organization.module'
+import { PermissionGuard } from '@/modules/permission/permission.guard'
+import { PermissionModule } from '@/modules/permission/permission.module'
+import { RoleModule } from '@/modules/role/role.module'
+import { UserModule } from '@/modules/user/user.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
@@ -28,11 +28,11 @@ import { AppService } from '@/app.service'
         AuthModule,
         ConsumerModule,
         HealthModule,
-        PermissionsModule,
-        OrganizationsModule,
-        MenusModule,
-        RolesModule,
-        UsersModule
+        PermissionModule,
+        OrganizationModule,
+        MenuModule,
+        RoleModule,
+        UserModule
     ],
     controllers: [AppController],
     providers: [AppService, { provide: APP_GUARD, useExisting: JwtAuthGuard }, { provide: APP_GUARD, useExisting: PermissionGuard }]

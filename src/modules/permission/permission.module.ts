@@ -10,9 +10,9 @@ import {
     TbAccountUserOrganization,
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { PermissionGuard } from '@/modules/permissions/permission.guard'
-import { PermissionsController } from '@/modules/permissions/permissions.controller'
-import { PermissionsService } from '@/modules/permissions/permissions.service'
+import { PermissionGuard } from '@/modules/permission/permission.guard'
+import { PermissionController } from '@/modules/permission/permission.controller'
+import { PermissionService } from '@/modules/permission/permission.service'
 
 @Global()
 @Module({
@@ -28,8 +28,8 @@ import { PermissionsService } from '@/modules/permissions/permissions.service'
             TbAccountOrganizationClosure
         ])
     ],
-    controllers: [PermissionsController],
-    providers: [PermissionsService, PermissionGuard],
-    exports: [PermissionsService, PermissionGuard]
+    controllers: [PermissionController],
+    providers: [PermissionService, PermissionGuard],
+    exports: [PermissionService, PermissionGuard]
 })
-export class PermissionsModule {}
+export class PermissionModule {}

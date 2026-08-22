@@ -13,7 +13,7 @@ const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
-const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
+const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 
 function config(values) {
@@ -66,8 +66,8 @@ test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
         {}
     )
     const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
-    assert.equal(await controller.introspect(request), principal)
-    assert.throws(() => controller.introspect({ header: () => undefined }), /缺少 Bearer/)
+    assert.equal(await controller.httpAuthAccountTokenIntrospect(request), principal)
+    assert.throws(() => controller.httpAuthAccountTokenIntrospect({ header: () => undefined }), /缺少 Bearer/)
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
@@ -359,7 +359,7 @@ test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
         switchToHttp() {
             return {
                 getRequest() {
-                    return { originalUrl: '/auth/login' }
+                    return { originalUrl: '/auth/token/login' }
                 },
                 getResponse() {
                     return response

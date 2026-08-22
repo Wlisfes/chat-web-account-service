@@ -9,25 +9,25 @@ import { CreateConsumerDto, ListConsumerDto, UpdateConsumerDto, UpdateConsumerSt
 @ApiBearerAuth('authorization')
 @Controller('consumer')
 export class ConsumerController {
-    constructor(private readonly service: ConsumerService) {}
+    constructor(private readonly consumerService: ConsumerService) {}
 
     @Post('create')
-    create(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateConsumerDto) {
-        return this.service.create(principal.uid, input)
+    httpBaseAccountCreateConsumer(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateConsumerDto) {
+        return this.consumerService.create(principal.uid, input)
     }
 
     @Post('update')
-    update(@Body() input: UpdateConsumerDto) {
-        return this.service.update(input)
+    httpBaseAccountUpdateConsumer(@Body() input: UpdateConsumerDto) {
+        return this.consumerService.update(input)
     }
 
     @Post('column')
-    list(@Body() input: ListConsumerDto) {
-        return this.service.list(input)
+    httpBaseAccountColumnConsumer(@Body() input: ListConsumerDto) {
+        return this.consumerService.list(input)
     }
 
     @Post('update/status')
-    updateStatus(@Body() input: UpdateConsumerStatusDto) {
-        return this.service.updateStatus(input)
+    httpBaseAccountUpdateConsumerStatus(@Body() input: UpdateConsumerStatusDto) {
+        return this.consumerService.updateStatus(input)
     }
 }

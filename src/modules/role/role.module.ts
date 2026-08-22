@@ -9,8 +9,8 @@ import {
     TbAccountRoleMenu,
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { RolesController } from '@/modules/roles/roles.controller'
-import { RolesService } from '@/modules/roles/roles.service'
+import { RoleController } from '@/modules/role/role.controller'
+import { RoleService } from '@/modules/role/role.service'
 
 @Module({
     imports: [
@@ -24,8 +24,8 @@ import { RolesService } from '@/modules/roles/roles.service'
             TbAccountOrganization
         ])
     ],
-    controllers: [RolesController],
-    providers: [RolesService],
-    exports: [RolesService]
+    controllers: [RoleController],
+    providers: [RoleService],
+    exports: [RoleService]
 })
-export class RolesModule {}
+export class RoleModule {}

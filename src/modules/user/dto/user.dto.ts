@@ -1,5 +1,5 @@
-import { Transform, Type } from 'class-transformer'
-import { ApiProperty, ApiPropertyOptional, PartialType, PickType } from '@nestjs/swagger'
+import { Type } from 'class-transformer'
+import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import {
     TbAccountUserDto,
     TbAccountUserOrganizationStatus,
@@ -16,6 +16,7 @@ import {
     IsOptional,
     IsString,
     Length,
+    Matches,
     MaxLength,
     Min,
     ValidateNested
@@ -34,12 +35,8 @@ export class UserQueryDto extends PageDto {
     @IsEnum(TbAccountUserStatus, { message: '账号状态格式错误' })
     status?: TbAccountUserStatus
 
-    @ApiPropertyOptional({ description: '按组织主键筛选，多个主键使用英文逗号分隔', type: [Number] })
+    @ApiPropertyOptional({ description: '按组织主键数组筛选', type: [Number] })
     @IsOptional()
-    @Transform(({ value }) => {
-        const values = Array.isArray(value) ? value : String(value).split(',')
-        return values.filter(item => String(item).trim()).map(item => Number(item))
-    })
     @IsArray({ message: '组织主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单次最多筛选100个组织' })
     @ArrayUnique({ message: '组织主键不能重复' })
@@ -151,3 +148,18 @@ export class ResetUserPasswordDto {
     @Length(6, 32, { message: '新密码长度必须保持6-32位' })
     password: string
 }
+
+export class UserUidDto {
+    @ApiProperty({ description: '账号 UID', example: '2026082200000000001' })
+    @IsString({ message: '账号UID必须是字符串' })
+    @Matches(/^\d{1,19}$/, { message: '账号UID必须是1-19位数字字符串' })
+    uid: string
+}
+
+export class UpdateUserPayloadDto extends IntersectionType(UserUidDto, UpdateUserDto) {}
+
+export class ResetUserPasswordPayloadDto extends IntersectionType(UserUidDto, ResetUserPasswordDto) {}
+
+export class ReplaceUserOrganizationsPayloadDto extends IntersectionType(UserUidDto, ReplaceUserOrganizationsDto) {}
+
+export class ReplaceUserRolesPayloadDto extends IntersectionType(UserUidDto, ReplaceUserRolesDto) {}

@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, Repository } from 'typeorm'
 import { assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
-import { CreateMenuDto, UpdateMenuDto } from '@/modules/menus/dto/menu.dto'
+import { CreateMenuDto, UpdateMenuDto } from '@/modules/menu/dto/menu.dto'
 
 @Injectable()
-export class MenusService {
+export class MenuService {
     constructor(@InjectRepository(TbAccountMenu) private readonly menuRepository: Repository<TbAccountMenu>) {}
 
     async getTree() {
@@ -43,7 +43,7 @@ export class MenusService {
                 throw new NotFoundException('菜单不存在')
             }
 
-            const nextParentKeyId = input.parentKeyId === undefined ? menu.parentKeyId : input.parentKeyId ?? null
+            const nextParentKeyId = input.parentKeyId === undefined ? menu.parentKeyId : (input.parentKeyId ?? null)
             if (nextParentKeyId === keyId) {
                 throw new BadRequestException('菜单不能成为自己的父节点')
             }

@@ -8,16 +8,16 @@ import {
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { AuthModule } from '@/modules/auth/auth.module'
-import { UsersController } from '@/modules/users/users.controller'
-import { UsersService } from '@/modules/users/users.service'
+import { UserController } from '@/modules/user/user.controller'
+import { UserService } from '@/modules/user/user.service'
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([TbAccountUser, TbAccountUserOrganization, TbAccountUserRole, TbAccountOrganization, TbAccountRole]),
         AuthModule
     ],
-    controllers: [UsersController],
-    providers: [UsersService],
-    exports: [UsersService]
+    controllers: [UserController],
+    providers: [UserService],
+    exports: [UserService]
 })
-export class UsersModule {}
+export class UserModule {}

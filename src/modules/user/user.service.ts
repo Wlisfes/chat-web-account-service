@@ -13,7 +13,7 @@ import {
 import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
 import { PageResult, assertUid, generateUid } from '@wlisfes/chat-web-base-schema/utils'
 import { PasswordService } from '@/modules/auth/password.service'
-import { PermissionsService } from '@/modules/permissions/permissions.service'
+import { PermissionService } from '@/modules/permission/permission.service'
 import {
     CreateUserDto,
     ReplaceUserOrganizationsDto,
@@ -22,15 +22,15 @@ import {
     UpdateUserDto,
     UserOrganizationMembershipDto,
     UserQueryDto
-} from '@/modules/users/dto/user.dto'
+} from '@/modules/user/dto/user.dto'
 
 const USER_RESOURCE_CODE = 'account:user'
 
 @Injectable()
-export class UsersService {
+export class UserService {
     constructor(
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
-        private readonly permissionsService: PermissionsService,
+        private readonly permissionService: PermissionService,
         private readonly passwordService: PasswordService
     ) {}
 
@@ -42,7 +42,7 @@ export class UsersService {
             actorUid,
             memberships.map(item => item.organizationKeyId)
         )
-        if (roleKeyIds.length && !(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (roleKeyIds.length && !(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException('只有超级管理员可以在创建账号时分配角色')
         }
 
@@ -85,7 +85,7 @@ export class UsersService {
     }
 
     async resetPassword(actorUid: string, targetUid: string, input: ResetUserPasswordDto): Promise<void> {
-        if (!(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException('只有超级管理员可以重置其他账号密码')
         }
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
@@ -198,7 +198,7 @@ export class UsersService {
     }
 
     async replaceRoles(actorUid: string, targetUid: string, input: ReplaceUserRolesDto): Promise<void> {
-        if (!(await this.permissionsService.isSuperAdmin(actorUid))) {
+        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException('只有超级管理员可以分配用户角色')
         }
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
@@ -228,7 +228,7 @@ export class UsersService {
     }
 
     private async applyDataScope(builder: SelectQueryBuilder<TbAccountUser>, actorUid: string): Promise<void> {
-        const scope = await this.permissionsService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
         if (scope.all) {
             return
         }
@@ -385,7 +385,7 @@ export class UsersService {
     }
 
     private async assertCanAssignOrganizations(actorUid: string, organizationKeyIds: number[]): Promise<void> {
-        const scope = await this.permissionsService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
         if (scope.all) {
             return
         }
