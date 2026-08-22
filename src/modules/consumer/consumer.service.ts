@@ -6,10 +6,13 @@ import {
     TbAccountConsumerClassType,
     TbAccountConsumerSource,
     TbAccountConsumerStage,
-    TbAccountConsumerStatus
+    TbAccountConsumerStatus,
+    TbAccountOrganization,
+    TbAccountUser,
+    TbAccountUserOrganization
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { generateUid } from '@wlisfes/chat-web-base-schema/utils'
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 import { CreateConsumerDto, ListConsumerDto, UpdateConsumerDto, UpdateConsumerStatusDto } from '@/modules/consumer/dto/consumer.dto'
 
 @Injectable()
@@ -83,19 +86,51 @@ export class ConsumerService {
             page: input.page,
             size: input.size,
             total,
-            list: consumerList.map(consumer => this.toManagerContract(consumer))
+            list: await this.toManagerContracts(consumerList)
         }
     }
 
-    private toManagerContract(consumer: TbAccountConsumer) {
+    private toManagerContract(consumer: TbAccountConsumer, owner?: TbAccountUser, organizations: TbAccountOrganization[] = []) {
         return {
             ...consumer,
             userId: consumer.ownerUserUid,
             brandId: consumer.brandKeyId,
-            accountOptions: { uid: consumer.ownerUserUid },
-            deptOptions: [],
+            accountOptions: owner
+                ? { uid: owner.uid, number: owner.number, name: owner.name, avatar: owner.avatar }
+                : { uid: consumer.ownerUserUid, number: consumer.ownerUserUid, name: '未知账号' },
+            deptOptions: organizations.map(organization => ({
+                keyId: organization.keyId,
+                name: organization.name,
+                deptName: organization.name
+            })),
             tags: []
         }
+    }
+
+    private async toManagerContracts(consumers: TbAccountConsumer[]) {
+        const ownerUserUids = [...new Set(consumers.map(consumer => consumer.ownerUserUid))]
+        if (!ownerUserUids.length) return []
+        const [owners, memberships] = await Promise.all([
+            this.repository.manager.find(TbAccountUser, { where: { uid: In(ownerUserUids) } }),
+            this.repository.manager.find(TbAccountUserOrganization, { where: { userUid: In(ownerUserUids) } })
+        ])
+        const organizationKeyIds = [...new Set(memberships.map(membership => membership.organizationKeyId))]
+        const organizations = organizationKeyIds.length
+            ? await this.repository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
+            : []
+        const ownerByUid = new Map(owners.map(owner => [owner.uid, owner]))
+        const organizationByKeyId = new Map(organizations.map(organization => [organization.keyId, organization]))
+        const organizationsByOwnerUid = new Map<string, TbAccountOrganization[]>()
+        for (const membership of memberships) {
+            const organization = organizationByKeyId.get(membership.organizationKeyId)
+            if (!organization) continue
+            const ownerOrganizations = organizationsByOwnerUid.get(membership.userUid) ?? []
+            ownerOrganizations.push(organization)
+            organizationsByOwnerUid.set(membership.userUid, ownerOrganizations)
+        }
+        return consumers.map(consumer =>
+            this.toManagerContract(consumer, ownerByUid.get(consumer.ownerUserUid), organizationsByOwnerUid.get(consumer.ownerUserUid) ?? [])
+        )
     }
 
     private async findRequired(keyId: number) {

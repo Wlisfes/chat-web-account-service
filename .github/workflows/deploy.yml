@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      seedDemoConsumers:
+        description: Generate 120 demo consumers across enabled account owners
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -148,6 +154,13 @@ jobs:
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username '${{ github.actor }}' --password-stdin
           cd "$DEPLOY_PATH"
           ./deploy.sh "$IMAGE" compose.yml
+
+      - name: Seed demo consumers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.seedDemoConsumers }}
+        shell: bash
+        run: |
+          set -eu
+          docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js --apply
 
       - name: Log out from GitHub Container Registry
         if: always()

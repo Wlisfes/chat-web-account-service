@@ -87,6 +87,28 @@ yarn legacy:migrate --apply
 
 验证完成后删除 staging 库。若迁移提交后验证失败，停止账号服务写入，恢复迁移前备份；不要尝试反向执行旧转储中的 `DROP TABLE`。
 
+## 客户演示数据
+
+`tb_account_consumer.key_id` 的标准起点为 `5181000`。`dist/cli/seed-demo-consumer.js` 使用固定种子生成 120 条可重复验证的客户数据，覆盖客户状态、付款模式、类型、阶段、认证、来源、品牌和币种，并轮询分配到最多 20 个启用账号。数据库中必须至少存在两个启用账号，否则脚本拒绝造数，避免所有客户错误集中到同一归属人。
+
+命令默认 dry-run；仅显式 `--apply` 才提交。生产双机应从 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`，由每台 Runner 在对应容器部署健康后执行：
+
+```bash
+docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js
+docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js --apply
+```
+
+落库后通过本服务数据库连接执行：
+
+```sql
+SELECT COUNT(*) AS consumer_count, MIN(key_id) AS min_key_id, MAX(key_id) AS max_key_id FROM tb_account_consumer;
+SELECT AUTO_INCREMENT FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'tb_account_consumer';
+SELECT COUNT(DISTINCT owner_user_uid) AS owner_count FROM tb_account_consumer;
+SELECT owner_user_uid, COUNT(*) AS consumer_count FROM tb_account_consumer GROUP BY owner_user_uid ORDER BY consumer_count DESC, owner_user_uid;
+```
+
+再次执行 `--apply` 时预期 `pending=0`、`inserted=0`。演示客户 UID 和邮箱使用固定保留区间，禁止把该脚本用于真实客户批量导入。
+
 ## 五分钟排障
 
 ### 1. 检查容器与访问
