@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：升级共享远程鉴权运行时
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.2.2`；Account 本次完整 Git SHA 镜像。
+- 变更内容：同步共享鉴权运行时版本。Account 继续作为身份与会话唯一所有者，保留登录、Token 签发、会话校验和 `/auth/token/introspect` 业务实现；下游服务改用共享远程鉴权模块。
+- 机器侧操作：无需修改 `.env`、Nacos、数据库、Redis、端口、Runner、部署目录或网络。
+- 验证命令：执行 `yarn format:check && yarn test`；部署后检查 `/health`、登录、Token 解析及 introspection。
+- 回滚方法：恢复上一条健康 Account 完整 SHA 镜像；无需回滚数据库、Redis 或 Nacos。
+
 ## 2026-08-23：CRM 强类型客户读取接口与共享包升级
 
 - 影响机器：Company、Home；需先于 CRM 首次部署完成。
