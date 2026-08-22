@@ -70,6 +70,16 @@ LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate
 LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate --apply
 ```
 
+`tb_account_consumer.key_id` 从 `5181000` 开始。演示环境可使用固定随机种子生成 120 条客户数据，并轮询分配到最多 20 个启用账号归属人；命令默认只预览，只有 `--apply` 才写入，重复执行会按固定客户 UID 幂等跳过：
+
+```bash
+yarn build
+yarn seed:consumer
+yarn seed:consumer --apply
+```
+
+双机部署造数时，在 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`。该选项会在 Company、Home 各自完成 Schema 升级和健康部署后执行；自动 push 部署不会重复造数。
+
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 
 ### Nacos 配置

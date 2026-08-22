@@ -12,6 +12,7 @@
         "password:hash": "yarn build && node scripts/hash-password.cjs",
         "legacy:migrate": "node dist/cli/migrate-legacy-platform.js",
         "legacy:consumer-migrate": "node dist/cli/migrate-legacy-consumer.js",
+        "seed:consumer": "node dist/cli/seed-demo-consumer.js",
         "menu:repair-finance": "node dist/cli/repair-finance-menus.js",
         "test": "yarn build && node --test test/*.test.cjs",
         "start": "nest start",
@@ -20,13 +21,14 @@
         "start:prod": "node dist/main"
     },
     "dependencies": {
+        "@faker-js/faker": "8.4.1",
         "@nestjs/common": "^11.0.1",
         "@nestjs/config": "^4.0.0",
         "@nestjs/core": "^11.0.1",
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/swagger": "11.4.6",
         "@nestjs/typeorm": "11.0.3",
-        "@wlisfes/chat-web-base-schema": "1.1.7",
+        "@wlisfes/chat-web-base-schema": "1.1.8",
         "class-transformer": "0.5.1",
         "class-validator": "0.15.1",
         "express": "5.2.1",
