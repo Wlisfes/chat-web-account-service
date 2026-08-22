@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：CRM 强类型客户读取接口与共享包升级
+
+- 影响机器：Company、Home；需先于 CRM 首次部署完成。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.2.1`；Account 本次完整 Git SHA 镜像。
+- 变更内容：新增 `GET /consumer/resolver` 和 `GET /consumer/select`，供 CRM 通过强类型 HTTP 客户端读取客户详情和下拉数据；客户主数据仍只存于 `tb_account_consumer`。新增幂等 CRM 菜单种子，部署后自动补齐 `/crm/consumer`、`/crm/partner`、`/crm/sms/quote/create` 和 `/crm/sms/quote` 并继承根目录角色授权。同步升级共享包 1.2.1。
+- 机器侧操作：无需修改数据库结构、Redis、Nacos、端口、Runner、部署目录或外部网络；流水线在 Account 容器内执行 CRM 菜单数据修复。
+- 验证命令：执行 `yarn test`；部署后携带有效 Token 验证两个接口，并确认权限树包含 CRM 规范路由且 CRM 不连接 Account 数据库。
+- 回滚方法：回滚 Account 镜像；CRM 在旧接口不可用期间会返回上游异常，数据库无需回滚。
+
 ## 2026-08-22：客户主键重排与多归属人演示数据
 
 - 影响机器：Company、Home；两台机器各自写入本机账号数据库，Company Runner 离线时任务保持排队。

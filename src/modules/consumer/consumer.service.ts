@@ -13,7 +13,13 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { generateUid } from '@wlisfes/chat-web-base-schema/utils'
 import { In, Repository } from 'typeorm'
-import { CreateConsumerDto, ListConsumerDto, UpdateConsumerDto, UpdateConsumerStatusDto } from '@/modules/consumer/dto/consumer.dto'
+import {
+    CreateConsumerDto,
+    ListConsumerDto,
+    SelectConsumerDto,
+    UpdateConsumerDto,
+    UpdateConsumerStatusDto
+} from '@/modules/consumer/dto/consumer.dto'
 
 @Injectable()
 export class ConsumerService {
@@ -90,6 +96,37 @@ export class ConsumerService {
         }
     }
 
+    async resolve(keyId: number) {
+        const [consumer] = await this.toManagerContracts([await this.findRequired(keyId)])
+        return consumer
+    }
+
+    async select(input: SelectConsumerDto) {
+        const query = this.repository
+            .createQueryBuilder('consumer')
+            .where('consumer.status = :status', { status: TbAccountConsumerStatus.ENABLE })
+            .orderBy('consumer.name', 'ASC')
+            .addOrderBy('consumer.keyId', 'ASC')
+            .take(200)
+        if (input.name?.trim()) {
+            query.andWhere('(consumer.name LIKE :name OR consumer.alias LIKE :name OR consumer.uid LIKE :name)', {
+                name: `%${input.name.trim()}%`
+            })
+        }
+        return (await query.getMany()).map(consumer => ({
+            keyId: consumer.keyId,
+            uid: consumer.uid,
+            ownerUserUid: consumer.ownerUserUid,
+            name: consumer.name,
+            alias: consumer.alias,
+            brandId: consumer.brandKeyId,
+            currency: consumer.currency,
+            email: consumer.email,
+            phone: consumer.phone,
+            status: consumer.status
+        }))
+    }
+
     private toManagerContract(consumer: TbAccountConsumer, owner?: TbAccountUser, organizations: TbAccountOrganization[] = []) {
         return {
             ...consumer,
@@ -129,7 +166,11 @@ export class ConsumerService {
             organizationsByOwnerUid.set(membership.userUid, ownerOrganizations)
         }
         return consumers.map(consumer =>
-            this.toManagerContract(consumer, ownerByUid.get(consumer.ownerUserUid), organizationsByOwnerUid.get(consumer.ownerUserUid) ?? [])
+            this.toManagerContract(
+                consumer,
+                ownerByUid.get(consumer.ownerUserUid),
+                organizationsByOwnerUid.get(consumer.ownerUserUid) ?? []
+            )
         )
     }
 
