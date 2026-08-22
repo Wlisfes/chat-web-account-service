@@ -16,6 +16,8 @@ export const CONSUMER_DEMO_SEED = 20260822
 export const CONSUMER_DEMO_COUNT = 120
 export const CONSUMER_DEMO_OWNER_LIMIT = 20
 export const CONSUMER_DEMO_UID_BASE = 2026082251810000000n
+export const CONSUMER_DEMO_OWNER_QUERY =
+    `SELECT \`uid\` FROM \`tb_account_user\` WHERE \`status\` = ? ORDER BY \`uid\` ASC LIMIT ${CONSUMER_DEMO_OWNER_LIMIT}`
 
 const CURRENCIES = ['USD', 'CNY', 'EUR', 'GBP', 'SGD', 'INR', 'JPY', 'KRW', 'IDR', 'THB', 'MYR', 'VND', 'PHP'] as const
 const STAGES = Object.values(TbAccountConsumerStage)
@@ -184,8 +186,8 @@ async function main(): Promise<void> {
             database
         )
         const [ownerRows] = await connection.execute<(RowDataPacket & { uid: string })[]>(
-            'SELECT `uid` FROM `tb_account_user` WHERE `status` = ? ORDER BY `uid` ASC LIMIT ?',
-            [TbAccountUserStatus.ENABLED, CONSUMER_DEMO_OWNER_LIMIT]
+            CONSUMER_DEMO_OWNER_QUERY,
+            [TbAccountUserStatus.ENABLED]
         )
         const rows = createConsumerDemoRows(ownerRows.map(row => String(row.uid)))
         const result = await seedConsumerDemoData(connection, apply, rows)
