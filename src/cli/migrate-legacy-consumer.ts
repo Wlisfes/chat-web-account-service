@@ -29,7 +29,7 @@ export function buildLegacyConsumerInsertSql(sourceDatabase: string, targetDatab
         FROM \`${sourceDatabase}\`.\`${LEGACY_CONSUMER_SOURCE_TABLE}\``
 }
 
-export async function migrateLegacyConsumers(
+export async function migrateLegacyConsumer(
     connection: Connection,
     sourceDatabase: string,
     targetDatabase: string,
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
         bigNumberStrings: true
     })
     try {
-        const count = await migrateLegacyConsumers(connection, sourceDatabase, targetDatabase, apply)
+        const count = await migrateLegacyConsumer(connection, sourceDatabase, targetDatabase, apply)
         process.stdout.write(`${JSON.stringify({ mode: apply ? 'apply' : 'dry-run', sourceDatabase, targetDatabase, count }, null, 2)}\n`)
     } finally {
         await connection.end()

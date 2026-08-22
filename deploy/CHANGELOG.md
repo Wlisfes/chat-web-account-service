@@ -1,12 +1,19 @@
 # 部署变更记录
 
+## 2026-08-22 Consumer 单数路由与共享工具
+
+- 影响机器：Company、Home；需与 Gateway、Manager 同一发布窗口部署。
+- 变更内容：客户模块目录、文件、类和内部路由统一使用单数 `consumer`，公开地址固定为 `/api/account/consumer/**`；删除服务内 `src/common`，分页、树、UID 工具改由 `@wlisfes/chat-web-base-schema@1.1.4` 提供。
+- 验证命令：执行 `yarn test`；部署后通过 Gateway 验证 `/api/account/consumer/column`，并确认旧 `/api/consumers/**` 不再使用。
+- 回滚方法：同时回滚 Account、Gateway 和 Manager 到上一组镜像，避免新旧路径不一致。
+
 ## 2026-08-22：外部客户主表迁入账号域
 
 - 影响机器：Company、Home。
 - 关联版本：`@wlisfes/chat-web-base-schema@1.1.3`；Account 本次完整 Git SHA 镜像。
-- 变更内容：新增账号域 `tb_account_consumer` 和 `/consumers/**` 客户管理接口，使用独立客户 UID，并兼容现有管理端的品牌、币种、付款模式、余额、授信、阶段和认证字段；Finance 不再保存或写入客户主表。
+- 变更内容：新增账号域 `tb_account_consumer` 和 `/consumer/**` 客户管理接口，使用独立客户 UID，并兼容现有管理端的品牌、币种、付款模式、余额、授信、阶段和认证字段；Finance 不再保存或写入客户主表。
 - 机器侧操作：无需修改 `.env`、Nacos、端口、Runner、部署目录或外部网络；部署器会在启动新容器前自动创建 `tb_account_consumer`。需要保留的历史客户数据应先迁入 Account，旧 Finance 客户表随后由 Finance Schema 增量直接删除，本服务不会跨库读取。
-- 验证命令：执行 `yarn test`；部署后执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'`、`curl -fsS http://127.0.0.1:3000/health`，并通过网关验证 `/api/consumers/column` 返回 HTTP 200 业务响应。
+- 验证命令：执行 `yarn test`；部署后执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'`、`curl -fsS http://127.0.0.1:3000/health`，并通过网关验证 `/api/account/consumer/column` 返回 HTTP 200 业务响应。
 - 回滚方法：将 Account 恢复到上一条健康 SHA；保留新增的 `tb_account_consumer` 表，不执行 DROP。若新表已经写入客户数据，回滚前先停止管理端写入并导出备份，禁止把数据写回 Finance 旧表。
 
 ## 2026-08-22：默认分支与自动部署触发器统一为 main

@@ -11,8 +11,7 @@ import {
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
-import { PageResult } from '@/common/dto/page.dto'
-import { assertUid, generateUid } from '@/common/uid'
+import { PageResult, assertUid, generateUid } from '@wlisfes/chat-web-base-schema/utils'
 import { PasswordService } from '@/modules/auth/password.service'
 import { PermissionsService } from '@/modules/permissions/permissions.service'
 import {

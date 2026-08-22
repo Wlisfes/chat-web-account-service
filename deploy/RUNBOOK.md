@@ -31,7 +31,7 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
 
-外部客户主表为 `tb_account_consumer`，公开管理接口为 `/consumers/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 由 Schema 增量直接删除，不得恢复业务写入。
+外部客户主表为 `tb_account_consumer`，服务内部管理接口为 `/consumer/**`，经 Gateway 公开为 `/api/account/consumer/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 由 Schema 增量直接删除，不得恢复业务写入。
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 

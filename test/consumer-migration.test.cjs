@@ -5,8 +5,8 @@ const {
     ACCOUNT_CONSUMER_TARGET_TABLE,
     LEGACY_CONSUMER_SOURCE_TABLE,
     buildLegacyConsumerInsertSql,
-    migrateLegacyConsumers
-} = require('../dist/cli/migrate-legacy-consumers')
+    migrateLegacyConsumer
+} = require('../dist/cli/migrate-legacy-consumer')
 
 function fakeConnection() {
     const state = { committed: false, rolledBack: false, inserts: [] }
@@ -38,7 +38,7 @@ test('旧客户迁移写入账号域并默认回滚', async () => {
     assert.equal(LEGACY_CONSUMER_SOURCE_TABLE, 'tb_windows_client')
     assert.equal(ACCOUNT_CONSUMER_TARGET_TABLE, 'tb_account_consumer')
     const connection = fakeConnection()
-    const count = await migrateLegacyConsumers(connection, 'legacy_windows', 'chat_web_account', false)
+    const count = await migrateLegacyConsumer(connection, 'legacy_windows', 'chat_web_account', false)
     assert.equal(count, 2)
     assert.equal(connection.state.committed, false)
     assert.equal(connection.state.rolledBack, true)
@@ -49,7 +49,7 @@ test('旧客户迁移写入账号域并默认回滚', async () => {
 
 test('旧客户迁移只有显式 apply 才提交', async () => {
     const connection = fakeConnection()
-    await migrateLegacyConsumers(connection, 'legacy_windows', 'chat_web_account', true)
+    await migrateLegacyConsumer(connection, 'legacy_windows', 'chat_web_account', true)
     assert.equal(connection.state.committed, true)
     assert.equal(connection.state.rolledBack, false)
 })

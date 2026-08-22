@@ -8,12 +8,12 @@ import {
     TbAccountConsumerStage,
     TbAccountConsumerStatus
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { generateUid } from '@wlisfes/chat-web-base-schema/utils'
 import { Repository } from 'typeorm'
-import { generateUid } from '@/common/uid'
-import { CreateConsumerDto, ListConsumerDto, UpdateConsumerDto, UpdateConsumerStatusDto } from '@/modules/consumers/dto/consumer.dto'
+import { CreateConsumerDto, ListConsumerDto, UpdateConsumerDto, UpdateConsumerStatusDto } from '@/modules/consumer/dto/consumer.dto'
 
 @Injectable()
-export class ConsumersService {
+export class ConsumerService {
     constructor(@InjectRepository(TbAccountConsumer) private readonly repository: Repository<TbAccountConsumer>) {}
 
     async create(actorUid: string, input: CreateConsumerDto) {
@@ -78,12 +78,12 @@ export class ConsumersService {
             .orderBy('consumer.createTime', 'DESC')
             .skip((input.page - 1) * input.size)
             .take(input.size)
-        const [consumers, total] = await query.getManyAndCount()
+        const [consumerList, total] = await query.getManyAndCount()
         return {
             page: input.page,
             size: input.size,
             total,
-            list: consumers.map(consumer => this.toManagerContract(consumer))
+            list: consumerList.map(consumer => this.toManagerContract(consumer))
         }
     }
 

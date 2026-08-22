@@ -20,7 +20,7 @@ import {
     Min,
     ValidateNested
 } from 'class-validator'
-import { PageDto } from '@/common/dto/page.dto'
+import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 
 export class UserQueryDto extends PageDto {
     @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询' })

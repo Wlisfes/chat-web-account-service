@@ -16,8 +16,7 @@ import {
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { In, Repository } from 'typeorm'
-import { assertUid } from '@/common/uid'
-import { buildTree } from '@/common/tree'
+import { assertUid, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { EffectiveAccess, EffectiveDataScope } from '@/modules/permissions/permissions.interface'
 import { selectEffectiveScopeRules } from '@/modules/permissions/permissions.policy'
 

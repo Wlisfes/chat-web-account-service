@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, Repository } from 'typeorm'
-import { assertValidTree, buildTree } from '@/common/tree'
+import { assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { CreateMenuDto, UpdateMenuDto } from '@/modules/menus/dto/menu.dto'
 
 @Injectable()

@@ -10,8 +10,7 @@ import {
     TbAccountUserOrganizationStatus
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, In, Repository } from 'typeorm'
-import { assertUid } from '@/common/uid'
-import { assertValidTree, buildTree } from '@/common/tree'
+import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { CreateOrganizationDto, UpdateOrganizationDto } from '@/modules/organizations/dto/organization.dto'
 
 @Injectable()
