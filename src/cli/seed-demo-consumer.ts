@@ -9,7 +9,7 @@ import {
     TbAccountConsumerStatus,
     TbAccountUserStatus
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import mysql, { Connection, RowDataPacket } from 'mysql2/promise'
+import mysql, { Connection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { loadDatabaseConfig } from '@/cli/migrate-legacy-platform'
 
 export const CONSUMER_DEMO_SEED = 20260822
@@ -51,6 +51,7 @@ export type ConsumerDemoSeedResult = {
     existing: number
     pending: number
     inserted: number
+    updated: number
     ownerCount: number
 }
 
@@ -74,7 +75,7 @@ export function createConsumerDemoRows(
             ownerUserUid: owners[index % owners.length],
             name: `演示客户-${String(sequence).padStart(3, '0')}-${faker.company.name()}`.slice(0, 64),
             alias: `DEMO-${String(sequence).padStart(3, '0')}`,
-            brandKeyId: (index % 12) + 1,
+            brandKeyId: (index % 11) + 1,
             currency: CURRENCIES[index % CURRENCIES.length],
             email: `demo-consumer-${String(sequence).padStart(3, '0')}@example.test`,
             phone: faker.helpers.fromRegExp('1[3-9][0-9]{9}'),
@@ -98,14 +99,14 @@ export function shouldApplyConsumerDemoSeed(argumentsList: readonly string[]): b
     return argumentsList.includes('--apply')
 }
 
-async function existingDemoUids(connection: Connection, rows: readonly ConsumerDemoRow[]): Promise<Set<string>> {
-    if (!rows.length) return new Set()
+async function existingDemoConsumers(connection: Connection, rows: readonly ConsumerDemoRow[]): Promise<Map<string, number>> {
+    if (!rows.length) return new Map()
     const placeholders = rows.map(() => '?').join(',')
-    const [existingRows] = await connection.execute<(RowDataPacket & { uid: string })[]>(
-        `SELECT \`uid\` FROM \`tb_account_consumer\` WHERE \`uid\` IN (${placeholders})`,
+    const [existingRows] = await connection.execute<(RowDataPacket & { uid: string; brandKeyId: number })[]>(
+        `SELECT \`uid\`, \`brand_key_id\` AS \`brandKeyId\` FROM \`tb_account_consumer\` WHERE \`uid\` IN (${placeholders})`,
         rows.map(row => row.uid)
     )
-    return new Set(existingRows.map(row => String(row.uid)))
+    return new Map(existingRows.map(row => [String(row.uid), Number(row.brandKeyId)]))
 }
 
 export async function seedConsumerDemoData(
@@ -113,17 +114,19 @@ export async function seedConsumerDemoData(
     apply: boolean,
     rows: readonly ConsumerDemoRow[]
 ): Promise<ConsumerDemoSeedResult> {
-    const existingUids = await existingDemoUids(connection, rows)
-    const pendingRows = rows.filter(row => !existingUids.has(row.uid))
+    const existingConsumers = await existingDemoConsumers(connection, rows)
+    const pendingRows = rows.filter(row => !existingConsumers.has(row.uid))
+    const updateRows = rows.filter(row => existingConsumers.has(row.uid) && existingConsumers.get(row.uid) !== row.brandKeyId)
     const ownerCount = new Set(rows.map(row => row.ownerUserUid)).size
     const result = {
         target: rows.length,
-        existing: existingUids.size,
-        pending: pendingRows.length,
+        existing: existingConsumers.size,
+        pending: pendingRows.length + updateRows.length,
         inserted: 0,
+        updated: 0,
         ownerCount
     }
-    if (!apply || !pendingRows.length) return result
+    if (!apply || (!pendingRows.length && !updateRows.length)) return result
 
     const insertSql = `INSERT INTO \`tb_account_consumer\`
         (\`uid\`,\`owner_user_uid\`,\`name\`,\`alias\`,\`brand_key_id\`,\`currency\`,\`email\`,\`phone\`,\`status\`,\`pay_mode\`,\`class_type\`,\`balance\`,\`balance_usd\`,\`credit\`,\`credit_usd\`,\`level\`,\`stage\`,\`auth_status\`,\`source\`,\`remark\`)
@@ -153,6 +156,13 @@ export async function seedConsumerDemoData(
                 row.source,
                 row.remark
             ])
+        }
+        for (const row of updateRows) {
+            const [updateResult] = await connection.execute<ResultSetHeader>(
+                'UPDATE `tb_account_consumer` SET `brand_key_id` = ? WHERE `uid` = ? AND `brand_key_id` <> ?',
+                [row.brandKeyId, row.uid, row.brandKeyId]
+            )
+            result.updated += updateResult.affectedRows
         }
         await connection.commit()
         result.inserted = pendingRows.length
