@@ -3,7 +3,7 @@
 ## 2026-08-22：动作式接口与结构化请求日志
 
 - 影响机器：Company、Home；需与 Finance、Gateway、Manager 同一发布窗口部署。
-- 关联版本：`@wlisfes/chat-web-base-schema@1.1.6`；Account 本次完整 Git SHA 镜像。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.7`；Account 本次完整 Git SHA 镜像。
 - 变更内容：用户、组织、菜单、角色、权限模块统一为单数目录、类名和动作式路由；全部 Controller 只使用 GET query 或 POST body，移除路径参数及 PUT/PATCH/DELETE；Auth 改为 `/auth/codex/write` 与 `/auth/token/**`。接入共享请求 ID/结构化请求日志并脱敏敏感字段；Docker `json-file` 轮转调整为单文件 20m、保留 30 个文件。
 - 机器侧操作：无需修改 `.env`、Nacos、数据库、Redis、端口、Runner、部署目录或网络；按 Account、Finance、Gateway、Manager 顺序部署联动版本。
 - 验证命令：执行 `yarn test` 和 `docker compose -f deploy/compose.yml config --quiet`；部署后验证登录、账号/组织/角色/菜单/权限/Consumer 接口，并检查 `docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}'` 与脱敏请求日志。
