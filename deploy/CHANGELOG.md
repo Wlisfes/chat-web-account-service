@@ -4,7 +4,7 @@
 
 - 影响机器：Company、Home；两台机器各自写入本机账号数据库，Company Runner 离线时任务保持排队。
 - 关联版本：`@wlisfes/chat-web-base-schema@1.1.8`；Account 本次完整 Git SHA 镜像。
-- 变更内容：`tb_account_consumer.key_id` 起点调整为 `5181000`，现有客户按原主键顺序平移并保留；新增基于 `@faker-js/faker@8.4.1` 的固定种子脚本，生成 120 条客户并轮询分配到最多 20 个启用账号归属人。客户列表补全归属账号及组织名称，管理端可直接显示业务员和部门。
+- 变更内容：`tb_account_consumer.key_id` 起点调整为 `5181000`，现有客户按原主键顺序平移并保留；新增基于 `@faker-js/faker@8.4.1` 的固定种子脚本，生成 120 条客户并轮询分配到最多 20 个启用账号归属人，仅使用 Finance 中启用的演示品牌 1-11，并可幂等修正已存在演示客户的失效品牌。客户列表补全归属账号及组织名称，管理端可直接显示业务员和部门。
 - 机器侧操作：自动部署先应用 Schema 增量；本次使用 `workflow_dispatch` 并勾选 `seedDemoConsumers`，部署健康后在各自 Account 容器中幂等造数。无需修改 `.env`、Nacos、Redis、端口、Runner、部署目录或网络。
 - 验证命令：执行 `yarn test`；部署后查询客户总数、`MIN/MAX(key_id)`、`AUTO_INCREMENT`、`COUNT(DISTINCT owner_user_uid)` 及各归属人客户数，并再次执行造数命令确认 `inserted=0`。
 - 回滚方法：应用镜像可回滚到上一条健康 SHA；主键变更和新增客户不自动逆向。若必须恢复数据，应停止写入并从部署前备份恢复账号库，禁止手工把新主键减去偏移量。
