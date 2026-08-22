@@ -12,10 +12,10 @@
 | 容器/Nacos 注册端口  | `3000`                          |
 | 部署目录             | `/opt/chat-web-account-service` |
 | Docker 网络          | `chat-web-infrastructure`       |
-| 数据库                | `chat_web_account`              |
-| MySQL 授权边界        | 仅 `chat_web_account.*`         |
-| Redis 容器            | `chat-web-redis`                |
-| Redis index           | `0`                             |
+| 数据库               | `chat_web_account`              |
+| MySQL 授权边界       | 仅 `chat_web_account.*`         |
+| Redis 容器           | `chat-web-redis`                |
+| Redis index          | `0`                             |
 | Nacos Data ID        | `chat-web-account-service.yaml` |
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
@@ -30,6 +30,8 @@
 Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。部署脚本固定同机 Redis 时，还会比较受保护 `.env` 与新容器实际收到的 `REDIS_HOST/REDIS_URL/REDIS_PASSWORD`；只比较值且不输出，不一致会在健康检查前回滚。
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
+
+外部客户主表为 `tb_account_consumer`，公开管理接口为 `/consumers/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 只作为迁移后的 deprecated 备份，不得恢复业务写入。
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
@@ -137,15 +139,15 @@ Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像�
 
 ## 常见故障
 
-| 现象                          | 原因                                  | 处理                                                 |
-| ----------------------------- | ------------------------------------- | ---------------------------------------------------- |
-| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务                  |
-| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`             |
-| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                    |
-| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                     |
-| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署             |
+| 现象                          | 原因                                  | 处理                                                                                         |
+| ----------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务                                                          |
+| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`                                                     |
+| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                                                            |
+| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                                                             |
+| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
 | `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
-| 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT` |
+| 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT`                                         |
 
 ## 恢复顺序
 

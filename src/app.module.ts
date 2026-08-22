@@ -7,6 +7,7 @@ import { NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
 import { RedisModule } from '@wlisfes/chat-web-base-schema/redis'
 import { DatabaseModule } from '@/modules/database/database.module'
 import { AuthModule } from '@/modules/auth/auth.module'
+import { ConsumersModule } from '@/modules/consumers/consumers.module'
 import { MenusModule } from '@/modules/menus/menus.module'
 import { HealthModule } from '@/modules/health/health.module'
 import { OrganizationsModule } from '@/modules/organizations/organizations.module'
@@ -25,6 +26,7 @@ import { AppService } from '@/app.service'
         RedisModule,
         DatabaseModule,
         AuthModule,
+        ConsumersModule,
         HealthModule,
         PermissionsModule,
         OrganizationsModule,

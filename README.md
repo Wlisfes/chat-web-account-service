@@ -61,6 +61,15 @@ $ yarn run test:cov
 
 本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过两台内网服务器上的 Self-hosted Runner 独立部署；失败时自动回滚。
 
+外部客户由账号域的 `tb_account_consumer` 管理，管理端通过 `/api/consumers/**` 访问；Finance 服务不再保存第二份客户主表。
+
+旧财务库客户迁移默认 dry-run；迁移账号需临时拥有旧库只读权限和账号库写入权限，运行时服务账号仍只授权账号库：
+
+```bash
+LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate
+LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate --apply
+```
+
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 
 ### Nacos 配置
