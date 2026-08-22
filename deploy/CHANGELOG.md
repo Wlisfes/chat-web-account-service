@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-22：默认分支与自动部署触发器统一为 main
+
+- 影响机器：Company、Home。
+- 关联版本：账号服务默认分支由 `master` 重命名后的 `main`；本次工作流修复提交及其完整 Git SHA 镜像。
+- 变更内容：将 `Build and deploy` 的推送触发分支由已不存在的 `master` 改为 `main`，并同步 README 与部署说明，恢复默认分支合并后的自动构建、GHCR 推送和双机部署。
+- 机器侧操作：无需修改 `.env`、Nacos、端口、Runner、部署目录或外部网络；合并到 `main` 后由现有 Company、Home Runner 部署同一完整 SHA。
+- 验证命令：确认 GitHub 仓库默认分支和远端 `HEAD` 均指向 `main`；执行 `yarn test`；合并后确认 `Build and deploy` 由 `main` 的 push 事件触发，并在两台机器执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'` 与 `curl -fsS http://127.0.0.1:3000/health`。
+- 回滚方法：回滚本次工作流提交并使用 `workflow_dispatch` 手动部署上一条健康 SHA；只有同时把 GitHub 默认分支恢复为 `master` 时才可恢复旧触发器，单独恢复旧触发器会再次导致默认分支合并不触发部署。
+
 ## 2026-08-19：服务数据边界与内部鉴权接口
 
 - 影响机器：Company、Home。

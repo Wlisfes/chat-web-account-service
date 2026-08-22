@@ -7,7 +7,7 @@
 
 凡是修改 Docker、Actions、Nacos、端口、环境变量、健康检查或 Runner，必须在同一次提交中更新部署变更记录。
 
-向 `master` 分支直接推送或合并 Pull Request 后，GitHub Actions 会：
+向 `main` 分支直接推送或合并 Pull Request 后，GitHub Actions 会：
 
 1. 构建 Docker 镜像，并以完整 Git SHA 和 `latest` 两个标签推送到 GHCR。
 2. 将同一个精确 SHA 镜像分别投递给两个内网 Self-hosted Runner。
@@ -80,4 +80,4 @@ WHERE `code` = 'super_admin';
 
 两台部署任务使用不同的并发组，一台机器离线不会阻止另一台部署，也不会阻止后续镜像构建。新版本会自动取消同一机器正在等待或运行的旧部署，只保留最新版本；如果部署在更新容器时被中断，部署脚本会先恢复原镜像。
 
-机器恢复在线后，Runner 会领取等待中的部署任务。如果机器离线时间过长导致任务失效，可在 Actions 页面通过 `workflow_dispatch` 手动运行当前 `master` 的完整构建部署。
+机器恢复在线后，Runner 会领取等待中的部署任务。如果机器离线时间过长导致任务失效，可在 Actions 页面通过 `workflow_dispatch` 手动运行当前 `main` 的完整构建部署。
