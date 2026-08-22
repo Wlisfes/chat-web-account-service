@@ -3,10 +3,16 @@ const assert = require('node:assert/strict')
 
 const {
     CONSUMER_DEMO_COUNT,
+    CONSUMER_DEMO_OWNER_QUERY,
     CONSUMER_DEMO_UID_BASE,
     createConsumerDemoRows,
     shouldApplyConsumerDemoSeed
 } = require('../dist/cli/seed-demo-consumer')
+
+test('归属人查询使用固定安全上限，兼容 MySQL prepared statement', () => {
+    assert.match(CONSUMER_DEMO_OWNER_QUERY, /LIMIT 20$/)
+    assert.equal((CONSUMER_DEMO_OWNER_QUERY.match(/\?/g) ?? []).length, 1)
+})
 
 test('客户演示数据从固定 UID 生成并均匀分配给多个归属人', () => {
     const owners = ['2026082200000000001', '2026082200000000002', '2026082200000000003', '2026082200000000004']
