@@ -81,6 +81,16 @@ export class UpdateConsumerDto extends CreateConsumerDto {
 
 export class UpdateConsumerStatusDto extends PickType(TbAccountConsumerDto, ['keyId', 'status'] as const) {}
 
+export class ResolveConsumerDto extends PickType(TbAccountConsumerDto, ['keyId'] as const) {
+    @ApiProperty({ description: '客户主键', example: 5181000 })
+    @Type(() => Number)
+    @IsInt({ message: '客户主键必须是整数' })
+    @Min(1, { message: '客户主键必须大于0' })
+    keyId: number
+}
+
+export class SelectConsumerDto extends PartialType(PickType(TbAccountConsumerDto, ['name'] as const)) {}
+
 export class ListConsumerDto extends IntersectionType(
     SizePageDto,
     PartialType(PickType(TbAccountConsumerDto, ['name', 'status', 'currency', 'payMode', 'authStatus', 'source'] as const))

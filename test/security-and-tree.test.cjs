@@ -11,6 +11,7 @@ const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { AuthController } = require('../dist/modules/auth/auth.controller')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
+const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
@@ -267,6 +268,16 @@ test('财务菜单种子覆盖现有前端路由并按父级在前排序', () =>
         ]
     )
     for (const item of FINANCE_MENU_SEEDS) {
+        if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
+    }
+})
+
+test('CRM 菜单种子只使用 consumer 和 sms quote 规范路由', () => {
+    const paths = CRM_MENU_SEEDS.map(item => item.path)
+    assert.equal(new Set(paths).size, paths.length)
+    assert.deepEqual(paths, ['/crm', '/crm/consumer', '/crm/partner', '/crm/sms', '/crm/sms/quote/create', '/crm/sms/quote'])
+    assert.doesNotMatch(paths.join('\n'), /client|formosan|saturation|:[A-Za-z]/)
+    for (const item of CRM_MENU_SEEDS) {
         if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
     }
 })
