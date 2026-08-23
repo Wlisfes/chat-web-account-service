@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：登录有效期调整为10小时
+
+- 影响机器：Home 当前环境；Company 恢复在线后使用同一 Nacos 配置基线。
+- 关联配置：Nacos `chat-web-account-service.yaml` 的 `security.jwt.accessTokenTtlSeconds=36000`。
+- 变更内容：Access Token、Redis 登录会话和管理端 Token Cookie 的单次有效期由1小时调整为10小时；管理端在使用时间达到30%后，于下一次接口请求时自动轮换 Token 并重新获得10小时。
+- 机器侧操作：配置已发布到 Nacos，Account 日志确认动态应用 `security` 节点，无需重启服务或修改 `.env`、数据库、Redis、端口和网络。已经签发的 Token 保留原到期时间，新登录或下一次续期开始使用10小时。
+- 验证命令：读取 Nacos 配置确认 `accessTokenTtlSeconds=36000`，检查 Account 日志出现配置更新记录；新登录响应的 `expiresIn` 应为 `36000`。
+- 回滚方法：将 Nacos `security.jwt.accessTokenTtlSeconds` 恢复为 `3600`；已签发 Token 保留各自原到期时间，不清理 Redis 会话。
+
 ## 2026-08-23：Home Runner 统一迁移为主机服务
 
 - 影响机器：Home；Company Runner 离线状态保持不变。
