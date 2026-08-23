@@ -1,5 +1,57 @@
 # 部署变更记录
 
+## 2026-08-23：升级共享远程鉴权运行时
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.2.2`；Account 本次完整 Git SHA 镜像。
+- 变更内容：同步共享鉴权运行时版本。Account 继续作为身份与会话唯一所有者，保留登录、Token 签发、会话校验和 `/auth/token/introspect` 业务实现；下游服务改用共享远程鉴权模块。
+- 机器侧操作：无需修改 `.env`、Nacos、数据库、Redis、端口、Runner、部署目录或网络。
+- 验证命令：执行 `yarn format:check && yarn test`；部署后检查 `/health`、登录、Token 解析及 introspection。
+- 回滚方法：恢复上一条健康 Account 完整 SHA 镜像；无需回滚数据库、Redis 或 Nacos。
+
+## 2026-08-23：CRM 强类型客户读取接口与共享包升级
+
+- 影响机器：Company、Home；需先于 CRM 首次部署完成。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.2.1`；Account 本次完整 Git SHA 镜像。
+- 变更内容：新增 `GET /consumer/resolver` 和 `GET /consumer/select`，供 CRM 通过强类型 HTTP 客户端读取客户详情和下拉数据；客户主数据仍只存于 `tb_account_consumer`。新增幂等 CRM 菜单种子，部署后自动补齐 `/crm/consumer`、`/crm/partner`、`/crm/sms/quote/create` 和 `/crm/sms/quote` 并继承根目录角色授权。同步升级共享包 1.2.1。
+- 机器侧操作：无需修改数据库结构、Redis、Nacos、端口、Runner、部署目录或外部网络；流水线在 Account 容器内执行 CRM 菜单数据修复。
+- 验证命令：执行 `yarn test`；部署后携带有效 Token 验证两个接口，并确认权限树包含 CRM 规范路由且 CRM 不连接 Account 数据库。
+- 回滚方法：回滚 Account 镜像；CRM 在旧接口不可用期间会返回上游异常，数据库无需回滚。
+
+## 2026-08-22：客户主键重排与多归属人演示数据
+
+- 影响机器：Company、Home；两台机器各自写入本机账号数据库，Company Runner 离线时任务保持排队。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.8`；Account 本次完整 Git SHA 镜像。
+- 变更内容：`tb_account_consumer.key_id` 起点调整为 `5181000`，现有客户按原主键顺序平移并保留；新增基于 `@faker-js/faker@8.4.1` 的固定种子脚本，生成 120 条客户并轮询分配到最多 20 个启用账号归属人，仅使用 Finance 中启用的演示品牌 1-11，并可幂等修正已存在演示客户的失效品牌。客户列表补全归属账号及组织名称，管理端可直接显示业务员和部门。
+- 机器侧操作：自动部署先应用 Schema 增量；本次使用 `workflow_dispatch` 并勾选 `seedDemoConsumers`，部署健康后在各自 Account 容器中幂等造数。无需修改 `.env`、Nacos、Redis、端口、Runner、部署目录或网络。
+- 验证命令：执行 `yarn test`；部署后查询客户总数、`MIN/MAX(key_id)`、`AUTO_INCREMENT`、`COUNT(DISTINCT owner_user_uid)` 及各归属人客户数，并再次执行造数命令确认 `inserted=0`。
+- 回滚方法：应用镜像可回滚到上一条健康 SHA；主键变更和新增客户不自动逆向。若必须恢复数据，应停止写入并从部署前备份恢复账号库，禁止手工把新主键减去偏移量。
+
+## 2026-08-22：动作式接口与结构化请求日志
+
+- 影响机器：Company、Home；需与 Finance、Gateway、Manager 同一发布窗口部署。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.7`；Account 本次完整 Git SHA 镜像。
+- 变更内容：用户、组织、菜单、角色、权限模块统一为单数目录、类名和动作式路由；全部 Controller 只使用 GET query 或 POST body，移除路径参数及 PUT/PATCH/DELETE；Auth 改为 `/auth/codex/write` 与 `/auth/token/**`。接入共享请求 ID/结构化请求日志并脱敏敏感字段；Docker `json-file` 轮转调整为单文件 20m、保留 30 个文件。
+- 机器侧操作：无需修改 `.env`、Nacos、数据库、Redis、端口、Runner、部署目录或网络；按 Account、Finance、Gateway、Manager 顺序部署联动版本。
+- 验证命令：执行 `yarn test` 和 `docker compose -f deploy/compose.yml config --quiet`；部署后验证登录、账号/组织/角色/菜单/权限/Consumer 接口，并检查 `docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}'` 与脱敏请求日志。
+- 回滚方法：同时回滚四个仓库到上一组健康镜像；不回滚数据库。旧 Manager 与新 Account 或新 Manager 与旧 Account 的接口契约不兼容，禁止只回滚一端。
+
+## 2026-08-22 Consumer 单数路由与共享工具
+
+- 影响机器：Company、Home；需与 Gateway、Manager 同一发布窗口部署。
+- 变更内容：客户模块目录、文件、类和内部路由统一使用单数 `consumer`，公开地址固定为 `/api/account/consumer/**`；删除服务内 `src/common`，分页、树、UID 工具改由 `@wlisfes/chat-web-base-schema@1.1.4` 提供。
+- 验证命令：执行 `yarn test`；部署后通过 Gateway 验证 `/api/account/consumer/column`，并确认旧 `/api/consumers/**` 不再使用。
+- 回滚方法：同时回滚 Account、Gateway 和 Manager 到上一组镜像，避免新旧路径不一致。
+
+## 2026-08-22：外部客户主表迁入账号域
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.1.3`；Account 本次完整 Git SHA 镜像。
+- 变更内容：新增账号域 `tb_account_consumer` 和 `/consumer/**` 客户管理接口，使用独立客户 UID，并兼容现有管理端的品牌、币种、付款模式、余额、授信、阶段和认证字段；Finance 不再保存或写入客户主表。
+- 机器侧操作：无需修改 `.env`、Nacos、端口、Runner、部署目录或外部网络；部署器会在启动新容器前自动创建 `tb_account_consumer`。需要保留的历史客户数据应先迁入 Account，旧 Finance 客户表随后由 Finance Schema 增量直接删除，本服务不会跨库读取。
+- 验证命令：执行 `yarn test`；部署后执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'`、`curl -fsS http://127.0.0.1:3000/health`，并通过网关验证 `/api/account/consumer/column` 返回 HTTP 200 业务响应。
+- 回滚方法：将 Account 恢复到上一条健康 SHA；保留新增的 `tb_account_consumer` 表，不执行 DROP。若新表已经写入客户数据，回滚前先停止管理端写入并导出备份，禁止把数据写回 Finance 旧表。
+
 ## 2026-08-22：默认分支与自动部署触发器统一为 main
 
 - 影响机器：Company、Home。

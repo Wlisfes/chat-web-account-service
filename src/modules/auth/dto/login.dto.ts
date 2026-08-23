@@ -1,5 +1,20 @@
-import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsString, Length, MaxLength } from 'class-validator'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { Type } from 'class-transformer'
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator'
+
+export class CodexWriteQueryDto {
+    @ApiPropertyOptional({ description: '是否使用反色验证码；1 表示启用，0 表示关闭', enum: ['0', '1'], default: '0' })
+    @IsOptional()
+    @IsIn(['0', '1'], { message: '验证码反色配置只能是0或1' })
+    inverse?: string
+
+    @ApiPropertyOptional({ description: '用于避免浏览器缓存验证码的毫秒时间戳', example: 1787400000000 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt({ message: '验证码时间戳必须是整数' })
+    @Min(1, { message: '验证码时间戳必须大于0' })
+    timestamp?: number
+}
 
 export class LoginDto {
     @ApiProperty({ description: '工号、手机号或邮箱', example: '1001' })

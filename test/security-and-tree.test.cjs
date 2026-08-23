@@ -2,8 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { BadRequestException } = require('@nestjs/common')
 
-const { buildTree, assertValidTree } = require('../dist/common/tree')
-const { generateUid } = require('../dist/common/uid')
+const { buildTree, assertValidTree, generateUid } = require('@wlisfes/chat-web-base-schema/utils')
 const { PasswordService } = require('../dist/modules/auth/password.service')
 const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-schema/auth')
 const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
@@ -12,9 +11,10 @@ const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { AuthController } = require('../dist/modules/auth/auth.controller')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
+const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
-const { selectEffectiveScopeRules } = require('../dist/modules/permissions/permissions.policy')
+const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 
 function config(values) {
@@ -67,8 +67,8 @@ test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
         {}
     )
     const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
-    assert.equal(await controller.introspect(request), principal)
-    assert.throws(() => controller.introspect({ header: () => undefined }), /缺少 Bearer/)
+    assert.equal(await controller.httpAuthAccountTokenIntrospect(request), principal)
+    assert.throws(() => controller.httpAuthAccountTokenIntrospect({ header: () => undefined }), /缺少 Bearer/)
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
@@ -272,6 +272,16 @@ test('财务菜单种子覆盖现有前端路由并按父级在前排序', () =>
     }
 })
 
+test('CRM 菜单种子只使用 consumer 和 sms quote 规范路由', () => {
+    const paths = CRM_MENU_SEEDS.map(item => item.path)
+    assert.equal(new Set(paths).size, paths.length)
+    assert.deepEqual(paths, ['/crm', '/crm/consumer', '/crm/partner', '/crm/sms', '/crm/sms/quote/create', '/crm/sms/quote'])
+    assert.doesNotMatch(paths.join('\n'), /client|formosan|saturation|:[A-Za-z]/)
+    for (const item of CRM_MENU_SEEDS) {
+        if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
+    }
+})
+
 test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
     const roles = [{ keyId: 1 }, { keyId: 2 }]
     const rules = [
@@ -360,7 +370,7 @@ test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
         switchToHttp() {
             return {
                 getRequest() {
-                    return { originalUrl: '/auth/login' }
+                    return { originalUrl: '/auth/token/login' }
                 },
                 getResponse() {
                     return response

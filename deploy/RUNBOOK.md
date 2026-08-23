@@ -12,10 +12,10 @@
 | 容器/Nacos 注册端口  | `3000`                          |
 | 部署目录             | `/opt/chat-web-account-service` |
 | Docker 网络          | `chat-web-infrastructure`       |
-| 数据库                | `chat_web_account`              |
-| MySQL 授权边界        | 仅 `chat_web_account.*`         |
-| Redis 容器            | `chat-web-redis`                |
-| Redis index           | `0`                             |
+| 数据库               | `chat_web_account`              |
+| MySQL 授权边界       | 仅 `chat_web_account.*`         |
+| Redis 容器           | `chat-web-redis`                |
+| Redis index          | `0`                             |
 | Nacos Data ID        | `chat-web-account-service.yaml` |
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
@@ -31,6 +31,8 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
 
+外部客户主表为 `tb_account_consumer`，服务内部管理接口为 `/consumer/**`，经 Gateway 公开为 `/api/account/consumer/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 由 Schema 增量直接删除，不得恢复业务写入。
+
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
 部署会在 Schema 升级前运行幂等隔离器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；发现旧全局账号时会在进程内生成随机专用凭据、只授权 `chat_web_account.*` / `chat_web_finance.*`、回写各自 Nacos 并复连验证。密码不输出、不写仓库。隔离完成后 Schema 升级器再次执行 `SHOW GRANTS FOR CURRENT_USER()`，全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
@@ -44,7 +46,7 @@ SELECT DATABASE(), CURRENT_USER();
 SHOW GRANTS FOR CURRENT_USER();
 ```
 
-预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/auth/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
+预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/auth/token/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
 
 本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
@@ -85,6 +87,28 @@ yarn legacy:migrate --apply
 
 验证完成后删除 staging 库。若迁移提交后验证失败，停止账号服务写入，恢复迁移前备份；不要尝试反向执行旧转储中的 `DROP TABLE`。
 
+## 客户演示数据
+
+`tb_account_consumer.key_id` 的标准起点为 `5181000`。`dist/cli/seed-demo-consumer.js` 使用固定种子生成 120 条可重复验证的客户数据，覆盖客户状态、付款模式、类型、阶段、认证、来源、品牌和币种，并轮询分配到最多 20 个启用账号。数据库中必须至少存在两个启用账号，否则脚本拒绝造数，避免所有客户错误集中到同一归属人。
+
+命令默认 dry-run；仅显式 `--apply` 才提交。生产双机应从 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`，由每台 Runner 在对应容器部署健康后执行：
+
+```bash
+docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js
+docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js --apply
+```
+
+落库后通过本服务数据库连接执行：
+
+```sql
+SELECT COUNT(*) AS consumer_count, MIN(key_id) AS min_key_id, MAX(key_id) AS max_key_id FROM tb_account_consumer;
+SELECT AUTO_INCREMENT FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'tb_account_consumer';
+SELECT COUNT(DISTINCT owner_user_uid) AS owner_count FROM tb_account_consumer;
+SELECT owner_user_uid, COUNT(*) AS consumer_count FROM tb_account_consumer GROUP BY owner_user_uid ORDER BY consumer_count DESC, owner_user_uid;
+```
+
+再次执行 `--apply` 时预期 `pending=0`、`inserted=0`。演示客户 UID 和邮箱使用固定保留区间，禁止把该脚本用于真实客户批量导入。
+
 ## 五分钟排障
 
 ### 1. 检查容器与访问
@@ -92,10 +116,13 @@ yarn legacy:migrate --apply
 ```powershell
 docker ps -a --filter "name=chat-web-account-service"
 docker inspect chat-web-account-service --format "{{.Config.Image}} {{.State.Status}} {{.State.Health.Status}}"
+docker inspect chat-web-account-service --format "{{json .HostConfig.LogConfig}}"
 docker logs --tail 200 chat-web-account-service
 $accountPort = 3001 # Home；Company 改为 3000
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$accountPort/health"
 ```
+
+日志配置预期为 `json-file`、`max-size=20m`、`max-file=30`。请求日志应包含 `logId`、方法、URL、状态码和耗时；登录请求中的密码、验证码和 Token 必须显示为 `[已隐藏]`。
 
 ### 2. 检查基础设施网络
 
@@ -137,15 +164,15 @@ Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像�
 
 ## 常见故障
 
-| 现象                          | 原因                                  | 处理                                                 |
-| ----------------------------- | ------------------------------------- | ---------------------------------------------------- |
-| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务                  |
-| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`             |
-| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                    |
-| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                     |
-| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署             |
+| 现象                          | 原因                                  | 处理                                                                                         |
+| ----------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务                                                          |
+| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`                                                     |
+| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                                                            |
+| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                                                             |
+| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
 | `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
-| 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT` |
+| 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT`                                         |
 
 ## 恢复顺序
 

@@ -61,6 +61,25 @@ $ yarn run test:cov
 
 本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过两台内网服务器上的 Self-hosted Runner 独立部署；失败时自动回滚。
 
+外部客户由账号域的 `tb_account_consumer` 管理，管理端通过 `/api/account/consumer/**` 访问；Gateway 只使用 Account 服务前缀，Finance 服务不再保存第二份客户主表。
+
+旧财务库客户迁移默认 dry-run；迁移账号需临时拥有旧库只读权限和账号库写入权限，运行时服务账号仍只授权账号库：
+
+```bash
+LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate
+LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate --apply
+```
+
+`tb_account_consumer.key_id` 从 `5181000` 开始。演示环境可使用固定随机种子生成 120 条客户数据，并轮询分配到最多 20 个启用账号归属人；命令默认只预览，只有 `--apply` 才写入，重复执行会按固定客户 UID 幂等跳过：
+
+```bash
+yarn build
+yarn seed:consumer
+yarn seed:consumer --apply
+```
+
+双机部署造数时，在 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`。该选项会在 Company、Home 各自完成 Schema 升级和健康部署后执行；自动 push 部署不会重复造数。
+
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 
 ### Nacos 配置
@@ -86,7 +105,7 @@ security:
         accessTokenTtlSeconds: 3600
 ```
 
-除 `/`、`/health`、`/health/live`、`/health/ready` 和 `/auth/login` 外，接口默认需要登录。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
+除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。内部 `/auth/token/introspect` 会自行校验 Bearer Token 并保留真实 HTTP 状态。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
 `/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 JWT 密钥是否有效，缺表或密钥缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL并配置 JWT 密钥。
 
