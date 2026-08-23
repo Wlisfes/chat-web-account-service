@@ -2,6 +2,7 @@
 set -eu
 
 IMAGE=${1:?Usage: deploy.sh IMAGE [COMPOSE_FILE]}
+SERVICE_VERSION=${SERVICE_VERSION:-${IMAGE##*:}}
 COMPOSE_FILE=${2:-compose.yml}
 SERVICE=account-service
 CONTAINER=chat-web-account-service
@@ -24,7 +25,7 @@ fi
 old_image=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)
 
 compose() {
-    IMAGE="$IMAGE" docker compose -f "$COMPOSE_FILE" "$@"
+    IMAGE="$IMAGE" SERVICE_VERSION="$SERVICE_VERSION" docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 read_env_value() {
@@ -233,7 +234,7 @@ rollback() {
 
     if [ -n "$old_image" ] && [ "$old_image" != "$IMAGE" ]; then
         echo "Rolling back to $old_image" >&2
-        IMAGE="$old_image" docker compose -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
+        IMAGE="$old_image" SERVICE_VERSION="${old_image##*:}" docker compose -f "$COMPOSE_FILE" up -d --no-deps "$SERVICE"
     else
         echo "No previous image is available for rollback." >&2
     fi

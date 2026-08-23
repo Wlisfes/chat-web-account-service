@@ -171,3 +171,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## 可观测性
+
+Docker 部署通过 Grafana Alloy 自动采集结构化 JSON 日志、OpenTelemetry Trace 和 Node 运行指标。日志包含 `requestId`、`traceId`、`spanId`，完整配置与排障命令见 `deploy/RUNBOOK.md`。
