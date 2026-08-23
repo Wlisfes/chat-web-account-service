@@ -23,6 +23,8 @@
 | 当前公司机器 | `chat-server-company` | `production-company` |
 | 家中机器     | `chat-server-home`    | `production-home`    |
 
+Home 的仓库 Runner 统一作为 Ubuntu WSL 主机上的 systemd 服务运行，不使用 Docker Runner 容器。Account、Finance、CRM、Gateway 和 Manager 仍分别注册各自的仓库级 Runner，并使用独立安装目录；同一标签不代表可以跨仓库共用注册实例。
+
 安装 Runner 时使用对应标签，例如：
 
 ```bash
@@ -35,7 +37,7 @@ sudo ./svc.sh start
 
 家中机器将标签改为 `chat-server-home`。首次部署前，每台机器都要执行：
 
-Self-hosted Runner 默认只属于注册它的仓库。当前 Runner 不能替 `chat-web-gateway-service` 执行部署；同一台机器部署网关时，需要在网关仓库的 `Settings -> Actions -> Runners` 中获取新的临时 Token，并使用独立目录再安装一个 Runner 服务。不要让两个仓库共用同一个 Runner 安装目录。
+Self-hosted Runner 默认只属于注册它的仓库。当前 Runner 不能替其他仓库执行部署；同一台机器部署其他服务时，需要在对应仓库的 `Settings -> Actions -> Runners` 中获取新的临时 Token，并使用独立目录再安装一个 Runner 服务。不要让两个仓库共用同一个 Runner 安装目录。
 
 ```bash
 sudo usermod -aG docker "RUNNER用户"
