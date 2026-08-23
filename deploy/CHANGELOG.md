@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-24：GHCR 登录增加网络退避重试
+
+- 影响机器：Home；Company 当前离线，本次不等待其部署结果。
+- 关联版本：Account 本次完整 Git SHA 镜像及部署工作流。
+- 变更内容：自托管 Runner 登录 GHCR 时最多尝试8次，并按5秒递增退避；与现有镜像拉取重试共同覆盖 Registry 瞬时 EOF，避免镜像已经成功构建却因单次登录网络波动中断部署。
+- 机器侧操作：无需修改 Secret、`.env`、Nacos、数据库、Redis、端口、Runner、部署目录或网络；合并后由 Home Runner 自动部署。
+- 验证命令：检查 GitHub Actions 的 `Pull and deploy image` 步骤；部署后执行 `docker inspect chat-web-account-service --format '{{.Config.Image}} {{.State.Health.Status}}'` 和 `curl -fsS http://127.0.0.1:3000/health/live`。
+- 回滚方法：恢复上一条健康 Account 完整 SHA 镜像；如仅回滚工作流可删除登录重试逻辑，不涉及数据库、Redis、Nacos 或业务数据回滚。
+
 ## 2026-08-23：接入统一日志、指标与链路追踪
 
 - 影响机器：Home；Company 当前离线，本次不等待其部署结果。
