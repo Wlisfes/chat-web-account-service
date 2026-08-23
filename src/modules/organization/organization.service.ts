@@ -4,10 +4,14 @@ import {
     TbAccountOrganization,
     TbAccountOrganizationClosure,
     TbAccountOrganizationStatus,
+    TbAccountRole,
+    TbAccountRoleDataScope,
     TbAccountRoleDataScopeOrganization,
+    TbAccountRoleMenu,
     TbAccountUser,
     TbAccountUserOrganization,
-    TbAccountUserOrganizationStatus
+    TbAccountUserOrganizationStatus,
+    TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, In, Repository } from 'typeorm'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
@@ -102,12 +106,71 @@ export class OrganizationService {
             if (await manager.existsBy(TbAccountUserOrganization, { organizationKeyId: keyId })) {
                 throw new ConflictException('组织仍有关联成员，不能删除')
             }
-            if (await manager.existsBy(TbAccountRoleDataScopeOrganization, { organizationKeyId: keyId })) {
-                throw new ConflictException('组织仍被数据权限引用，不能删除')
-            }
+            await this.removeDepartmentRoles(manager, keyId)
+            await manager.delete(TbAccountRoleDataScopeOrganization, { organizationKeyId: keyId })
             await manager.delete(TbAccountOrganization, { keyId })
             await this.rebuildClosure(manager)
         })
+    }
+
+    private async removeDepartmentRoles(manager: EntityManager, organizationKeyId: number): Promise<void> {
+        const linkedOrganizations = await manager.find(TbAccountRoleDataScopeOrganization, {
+            where: { organizationKeyId },
+            select: { dataScopeKeyId: true }
+        })
+        const linkedDataScopeKeyIds = [...new Set(linkedOrganizations.map(item => item.dataScopeKeyId))]
+        if (!linkedDataScopeKeyIds.length) return
+
+        const linkedDataScopes = await manager.find(TbAccountRoleDataScope, {
+            where: { keyId: In(linkedDataScopeKeyIds) },
+            select: { roleKeyId: true }
+        })
+        const linkedRoleKeyIds = [...new Set(linkedDataScopes.map(item => item.roleKeyId))]
+        if (!linkedRoleKeyIds.length) return
+
+        const linkedRoles = await manager.find(TbAccountRole, {
+            where: { keyId: In(linkedRoleKeyIds), builtin: false },
+            select: { keyId: true }
+        })
+        const candidateRoleKeyIds = linkedRoles.map(role => role.keyId)
+        if (!candidateRoleKeyIds.length) return
+
+        const candidateDataScopes = await manager.find(TbAccountRoleDataScope, {
+            where: { roleKeyId: In(candidateRoleKeyIds) },
+            select: { keyId: true, roleKeyId: true }
+        })
+        const roleKeyIdByScope = new Map(candidateDataScopes.map(scope => [scope.keyId, scope.roleKeyId]))
+        const candidateScopeKeyIds = [...roleKeyIdByScope.keys()]
+        const candidateOrganizations = candidateScopeKeyIds.length
+            ? await manager.find(TbAccountRoleDataScopeOrganization, {
+                  where: { dataScopeKeyId: In(candidateScopeKeyIds) },
+                  select: { dataScopeKeyId: true, organizationKeyId: true }
+              })
+            : []
+        const organizationKeyIdsByRole = new Map<number, Set<number>>()
+        for (const item of candidateOrganizations) {
+            const roleKeyId = roleKeyIdByScope.get(item.dataScopeKeyId)
+            if (roleKeyId === undefined) continue
+            const organizationKeyIds = organizationKeyIdsByRole.get(roleKeyId) ?? new Set<number>()
+            organizationKeyIds.add(item.organizationKeyId)
+            organizationKeyIdsByRole.set(roleKeyId, organizationKeyIds)
+        }
+        const departmentRoleKeyIds = candidateRoleKeyIds.filter(roleKeyId => {
+            const organizationKeyIds = organizationKeyIdsByRole.get(roleKeyId)
+            return organizationKeyIds?.size === 1 && organizationKeyIds.has(organizationKeyId)
+        })
+        if (!departmentRoleKeyIds.length) return
+
+        const departmentScopeKeyIds = candidateDataScopes
+            .filter(scope => departmentRoleKeyIds.includes(scope.roleKeyId))
+            .map(scope => scope.keyId)
+        await manager.delete(TbAccountUserRole, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(TbAccountRoleMenu, { roleKeyId: In(departmentRoleKeyIds) })
+        if (departmentScopeKeyIds.length) {
+            await manager.delete(TbAccountRoleDataScopeOrganization, { dataScopeKeyId: In(departmentScopeKeyIds) })
+        }
+        await manager.delete(TbAccountRoleDataScope, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(TbAccountRole, { keyId: In(departmentRoleKeyIds) })
     }
 
     private async assertReferences(manager: EntityManager, parentKeyId?: number | null, leaderUserUid?: string): Promise<void> {
