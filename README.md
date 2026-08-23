@@ -102,8 +102,10 @@ security:
         secret: replace-with-at-least-32-random-characters
         issuer: chat-web-account-service
         audience: chat-web
-        accessTokenTtlSeconds: 3600
+        accessTokenTtlSeconds: 36000
 ```
+
+当前登录有效期为10小时。管理端会在 Token 使用时间达到有效期的30%后，于下一次接口请求时自动调用 `/auth/token/continue` 轮换会话并重新获得10小时；完全空闲超过10小时后需要重新登录。
 
 除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。内部 `/auth/token/introspect` 会自行校验 Bearer Token 并保留真实 HTTP 状态。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
