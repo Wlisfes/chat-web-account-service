@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：发布跨服务 Feign 接口契约
+
+- 影响机器：Company、Home。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.3.0`；Account 本次完整 Git SHA 镜像。
+- 变更内容：Account 的 Token 内省和 Consumer 查询接口已纳入共享声明式 Feign 契约，供 Finance、CRM 等业务服务通过 `AccountFeignClient` 调用；Account 仍是接口实现方和数据唯一所有者。
+- 机器侧操作：无需修改 Nacos、`.env`、数据库、Redis、端口、Runner、部署目录或网络。
+- 验证命令：执行 `yarn format:check && yarn test`；部署后验证登录、Token 内省、Consumer resolver/select 以及 Finance、CRM 远程调用。
+- 回滚方法：恢复上一条健康 Account 镜像，并同步回滚 Finance、CRM 到共享包 1.2.2；不回滚数据库和 Nacos。
+
 ## 2026-08-23：登录有效期调整为10小时
 
 - 影响机器：Home 当前环境；Company 恢复在线后使用同一 Nacos 配置基线。
