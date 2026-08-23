@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：Home Runner 统一迁移为主机服务
+
+- 影响机器：Home；Company Runner 离线状态保持不变。
+- 关联版本：Account、Finance、CRM 本次 Runner 基线调整；不修改业务镜像接口。
+- 变更内容：Finance、CRM 的仓库级 Home Runner 从独立 Docker 容器迁移到 Ubuntu WSL systemd 服务，Account 原有主机 Runner 保持不变；删除会重新创建容器 Runner 的两个一次性注册工作流。各仓库仍使用独立 Runner 身份和目录，只共享同一物理主机与 `chat-server-home` 标签。
+- 机器侧操作：Runner 安装目录固定为 `/home/runner/actions-runner-finance` 和 `/home/runner/actions-runner-crm`，部署目录固定为 `/opt/chat-web-finance-service` 和 `/opt/chat-web-crm-service`；旧 Runner 容器及已迁移 Docker 卷已删除。无需修改 `.env`、Nacos、数据库、Redis、端口或 Docker 网络。
+- 验证命令：检查两个 systemd 服务均为 `active/enabled`，日志包含 `Connected to GitHub` 和 `Listening for Jobs`；以 `runner` 用户执行 `docker info`、`docker compose version`，并通过本次 main 发布验证 Home 部署。
+- 回滚方法：停止对应 systemd 服务，在 GitHub 对应仓库生成新的临时注册 Token 后重新安装仓库级 Runner；保留 `/opt` 部署目录和业务容器，不回滚数据库或应用数据。
+
 ## 2026-08-23：升级共享远程鉴权运行时
 
 - 影响机器：Company、Home。
