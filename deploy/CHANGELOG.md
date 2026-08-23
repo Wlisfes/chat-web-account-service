@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-23：聚合接口文档与工作流语法修复
+
+- 影响机器：Home；Company 当前离线，本次不等待其部署结果。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.4.2`；Account 本次完整 Git SHA 镜像。
+- 变更内容：全部 Controller 使用聚合 Swagger/Apifox 装饰器，补齐请求字段、统一响应外壳、分页/树/详情响应模型及示例；修复 `workflow_dispatch.seedDemoConsumers` 三个字段的 YAML 缩进，恢复 GitHub 对部署工作流的正确解析。
+- 机器侧操作：无需修改 Nacos、`.env`、数据库、Redis、端口、Runner、部署目录或网络；Home Runner 按现有流程更新同一完整 SHA 镜像。
+- 验证命令：执行 `yarn format:check --end-of-line auto && yarn test`；部署后检查 `/api/swagger-json`，并验证 `/health`、登录、客户分页和用户分页接口。
+- 回滚方法：恢复上一条健康 Account 完整 SHA 镜像；无需回滚数据库、Redis、Nacos 或共享 Schema SQL。
+
 ## 2026-08-23：发布跨服务 Feign 接口契约
 
 - 影响机器：Company、Home。

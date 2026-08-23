@@ -3,7 +3,7 @@ import { Type } from 'class-transformer'
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator'
 
 export class CodexWriteQueryDto {
-    @ApiPropertyOptional({ description: '是否使用反色验证码；1 表示启用，0 表示关闭', enum: ['0', '1'], default: '0' })
+    @ApiPropertyOptional({ description: '是否使用反色验证码；1 表示启用，0 表示关闭', enum: ['0', '1'], default: '0', example: '0' })
     @IsOptional()
     @IsIn(['0', '1'], { message: '验证码反色配置只能是0或1' })
     inverse?: string

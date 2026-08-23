@@ -25,7 +25,7 @@ export class CreateRoleDto extends PickType(TbAccountRoleDto, ['code', 'name', '
 export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
 
 export class ReplaceRoleMenusDto {
-    @ApiProperty({ description: '角色拥有的全部菜单主键；空数组表示清空', type: [Number] })
+    @ApiProperty({ description: '角色拥有的全部菜单主键；空数组表示清空', type: [Number], example: [1, 2, 3] })
     @IsArray({ message: '菜单主键列表必须是数组' })
     @ArrayMaxSize(1000, { message: '单个角色最多关联1000个菜单' })
     @ArrayUnique({ message: '菜单主键不能重复' })
@@ -52,20 +52,30 @@ export class RoleDataScopeRuleDto {
     @MaxLength(128, { message: '业务资源编码长度不能超过128位' })
     resourceCode: string
 
-    @ApiProperty({ enum: TbAccountRoleDataScopeType, enumName: 'TbAccountRoleDataScopeType' })
+    @ApiProperty({
+        description: '数据范围类型',
+        enum: TbAccountRoleDataScopeType,
+        enumName: 'TbAccountRoleDataScopeType',
+        example: TbAccountRoleDataScopeType.CUSTOM
+    })
     @IsEnum(TbAccountRoleDataScopeType, { message: '数据范围类型格式错误' })
     scopeType: TbAccountRoleDataScopeType
 
     @ApiPropertyOptional({
         enum: TbAccountRoleDataScopeStatus,
         enumName: 'TbAccountRoleDataScopeStatus',
-        default: TbAccountRoleDataScopeStatus.ENABLED
+        default: TbAccountRoleDataScopeStatus.ENABLED,
+        example: TbAccountRoleDataScopeStatus.ENABLED
     })
     @IsOptional()
     @IsEnum(TbAccountRoleDataScopeStatus, { message: '数据范围规则状态格式错误' })
     status: TbAccountRoleDataScopeStatus = TbAccountRoleDataScopeStatus.ENABLED
 
-    @ApiPropertyOptional({ description: 'scopeType=custom 时的自定义组织授权', type: [DataScopeOrganizationGrantDto] })
+    @ApiPropertyOptional({
+        description: 'scopeType=custom 时的自定义组织授权',
+        type: [DataScopeOrganizationGrantDto],
+        example: [{ organizationKeyId: 1, includeChildren: true }]
+    })
     @IsOptional()
     @IsArray({ message: '自定义组织授权必须是数组' })
     @ArrayMaxSize(1000, { message: '单条数据范围最多关联1000个组织' })
@@ -75,7 +85,18 @@ export class RoleDataScopeRuleDto {
 }
 
 export class ReplaceRoleDataScopesDto {
-    @ApiProperty({ description: '角色的完整数据范围规则；空数组表示清空', type: [RoleDataScopeRuleDto] })
+    @ApiProperty({
+        description: '角色的完整数据范围规则；空数组表示清空',
+        type: [RoleDataScopeRuleDto],
+        example: [
+            {
+                resourceCode: 'account:user',
+                scopeType: 'custom',
+                status: 'enabled',
+                organizations: [{ organizationKeyId: 1, includeChildren: true }]
+            }
+        ]
+    })
     @IsArray({ message: '数据范围规则必须是数组' })
     @ArrayMaxSize(100, { message: '单个角色最多配置100条数据范围规则' })
     @ValidateNested({ each: true })

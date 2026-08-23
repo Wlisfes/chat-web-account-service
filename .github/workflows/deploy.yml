@@ -8,9 +8,9 @@ on:
         inputs:
             seedDemoConsumers:
                 description: Generate 120 demo consumers across enabled account owners
-                 required: false
-                 default: false
-                 type: boolean
+                required: false
+                default: false
+                type: boolean
 
 jobs:
     verify:

@@ -24,18 +24,23 @@ import {
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 
 export class UserQueryDto extends PageDto {
-    @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询' })
+    @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询', example: '张三' })
     @IsOptional()
     @IsString({ message: '查询关键词必须是字符串' })
     @MaxLength(128, { message: '查询关键词长度不能超过128位' })
     keyword?: string
 
-    @ApiPropertyOptional({ enum: TbAccountUserStatus, enumName: 'TbAccountUserStatus' })
+    @ApiPropertyOptional({
+        description: '账号状态',
+        enum: TbAccountUserStatus,
+        enumName: 'TbAccountUserStatus',
+        example: TbAccountUserStatus.ENABLED
+    })
     @IsOptional()
     @IsEnum(TbAccountUserStatus, { message: '账号状态格式错误' })
     status?: TbAccountUserStatus
 
-    @ApiPropertyOptional({ description: '按组织主键数组筛选', type: [Number] })
+    @ApiPropertyOptional({ description: '按组织主键数组筛选', type: [Number], example: [1, 2] })
     @IsOptional()
     @IsArray({ message: '组织主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单次最多筛选100个组织' })
@@ -71,7 +76,8 @@ export class UserOrganizationMembershipDto {
     @ApiPropertyOptional({
         enum: TbAccountUserOrganizationStatus,
         enumName: 'TbAccountUserOrganizationStatus',
-        default: TbAccountUserOrganizationStatus.ENABLED
+        default: TbAccountUserOrganizationStatus.ENABLED,
+        example: TbAccountUserOrganizationStatus.ENABLED
     })
     @IsOptional()
     @IsEnum(TbAccountUserOrganizationStatus, { message: '用户组织关系状态格式错误' })
@@ -79,7 +85,11 @@ export class UserOrganizationMembershipDto {
 }
 
 export class ReplaceUserOrganizationsDto {
-    @ApiProperty({ description: '用户的完整组织关系；空数组表示清空', type: [UserOrganizationMembershipDto] })
+    @ApiProperty({
+        description: '用户的完整组织关系；空数组表示清空',
+        type: [UserOrganizationMembershipDto],
+        example: [{ organizationKeyId: 1, isPrimary: true, positionName: '研发工程师', status: 'enabled' }]
+    })
     @IsArray({ message: '组织关系列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个组织' })
     @ValidateNested({ each: true })
@@ -88,7 +98,7 @@ export class ReplaceUserOrganizationsDto {
 }
 
 export class ReplaceUserRolesDto {
-    @ApiProperty({ description: '用户拥有的全部角色主键；空数组表示清空', type: [Number] })
+    @ApiProperty({ description: '用户拥有的全部角色主键；空数组表示清空', type: [Number], example: [1, 2] })
     @IsArray({ message: '角色主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个角色' })
     @ArrayUnique({ message: '角色主键不能重复' })
@@ -109,7 +119,11 @@ export class CreateUserDto extends PickType(TbAccountUserDto, [
     'employmentTime',
     'resignationTime'
 ] as const) {
-    @ApiPropertyOptional({ description: '创建时一并设置的组织关系', type: [UserOrganizationMembershipDto] })
+    @ApiPropertyOptional({
+        description: '创建时一并设置的组织关系',
+        type: [UserOrganizationMembershipDto],
+        example: [{ organizationKeyId: 1, isPrimary: true, positionName: '客户经理', status: 'enabled' }]
+    })
     @IsOptional()
     @IsArray({ message: '组织关系列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个组织' })
@@ -117,7 +131,7 @@ export class CreateUserDto extends PickType(TbAccountUserDto, [
     @Type(() => UserOrganizationMembershipDto)
     memberships?: UserOrganizationMembershipDto[]
 
-    @ApiPropertyOptional({ description: '创建时一并设置的角色主键；仅超级管理员可用', type: [Number] })
+    @ApiPropertyOptional({ description: '创建时一并设置的角色主键；仅超级管理员可用', type: [Number], example: [2] })
     @IsOptional()
     @IsArray({ message: '角色主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个角色' })
