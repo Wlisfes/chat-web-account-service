@@ -3,7 +3,7 @@ import { APP_GUARD } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
 import { JwtAuthGuard } from '@wlisfes/chat-web-base-schema/auth'
 import { HttpResponseModule } from '@wlisfes/chat-web-base-schema/interceptor'
-import { NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
+import { createNacosRuntimeOptions, NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
 import { RedisModule } from '@wlisfes/chat-web-base-schema/redis'
 import { DatabaseModule } from '@/modules/database/database.module'
 import { AuthModule } from '@/modules/auth/auth.module'
@@ -18,11 +18,14 @@ import { UserModule } from '@/modules/user/user.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
+const configModule = ConfigModule.forRoot({ isGlobal: true })
+const nacosModule = NacosModule.forRoot(createNacosRuntimeOptions({ serviceName: 'chat-web-account-service', registerPort: 3000 }))
+
 @Module({
     imports: [
         HttpResponseModule,
-        ConfigModule.forRoot({ isGlobal: true }),
-        NacosModule.forRoot({ serviceName: 'chat-web-account-service', defaultPort: 3000 }),
+        configModule,
+        nacosModule,
         RedisModule,
         DatabaseModule,
         AuthModule,

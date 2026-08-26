@@ -34,6 +34,8 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 `.env.example` 中的值只是示例，不代表任何机器的运行基线。Namespace ID 是每台 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例或另一台机器猜测。
 
+共享包 `1.4.8` 起，Account 使用 base 导出的 `createNacosRuntimeOptions` 把 Nacos 启动参数一次性注入 `NacosModule.forRoot`。服务器 `.env` 必须显式提供 `NACOS_SERVER` 和 `NACOS_NAMESPACE`；`NACOS_REQUEST_TIMEOUT`、Data ID、配置组、认证、注册开关、服务名、发现组、注册地址和注册端口均为可选覆盖，默认值与 `deploy/.env.example` 注释一致。修改这些值后必须重新创建容器，不能再依赖 Nacos 远端配置反向改变启动连接或注册参数。
+
 配置优先级为容器显式环境变量高于 Nacos 远端配置。Nacos 仍负责数据库等未在环境中指定的配置；同名环境键即使值为空也表示明确覆盖，例如部署脚本用空 `REDIS_URL` 清除旧远端 URL、再通过唯一 `REDIS_HOST` 固定同机容器。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
 Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。部署脚本固定同机 Redis 时，还会比较受保护 `.env` 与新容器实际收到的 `REDIS_HOST/REDIS_URL/REDIS_PASSWORD`；只比较值且不输出，不一致会在健康检查前回滚。
