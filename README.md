@@ -94,7 +94,7 @@ Group: DEFAULT_GROUP
 
 配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
 
-账号服务负责校验 Bearer Token。JWT 使用 HS256，密钥必须至少32位，可通过服务器 `.env` 的 `JWT_SECRET` 提供，也可使用以下 Nacos 配置：
+账号服务负责校验 Bearer Token。JWT 使用 HS256，密钥必须至少32位，并通过 Nacos 配置提供：
 
 ```yaml
 security:
@@ -130,9 +130,9 @@ database:
         retryDelay: 3000
 ```
 
-本地从 Windows 直接启动服务时，可通过 `.env` 中的 `ACCOUNT_MYSQL_HOST`、`ACCOUNT_MYSQL_PORT` 和 `ACCOUNT_MYSQL_DATABASE` 覆盖 Docker 内部连接信息；数据库账号密码仍从 Nacos 读取。
+Redis、JWT 和 MySQL 参数统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；不同环境通过各自 Namespace 保存实际地址与凭据，不再放入根目录 `.env`。
 
-本地执行 `yarn run dev` 时读取根目录 `.env`，通过 `127.0.0.1:8848` 连接 Nacos，并使用本地端口 `4000`，避免与 Docker 版服务的端口冲突。显式环境变量 `PORT` 的优先级高于 Nacos 的 `server.port`。
+本地执行 `yarn run dev` 时，根目录 `.env` 只提供 `NODE_ENV`、`PORT` 和 Nacos 连接参数，通过 `127.0.0.1:8848` 连接本地 Namespace，并使用端口 `4000` 避免与 Docker 版服务冲突。显式 `PORT` 的优先级高于 Nacos 的 `server.port`。
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
