@@ -322,7 +322,12 @@ test('Nacos 远端配置不会覆盖显式环境变量', () => {
     }
 
     try {
-        const service = new NacosService(configService, { serviceName: 'chat-web-account-service', defaultPort: 3000 })
+        const service = new NacosService(configService, {
+            serverAddr: 'nacos.internal:8848',
+            namespace: 'test',
+            serviceName: 'chat-web-account-service',
+            registerPort: 3000
+        })
         service.applyRemoteConfig(
             'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
             '已加载',
