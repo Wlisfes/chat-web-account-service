@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-26：根目录运行配置收口到 Nacos
+
+- 影响机器：Company、Home；容器部署参数和双机矩阵不变。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.4.10`、Account 本次完整 Git SHA 镜像；Nacos Data ID `chat-web-account-service.yaml`。
+- 变更内容：根目录 `.env.example` 仅保留 `NODE_ENV`、`PORT` 和 Nacos 建连字段；Account 专属 MySQL、Redis index `0` 和 JWT 配置继续由远端 Data ID 提供，不新增第二份本地 YAML。
+- 机器侧操作：各环境在自己的 Namespace 中维护真实数据库、Redis 和 JWT 配置。服务器 `deploy/.env` 仍按现有部署脚本管理基础设施连接，不复制根目录示例。
+- 验证命令：执行 `yarn format:check && yarn test`；确认根 `.env.example` 的有效键只有 `NODE_ENV`、`PORT`、`NACOS_SERVER`、`NACOS_NAMESPACE`，并核对远端 Data ID 中 Redis index 为 `0`。
+- 回滚方法：恢复上一条健康 Account 完整 SHA；Nacos 真实配置与数据库、Redis 数据均不回滚。
+
 ## 2026-08-26：显式注入完整 Nacos 运行参数
 
 - 影响机器：Company、Home；两台机器继续部署同一个 Account 完整 Git SHA 镜像。
