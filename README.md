@@ -59,7 +59,7 @@ $ yarn run test:cov
 
 ## Deployment
 
-本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过两台内网服务器上的 Self-hosted Runner 独立部署；失败时自动回滚。
+本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过 `chat-home-server` 上的仓库专用 Self-hosted Runner 部署；失败时自动回滚。原另一台部署机器已废弃，不再创建部署任务。
 
 外部客户由账号域的 `tb_account_consumer` 管理，管理端通过 `/api/account/consumer/**` 访问；Gateway 只使用 Account 服务前缀，Finance 服务不再保存第二份客户主表。
 
@@ -78,7 +78,7 @@ yarn seed:consumer
 yarn seed:consumer --apply
 ```
 
-双机部署造数时，在 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`。该选项会在 Company、Home 各自完成 Schema 升级和健康部署后执行；自动 push 部署不会重复造数。
+需要生成演示客户时，在 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`。该选项会在 `chat-home-server` 完成 Schema 升级和健康部署后执行；自动 push 部署不会重复造数。
 
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 

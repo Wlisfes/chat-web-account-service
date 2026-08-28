@@ -14,10 +14,8 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | 项目                 | 值                              |
 | -------------------- | ------------------------------- |
 | 容器                 | `chat-web-account-service`      |
-| Home 访问地址        | `http://127.0.0.1:3001`         |
-| Home 健康检查        | `http://127.0.0.1:3001/health`  |
-| Company 访问地址     | `http://127.0.0.1:3000`         |
-| Company 健康检查     | `http://127.0.0.1:3000/health`  |
+| 访问地址             | `http://127.0.0.1:3001`         |
+| 健康检查             | `http://127.0.0.1:3001/health`  |
 | 容器/Nacos 注册端口  | `3000`                          |
 | 部署目录             | `/opt/chat-web-account-service` |
 | Docker 网络          | `chat-web-infrastructure`       |
@@ -29,10 +27,10 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
 | Nacos 服务名         | `chat-web-account-service`      |
-| Company Runner 标签  | `chat-server-company`           |
-| Home Runner 标签     | `chat-server-home`              |
+| 部署主机             | `chat-home-server`              |
+| Runner 标签          | `chat-home-server`              |
 
-`.env.example` 中的值只是示例，不代表任何机器的运行基线。Namespace ID 是每台 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例或另一台机器猜测。
+`.env.example` 中的值只是示例，不代表机器的运行基线。Namespace ID 是本机 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例猜测。
 
 共享包 `1.4.9` 起，Account 只向 `NacosModule.forRoot` 传入服务名和注册端口，base 内部统一将 Nacos 启动参数转换为完整 `NacosRuntimeOptions`。服务器 `.env` 必须显式提供 `NACOS_SERVER` 和 `NACOS_NAMESPACE`；`NACOS_REQUEST_TIMEOUT`、Data ID、配置组、认证、注册开关、服务名、发现组、注册地址和注册端口均为可选覆盖，默认值与 `deploy/.env.example` 注释一致。修改这些值后必须重新创建容器，不能再依赖 Nacos 远端配置反向改变启动连接或注册参数。
 
@@ -50,7 +48,7 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 部署会在 Schema 升级前运行幂等隔离器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；发现旧全局账号时会在进程内生成随机专用凭据、只授权 `chat_web_account.*` / `chat_web_finance.*`、回写各自 Nacos 并复连验证。密码不输出、不写仓库。隔离完成后 Schema 升级器再次执行 `SHOW GRANTS FOR CURRENT_USER()`，全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
 
-新环境数据库名统一使用下划线形式。为兼容 Home 的历史数据卷，隔离器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名授权；部署不会在线重命名数据库。
+新环境数据库名统一使用下划线形式。为兼容 `chat-home-server` 的历史数据卷，隔离器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名授权；部署不会在线重命名数据库。
 
 核对命令在使用本服务连接参数进入 MySQL 后执行：
 
@@ -104,7 +102,7 @@ yarn legacy:migrate --apply
 
 `tb_account_consumer.key_id` 的标准起点为 `5181000`。`dist/cli/seed-demo-consumer.js` 使用固定种子生成 120 条可重复验证的客户数据，覆盖客户状态、付款模式、类型、阶段、认证、来源、品牌和币种，并轮询分配到最多 20 个启用账号。数据库中必须至少存在两个启用账号，否则脚本拒绝造数，避免所有客户错误集中到同一归属人。
 
-命令默认 dry-run；仅显式 `--apply` 才提交。生产双机应从 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`，由每台 Runner 在对应容器部署健康后执行：
+命令默认 dry-run；仅显式 `--apply` 才提交。生产环境应从 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`，由 `chat-home-server` 的 Runner 在容器部署健康后执行：
 
 ```bash
 docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js
@@ -131,7 +129,7 @@ docker ps -a --filter "name=chat-web-account-service"
 docker inspect chat-web-account-service --format "{{.Config.Image}} {{.State.Status}} {{.State.Health.Status}}"
 docker inspect chat-web-account-service --format "{{json .HostConfig.LogConfig}}"
 docker logs --tail 200 chat-web-account-service
-$accountPort = 3001 # Home；Company 改为 3000
+$accountPort = 3001
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$accountPort/health"
 ```
 
@@ -157,42 +155,40 @@ docker exec -it chat-web-mysql mysql -uroot -p -e "SHOW DATABASES LIKE 'chat_web
 
 数据库不存在时先修复基础设施初始化配置，再部署账号服务；不要开启 TypeORM 自动建库或自动建表。
 
-### 3. 检查 Company Runner
+### 3. 检查 chat-home-server Runner
 
 ```powershell
-wsl -d Ubuntu-22.04 -u root -- systemctl status actions.runner.Wlisfes-chat-web-account-service.chat-server-company.service
-Get-ScheduledTask -TaskName "Chat Web GitHub Runner Company"
+wsl -d Ubuntu-24.04 -u root -- systemctl status actions.runner.Wlisfes-chat-web-account-service.chat-server-home.service
 ```
 
 Runner 服务不是 `active` 时：
 
 ```powershell
-wsl -d Ubuntu-22.04 -u root -- systemctl restart actions.runner.Wlisfes-chat-web-account-service.chat-server-company.service
-Start-ScheduledTask -TaskName "Chat Web GitHub Runner Company"
+wsl -d Ubuntu-24.04 -u root -- systemctl restart actions.runner.Wlisfes-chat-web-account-service.chat-server-home.service
 ```
 
 ### 4. 检查部署结果
 
-Actions 应满足：Build 成功、Home 与 Company 各自成功。容器镜像标签必须等于本次提交的完整 Git SHA，不能只根据 `latest` 判断版本。
+Actions 应满足：Build 成功、`Deploy to chat-home-server` 成功。容器镜像标签必须等于本次提交的完整 Git SHA，不能只根据 `latest` 判断版本。
 
 ## 常见故障
 
 | 现象                          | 原因                                  | 处理                                                                                         |
 | ----------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Actions 长时间 Queued         | 对应机器 Runner 离线                  | 启动 WSL 保活任务并重启 Runner 服务                                                          |
+| Actions 长时间 Queued         | `chat-home-server` Runner 离线        | 启动 WSL 并重启本仓库 Runner 服务                                                            |
 | `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`                                                     |
 | Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                                                            |
 | 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                                                             |
 | `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
 | `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
-| 宿主机端口无法访问            | 容器未健康或端口未映射                | Home 检查 `3001`，Company 检查 `3000` 和 `HOST_PORT`                                         |
+| 宿主机端口无法访问            | 容器未健康或端口未映射                | 检查 `3001` 和 `HOST_PORT`                                                                    |
 
 ## 恢复顺序
 
 1. 启动 Docker Desktop 和基础设施容器。
 2. 确认 `chat-web-infrastructure` 网络存在。
 3. 确认 MySQL 中存在 `chat_web_account` 数据库；全新数据卷应由基础设施初始化 SQL 创建。
-4. 确认 `/opt/chat-web-account-service/.env` 中只包含本机部署参数和 Nacos 启动参数；Home 使用 `HOST_PORT=3001`，Company 使用 `HOST_PORT=3000`。
+4. 确认 `/opt/chat-web-account-service/.env` 中只包含本机部署参数和 Nacos 启动参数，并使用 `HOST_PORT=3001`。
 5. 启动 WSL 保活任务和 Account Runner。
 6. 在 GitHub Actions 手动运行当前稳定分支的 `Build and deploy`。
 7. 验证镜像 SHA、容器健康和 `/health`。
