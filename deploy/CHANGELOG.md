@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-28：统一可读日志与显式 Nacos 运行参数
+
+- 影响机器：Home；Company Runner 当前离线，本次不等待其部署结果，恢复后继续兼容同一完整 SHA。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.4.15`、Account 本次完整 Git SHA 镜像。
+- 变更内容：统一使用共享 `ReadableConsoleLogger` 和请求日志默认过滤规则；请求日志只保留 `logId`，本地 JSON 保留缩进、生产 JSON 压缩为单物理行。按新版公共包契约显式映射现有 `NACOS_*` 启动参数，并向 Swagger 启动器传入 `NODE_ENV`。
+- 机器侧操作：无需新增或修改 `.env`、Nacos Data ID、数据库、Redis index `0`、端口、Runner、部署目录或外部网络；继续使用服务器现有 Nacos 连接参数。
+- 验证命令：执行 `yarn format:check && yarn tsc -p tsconfig.json --noEmit && yarn test`；部署后检查 `/health/live`、Nacos 注册实例及 `docker logs --tail 100 chat-web-account-service` 的彩色单行请求 JSON。
+- 回滚方法：恢复上一条健康 Account 完整 SHA 镜像；Nacos、数据库和 Redis 数据均不回滚。
+
 ## 2026-08-26：根目录运行配置收口到 Nacos
 
 - 影响机器：Company、Home；容器部署参数和双机矩阵不变。
@@ -383,6 +392,7 @@ curl -I http://127.0.0.1:3000/auth/captcha
 - 回滚到上一条账号服务镜像，并恢复部署前的 compose 和 `.env`；数据库 Schema 不需要回滚。
 - 旧镜像不会读取 Redis 会话键，可保留等待 TTL 自动过期，或仅删除 `chat-web:account:session:*` 和 `chat-web:account:captcha:*` 前缀键。
 - 不要清空 Redis 中其他服务的数据。
+
 ## 2026-08-18：Home Redis 地址改用稳定容器名
 
 - 影响范围：Home 当前 Docker Desktop 主机；Company 配置不变。
