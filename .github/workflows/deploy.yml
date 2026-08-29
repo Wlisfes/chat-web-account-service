@@ -140,6 +140,12 @@ jobs:
                   install -m 0644 deploy/compose.yml "$DEPLOY_PATH/compose.yml"
                   install -m 0755 deploy/deploy.sh "$DEPLOY_PATH/deploy.sh"
 
+            - name: 清理旧版 Nacos 启动覆盖项
+              shell: bash
+              run: |
+                  set -eu
+                  sed -i -E '/^NACOS_(REQUEST_TIMEOUT|REGISTER_PORT|REGISTER_IP|REGISTER_REQUIRED|GROUP|CONFIG_GROUP)=/d' "$DEPLOY_PATH/.env"
+
             - name: Pull and deploy image
               shell: bash
               env:
