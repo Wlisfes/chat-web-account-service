@@ -132,7 +132,7 @@ database:
 
 Redis、JWT 和 MySQL 参数统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；不同环境通过各自 Namespace 保存实际地址与凭据，不再放入根目录 `.env`。
 
-本地执行 `yarn run dev` 时，根目录 `.env` 只提供 `NODE_ENV`、`PORT` 和 Nacos 连接参数，通过 `127.0.0.1:8848` 连接本地 Namespace，并使用端口 `4000` 避免与 Docker 版服务冲突。显式 `PORT` 的优先级高于 Nacos 的 `server.port`。
+本地执行 `yarn run dev` 时，根目录 `.env` 只提供 `NODE_ENV`、`PORT` 和 Nacos 连接参数，使用端口 `5010` 运行。显式 `PORT` 的优先级高于 Nacos 的 `server.port`。
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 

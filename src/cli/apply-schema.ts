@@ -5,6 +5,7 @@ import path from 'node:path'
 import { assertMysqlDatabaseIsolation } from '@wlisfes/chat-web-base-schema/database'
 import yaml from 'js-yaml'
 import mysql, { RowDataPacket } from 'mysql2/promise'
+import { getNacosAccessToken, withNacosAccessToken } from '@/cli/nacos-auth'
 
 type DatabaseConfig = {
     host: string
@@ -33,11 +34,14 @@ function requiredEnvironment(key: string): string {
 async function loadDatabaseConfig(): Promise<DatabaseConfig> {
     const server = requiredEnvironment('NACOS_SERVER')
     const baseUrl = /^https?:\/\//i.test(server) ? server : `http://${server}`
-    const params = new URLSearchParams({
-        dataId: requiredEnvironment('NACOS_CONFIG_DATA_ID'),
-        group: process.env.NACOS_CONFIG_GROUP?.trim() || process.env.NACOS_GROUP?.trim() || 'DEFAULT_GROUP',
-        tenant: process.env.NACOS_NAMESPACE?.trim() || 'public'
-    })
+    const params = withNacosAccessToken(
+        new URLSearchParams({
+            dataId: requiredEnvironment('NACOS_CONFIG_DATA_ID'),
+            group: process.env.NACOS_CONFIG_GROUP?.trim() || process.env.NACOS_GROUP?.trim() || 'DEFAULT_GROUP',
+            tenant: process.env.NACOS_NAMESPACE?.trim() || 'public'
+        }),
+        await getNacosAccessToken(baseUrl)
+    )
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}/nacos/v1/cs/configs?${params}`)
     if (!response.ok) {
         throw new Error(`读取 Nacos 配置失败：HTTP ${response.status}`)

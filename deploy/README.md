@@ -53,7 +53,7 @@ MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立的基础设施环境�
 
 真实 `.env` 只保存在 `chat-home-server`，不上传 GitHub。若需要修改部署目录，请在 `production-home` Environment 中添加 `DEPLOY_PATH` Variable，并在该目录创建 `.env`。
 
-在 `production-home` GitHub Environment 中创建 `JWT_SECRET` Secret，长度至少32位。部署任务会在不输出密钥的前提下同步服务器 `.env`，并在切换容器前使用新镜像中的 Schema 升级器应用尚未执行的增量 SQL。升级器以文件名和 SHA-256 校验和记录执行状态；已经应用的文件不会重复执行，被修改的历史文件会导致部署立即失败。
+JWT 密钥通过云端 Nacos 的 `security.jwt.secret` 配置管理，长度至少 32 位；部署任务不会再把 JWT 密钥写入服务器 `.env`。切换容器前仍会使用新镜像中的 Schema 升级器应用尚未执行的增量 SQL。升级器以文件名和 SHA-256 校验和记录执行状态；已经应用的文件不会重复执行，被修改的历史文件会导致部署立即失败。
 
 ## 首个超级管理员
 

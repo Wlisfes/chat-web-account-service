@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { NestFactory } from '@nestjs/core'
 import { ConfigService } from '@nestjs/config'
 import { NestExpressApplication } from '@nestjs/platform-express'
@@ -14,7 +15,7 @@ async function bootstrap() {
     app.enableShutdownHooks()
     app.use(requestContextMiddleware)
     app.use(createRequestLoggingMiddleware(serviceName))
-    const port = Number(process.env.PORT ?? app.get(ConfigService).get<number>('server.port', 3000))
+    const port = Number(process.env.PORT ?? app.get(ConfigService).get<number>('server.port', 5010))
     await setupSwagger(app, {
         title: `Chat Web 账号服务 API`,
         description: `Chat Web 账号、用户及身份信息管理接口文档`,

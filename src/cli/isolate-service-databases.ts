@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import yaml from 'js-yaml'
 import mysql, { Connection, RowDataPacket } from 'mysql2/promise'
+import { getNacosAccessToken, withNacosAccessToken } from '@/cli/nacos-auth'
 
 type DatabaseConfig = {
     host: string
@@ -46,16 +47,17 @@ function nacosBaseUrl(): string {
     return (/^https?:\/\//i.test(server) ? server : `http://${server}`).replace(/\/$/, '')
 }
 
-function nacosParameters(dataId: string): URLSearchParams {
-    return new URLSearchParams({
+async function nacosParameters(dataId: string): Promise<URLSearchParams> {
+    const parameters = new URLSearchParams({
         dataId,
         group: process.env.NACOS_CONFIG_GROUP?.trim() || process.env.NACOS_GROUP?.trim() || 'DEFAULT_GROUP',
         tenant: process.env.NACOS_NAMESPACE?.trim() || 'public'
     })
+    return withNacosAccessToken(parameters, await getNacosAccessToken(nacosBaseUrl()))
 }
 
 async function readNacosConfig(dataId: string): Promise<Record<string, unknown>> {
-    const response = await fetch(`${nacosBaseUrl()}/nacos/v1/cs/configs?${nacosParameters(dataId)}`)
+    const response = await fetch(`${nacosBaseUrl()}/nacos/v1/cs/configs?${await nacosParameters(dataId)}`)
     if (!response.ok) throw new Error(`读取 Nacos 配置失败：dataId=${dataId}, HTTP ${response.status}`)
     const config = yaml.load(await response.text())
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error(`Nacos 配置格式无效：${dataId}`)
@@ -63,7 +65,7 @@ async function readNacosConfig(dataId: string): Promise<Record<string, unknown>>
 }
 
 async function publishNacosConfig(dataId: string, config: Record<string, unknown>): Promise<void> {
-    const body = nacosParameters(dataId)
+    const body = await nacosParameters(dataId)
     body.set('type', 'yaml')
     body.set('content', yaml.dump(config, { noRefs: true, lineWidth: 160 }))
     const response = await fetch(`${nacosBaseUrl()}/nacos/v1/cs/configs`, {

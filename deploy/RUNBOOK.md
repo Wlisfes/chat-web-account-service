@@ -14,9 +14,9 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | 项目                 | 值                              |
 | -------------------- | ------------------------------- |
 | 容器                 | `chat-web-account-service`      |
-| 访问地址             | `http://127.0.0.1:3001`         |
-| 健康检查             | `http://127.0.0.1:3001/health`  |
-| 容器/Nacos 注册端口  | `3000`                          |
+| 访问地址             | `http://127.0.0.1:5010`         |
+| 健康检查             | `http://127.0.0.1:5010/health`  |
+| 容器/Nacos 注册端口  | `5010`                          |
 | 部署目录             | `/opt/chat-web-account-service` |
 | Docker 网络          | `chat-web-infrastructure`       |
 | 数据库               | `chat_web_account`              |
@@ -32,13 +32,13 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 `.env.example` 中的值只是示例，不代表机器的运行基线。Namespace ID 是本机 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例猜测。
 
-共享包 `1.4.9` 起，Account 只向 `NacosModule.forRoot` 传入服务名和注册端口，base 内部统一将 Nacos 启动参数转换为完整 `NacosRuntimeOptions`。服务器 `.env` 必须显式提供 `NACOS_SERVER` 和 `NACOS_NAMESPACE`；`NACOS_REQUEST_TIMEOUT`、Data ID、配置组、认证、注册开关、服务名、发现组、注册地址和注册端口均为可选覆盖，默认值与 `deploy/.env.example` 注释一致。修改这些值后必须重新创建容器，不能再依赖 Nacos 远端配置反向改变启动连接或注册参数。
+共享包包含 `forRootNacosRuntimeOptions` 后，Account 在 `AppModule` 中直接调用 `NacosModule.forRoot(forRootNacosRuntimeOptions(process.env))`，由 base 统一把环境变量转换为完整 `NacosRuntimeOptions`。服务器 `.env` 必须显式提供 `NACOS_SERVER`、`NACOS_NAMESPACE`、`NACOS_SERVICE_NAME` 和 `PORT`；其余字段均由共享包提供默认值，只有确需覆盖时才配置。修改启动连接参数后必须重新创建容器，不能再依赖 Nacos 远端配置反向改变启动连接或注册参数。
 
-仓库根目录 `.env.example` 与服务器 `deploy/.env.example` 用途不同：根目录只保留进程启动和 Nacos 建连字段，业务配置直接读取远端 `chat-web-account-service.yaml`；部署目录文件还承担 Compose、Schema 升级和基础设施引导，不得用根示例覆盖。远端配置必须确认 Redis index 固定为 `0`。
+仓库根目录和服务器 `deploy/.env.example` 均只保留进程启动及 Nacos 建连/注册字段；数据库、Redis、JWT 和会话前缀统一读取云端 `chat-web-account-service.yaml`。部署目录不再通过环境变量覆盖业务配置，远端 Redis index 必须固定为 `0`。
 
-配置优先级为容器显式环境变量高于 Nacos 远端配置。Nacos 仍负责数据库等未在环境中指定的配置；同名环境键即使值为空也表示明确覆盖，例如部署脚本用空 `REDIS_URL` 清除旧远端 URL、再通过唯一 `REDIS_HOST` 固定同机容器。启动日志只记录已应用和被环境覆盖的键名，不记录值。
+只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库、Redis、JWT 和业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
-Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。部署脚本固定同机 Redis 时，还会比较受保护 `.env` 与新容器实际收到的 `REDIS_HOST/REDIS_URL/REDIS_PASSWORD`；只比较值且不输出，不一致会在健康检查前回滚。
+Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。Redis 连接参数由 Nacos 管理，修改后需重新创建容器使运行时重新加载。
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
 
@@ -181,14 +181,14 @@ Actions 应满足：Build 成功、`Deploy to chat-home-server` 成功。容器�
 | 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                                                             |
 | `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
 | `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
-| 宿主机端口无法访问            | 容器未健康或端口未映射                | 检查 `3001` 和 `HOST_PORT`                                                                    |
+| 网关无法访问 Account           | 容器未健康、网络未接入或 Nacos 无健康实例 | 检查容器健康状态、`chat-web-infrastructure` 网络和 Nacos 服务发现                         |
 
 ## 恢复顺序
 
 1. 启动 Docker Desktop 和基础设施容器。
 2. 确认 `chat-web-infrastructure` 网络存在。
 3. 确认 MySQL 中存在 `chat_web_account` 数据库；全新数据卷应由基础设施初始化 SQL 创建。
-4. 确认 `/opt/chat-web-account-service/.env` 中只包含本机部署参数和 Nacos 启动参数，并使用 `HOST_PORT=3001`。
+4. 确认 `/opt/chat-web-account-service/.env` 中包含 Nacos 启动参数和 `NACOS_REGISTER_ENABLED`；Account 仅在容器网络内暴露 `5010`，不占用宿主机端口。
 5. 启动 WSL 保活任务和 Account Runner。
 6. 在 GitHub Actions 手动运行当前稳定分支的 `Build and deploy`。
 7. 验证镜像 SHA、容器健康和 `/health`。
