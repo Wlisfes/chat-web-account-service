@@ -326,7 +326,7 @@ test('Nacos 远端配置不会覆盖显式环境变量', () => {
             serverAddr: 'nacos.internal:8848',
             namespace: 'test',
             serviceName: 'chat-web-account-service',
-            registerPort: 3000
+            registerPort: 5010
         })
         service.applyRemoteConfig(
             'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',

@@ -3,6 +3,7 @@ import yaml from 'js-yaml'
 import type { ExecuteValues } from 'mysql2'
 import mysql, { Connection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { repairFinanceMenus } from '@/cli/finance-menu.seed'
+import { getNacosAccessToken, withNacosAccessToken } from '@/cli/nacos-auth'
 
 export type DatabaseConfig = {
     host: string
@@ -173,11 +174,14 @@ export async function loadDatabaseConfig(): Promise<DatabaseConfig> {
 
     const server = requiredEnvironment('NACOS_SERVER')
     const baseUrl = /^https?:\/\//i.test(server) ? server : `http://${server}`
-    const params = new URLSearchParams({
-        dataId: requiredEnvironment('NACOS_CONFIG_DATA_ID'),
-        group: process.env.NACOS_CONFIG_GROUP?.trim() || process.env.NACOS_GROUP?.trim() || 'DEFAULT_GROUP',
-        tenant: process.env.NACOS_NAMESPACE?.trim() || 'public'
-    })
+    const params = withNacosAccessToken(
+        new URLSearchParams({
+            dataId: requiredEnvironment('NACOS_CONFIG_DATA_ID'),
+            group: process.env.NACOS_CONFIG_GROUP?.trim() || process.env.NACOS_GROUP?.trim() || 'DEFAULT_GROUP',
+            tenant: process.env.NACOS_NAMESPACE?.trim() || 'public'
+        }),
+        await getNacosAccessToken(baseUrl)
+    )
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}/nacos/v1/cs/configs?${params}`)
     if (!response.ok) throw new Error(`读取 Nacos 配置失败：HTTP ${response.status}`)
     const config = yaml.load(await response.text()) as Record<string, unknown>

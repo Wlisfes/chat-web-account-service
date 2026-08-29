@@ -140,33 +140,6 @@ jobs:
                   install -m 0644 deploy/compose.yml "$DEPLOY_PATH/compose.yml"
                   install -m 0755 deploy/deploy.sh "$DEPLOY_PATH/deploy.sh"
 
-            - name: Synchronize JWT secret
-              shell: bash
-              env:
-                  JWT_SECRET: ${{ secrets.JWT_SECRET }}
-              run: |
-                  set -eu
-                  test "${#JWT_SECRET}" -ge 32 || { echo "JWT_SECRET must be at least 32 characters" >&2; exit 1; }
-                  temporary_env=$(mktemp "$DEPLOY_PATH/.env.XXXXXX")
-                  trap 'rm -f "$temporary_env"' EXIT
-                  awk '
-                    BEGIN { replaced = 0 }
-                    /^JWT_SECRET=/ {
-                      if (!replaced) {
-                        print "JWT_SECRET=" ENVIRON["JWT_SECRET"]
-                        replaced = 1
-                      }
-                      next
-                    }
-                    { print }
-                    END {
-                      if (!replaced) print "JWT_SECRET=" ENVIRON["JWT_SECRET"]
-                    }
-                  ' "$DEPLOY_PATH/.env" > "$temporary_env"
-                  chmod 600 "$temporary_env"
-                  mv "$temporary_env" "$DEPLOY_PATH/.env"
-                  trap - EXIT
-
             - name: Pull and deploy image
               shell: bash
               env:
