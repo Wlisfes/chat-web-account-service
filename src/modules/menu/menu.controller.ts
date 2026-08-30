@@ -2,9 +2,9 @@ import { Body, Get, Post, Query } from '@nestjs/common'
 import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { CreateMenuDto, MenuKeyDto, UpdateMenuPayloadDto } from '@/modules/menu/dto/menu.dto'
+import { CreateMenuDto, MenuColumnQueryDto, MenuKeyDto, UpdateMenuPayloadDto } from '@/modules/menu/dto/menu.dto'
 import { MenuService } from '@/modules/menu/menu.service'
-import { MenuTreeNodeResponseDto } from '@/dto/api-response.dto'
+import { MenuPageResponseDto, MenuTreeNodeResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('系统菜单', 'menu', { bearerAuth: true })
 export class MenuController {
@@ -17,6 +17,16 @@ export class MenuController {
     })
     httpBaseAccountMenuTree() {
         return this.menuService.getTree()
+    }
+
+    @RequirePermissions('account:menu:list')
+    @ApiServiceDecorator(Post('column'), {
+        operation: { summary: '按父菜单分页查询直接下级节点' },
+        request: { source: 'body', type: MenuColumnQueryDto },
+        response: { type: MenuPageResponseDto, description: '菜单分页数据' }
+    })
+    httpBaseAccountColumnMenu(@Body() input: MenuColumnQueryDto) {
+        return this.menuService.findPage(input)
     }
 
     @RequirePermissions('account:menu:list')
