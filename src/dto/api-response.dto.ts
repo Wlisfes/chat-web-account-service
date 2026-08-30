@@ -90,6 +90,20 @@ export class MenuTreeNodeResponseDto extends TbAccountMenuDto {
     children: MenuTreeNodeResponseDto[]
 }
 
+export class MenuPageResponseDto {
+    @ApiProperty({ description: '菜单分页数据；每条记录为当前父节点的直接下级，并包含下级节点', type: [MenuTreeNodeResponseDto] })
+    items: MenuTreeNodeResponseDto[]
+
+    @ApiProperty({ description: '数据总数（当前父节点直接下级数量）', example: 12 })
+    total: number
+
+    @ApiProperty({ description: '当前页码', example: 1 })
+    page: number
+
+    @ApiProperty({ description: '每页数量', example: 20 })
+    pageSize: number
+}
+
 export class OrganizationTreeNodeResponseDto extends TbAccountOrganizationDto {
     @ApiProperty({ description: '组织成员数量', example: 12 })
     memberCount: number
