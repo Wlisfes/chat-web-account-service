@@ -2,10 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, Repository } from 'typeorm'
-import { assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
+import { PageResult, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { CreateMenuDto, MenuColumnQueryDto, UpdateMenuDto } from '@/modules/menu/dto/menu.dto'
-
-type MenuPageItem = TbAccountMenu & { children: MenuPageItem[] }
 
 @Injectable()
 export class MenuService {
@@ -16,12 +14,12 @@ export class MenuService {
         return buildTree(menus)
     }
 
-    async findPage(input: MenuColumnQueryDto) {
+    async findPage(input: MenuColumnQueryDto): Promise<PageResult<TbAccountMenu>> {
         const query = this.menuRepository.createQueryBuilder('menu')
         if (input.parentKeyId === undefined || input.parentKeyId === null) {
-            query.andWhere('menu.parentKeyId IS NULL')
+            query.where('menu.parentKeyId IS NULL')
         } else {
-            query.andWhere('menu.parentKeyId = :parentKeyId', { parentKeyId: input.parentKeyId })
+            query.where('(menu.keyId = :parentKeyId OR menu.parentKeyId = :parentKeyId)', { parentKeyId: input.parentKeyId })
         }
         this.applyLikeFilter(query, 'menu.name', 'name', input.name)
         this.applyLikeFilter(query, 'menu.permissionCode', 'permissionCode', input.permissionCode)
@@ -30,15 +28,12 @@ export class MenuService {
         query.skip((input.page - 1) * input.size).take(input.size)
 
         const [items, total] = await query.getManyAndCount()
-        const descendants = await this.findDescendants(items.map(item => item.keyId))
-        const tree = buildTree([...items, ...descendants])
-        const treeByKeyId = new Map(tree.map(item => [item.keyId, item as MenuPageItem]))
 
         return {
             page: input.page,
             size: input.size,
             total,
-            list: items.map(item => treeByKeyId.get(item.keyId) ?? ({ ...item, children: [] } as MenuPageItem))
+            list: items
         }
     }
 
@@ -164,32 +159,6 @@ export class MenuService {
         const normalized = value?.trim()
         if (!normalized) return
         query.andWhere(`${column} LIKE :${parameter} ESCAPE '\\\\'`, { [parameter]: `%${this.escapeLike(normalized)}%` })
-    }
-
-    private async findDescendants(parentKeyIds: number[]): Promise<TbAccountMenu[]> {
-        const descendants: TbAccountMenu[] = []
-        const seenParentIds = new Set<number>()
-        const seenNodeIds = new Set<number>(parentKeyIds)
-        let pendingParentIds = [...new Set(parentKeyIds)]
-
-        while (pendingParentIds.length) {
-            const currentParentIds = pendingParentIds.filter(keyId => !seenParentIds.has(keyId))
-            if (!currentParentIds.length) break
-            currentParentIds.forEach(keyId => seenParentIds.add(keyId))
-
-            const children = await this.menuRepository
-                .createQueryBuilder('menu')
-                .where('menu.parentKeyId IN (:...parentKeyIds)', { parentKeyIds: currentParentIds })
-                .orderBy('menu.sort', 'ASC')
-                .addOrderBy('menu.keyId', 'ASC')
-                .getMany()
-            const freshChildren = children.filter(child => !seenNodeIds.has(child.keyId))
-            freshChildren.forEach(child => seenNodeIds.add(child.keyId))
-            descendants.push(...freshChildren)
-            pendingParentIds = freshChildren.map(child => child.keyId)
-        }
-
-        return descendants
     }
 
     private escapeLike(value: string): string {

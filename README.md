@@ -63,7 +63,7 @@ $ yarn run test:cov
 
 外部客户由账号域的 `tb_account_consumer` 管理，管理端通过 `/api/account/consumer/**` 访问；Gateway 只使用 Account 服务前缀，Finance 服务不再保存第二份客户主表。
 
-菜单管理分为两类查询：左侧树使用 `GET /api/account/menu/tree/structure`，右侧表格使用 `POST /api/account/menu/column`，通过 `parentKeyId`、名称、权限码和路由路径筛选并返回数据库分页结果。
+菜单管理分为两类查询：左侧树使用 `GET /api/account/menu/tree/structure`，右侧表格使用 `POST /api/account/menu/column`。该接口在 `parentKeyId` 为空时返回所有一级节点，传入主键时返回该节点及其一层直接下级节点，结果为不带 `children` 的平铺分页数据；同时支持名称、权限码和路由路径筛选。
 
 旧财务库客户迁移默认 dry-run；迁移账号需临时拥有旧库只读权限和账号库写入权限，运行时服务账号仍只授权账号库：
 

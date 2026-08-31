@@ -21,7 +21,7 @@ export class MenuController {
 
     @RequirePermissions('account:menu:list')
     @ApiServiceDecorator(Post('column'), {
-        operation: { summary: '按父菜单分页查询直接下级节点' },
+        operation: { summary: '按父菜单分页查询一级及直接下级节点' },
         request: { source: 'body', type: MenuColumnQueryDto },
         response: { type: MenuPageResponseDto, description: '菜单分页数据' }
     })

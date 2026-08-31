@@ -92,8 +92,11 @@ export class MenuTreeNodeResponseDto extends TbAccountMenuDto {
 }
 
 export class MenuPageResponseDto extends PageResponseDataDto {
-    @ApiProperty({ description: '菜单分页数据；每条记录为当前父节点的直接下级，并包含下级节点', type: [MenuTreeNodeResponseDto] })
-    list: MenuTreeNodeResponseDto[]
+    @ApiProperty({
+        description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则返回指定节点及其直接下级节点',
+        type: [TbAccountMenuDto]
+    })
+    list: TbAccountMenuDto[]
 }
 
 export class OrganizationTreeNodeResponseDto extends TbAccountOrganizationDto {

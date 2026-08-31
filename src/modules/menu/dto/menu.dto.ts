@@ -7,7 +7,7 @@ import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
 /**右侧菜单表格的分页筛选条件。*/
 export class MenuColumnQueryDto extends PageDto {
     @ApiPropertyOptional({
-        description: '父菜单主键；未传或传 null 时查询根节点，传入主键时查询该节点的直接下级',
+        description: '父菜单主键；未传或传 null 时查询一级节点，传入主键时返回该节点及其直接下级节点',
         example: 1,
         nullable: true
     })
