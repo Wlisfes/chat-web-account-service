@@ -1,4 +1,5 @@
 import { ApiProperty, OmitType, PickType } from '@nestjs/swagger'
+import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import {
     TbAccountConsumerDto,
     TbAccountMenuDto,
@@ -90,18 +91,9 @@ export class MenuTreeNodeResponseDto extends TbAccountMenuDto {
     children: MenuTreeNodeResponseDto[]
 }
 
-export class MenuPageResponseDto {
+export class MenuPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '菜单分页数据；每条记录为当前父节点的直接下级，并包含下级节点', type: [MenuTreeNodeResponseDto] })
-    items: MenuTreeNodeResponseDto[]
-
-    @ApiProperty({ description: '数据总数（当前父节点直接下级数量）', example: 12 })
-    total: number
-
-    @ApiProperty({ description: '当前页码', example: 1 })
-    page: number
-
-    @ApiProperty({ description: '每页数量', example: 20 })
-    pageSize: number
+    list: MenuTreeNodeResponseDto[]
 }
 
 export class OrganizationTreeNodeResponseDto extends TbAccountOrganizationDto {
@@ -183,16 +175,7 @@ export class ConsumerResponseDto extends TbAccountConsumerDto {
     tags: string[]
 }
 
-export class ConsumerPageResponseDto {
-    @ApiProperty({ description: '当前页码', example: 1 })
-    page: number
-
-    @ApiProperty({ description: '每页数量', example: 50 })
-    size: number
-
-    @ApiProperty({ description: '数据总数', example: 68 })
-    total: number
-
+export class ConsumerPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '客户列表', type: [ConsumerResponseDto] })
     list: ConsumerResponseDto[]
 }
@@ -241,16 +224,7 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     roles: TbAccountRoleDto[]
 }
 
-export class UserPageResponseDto {
+export class UserPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
-    items: UserDetailResponseDto[]
-
-    @ApiProperty({ description: '数据总数', example: 36 })
-    total: number
-
-    @ApiProperty({ description: '当前页码', example: 1 })
-    page: number
-
-    @ApiProperty({ description: '每页数量', example: 20 })
-    pageSize: number
+    list: UserDetailResponseDto[]
 }

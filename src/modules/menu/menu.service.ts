@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { EntityManager, Repository } from 'typeorm'
-import { PageResult, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
+import { assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { CreateMenuDto, MenuColumnQueryDto, UpdateMenuDto } from '@/modules/menu/dto/menu.dto'
 
 type MenuPageItem = TbAccountMenu & { children: MenuPageItem[] }
@@ -16,7 +16,7 @@ export class MenuService {
         return buildTree(menus)
     }
 
-    async findPage(input: MenuColumnQueryDto): Promise<PageResult<MenuPageItem>> {
+    async findPage(input: MenuColumnQueryDto) {
         const query = this.menuRepository.createQueryBuilder('menu')
         if (input.parentKeyId === undefined || input.parentKeyId === null) {
             query.andWhere('menu.parentKeyId IS NULL')
@@ -27,7 +27,7 @@ export class MenuService {
         this.applyLikeFilter(query, 'menu.permissionCode', 'permissionCode', input.permissionCode)
         this.applyLikeFilter(query, 'menu.path', 'path', input.path)
         query.orderBy('menu.sort', 'ASC').addOrderBy('menu.keyId', 'ASC')
-        query.skip((input.page - 1) * input.pageSize).take(input.pageSize)
+        query.skip((input.page - 1) * input.size).take(input.size)
 
         const [items, total] = await query.getManyAndCount()
         const descendants = await this.findDescendants(items.map(item => item.keyId))
@@ -35,10 +35,10 @@ export class MenuService {
         const treeByKeyId = new Map(tree.map(item => [item.keyId, item as MenuPageItem]))
 
         return {
-            items: items.map(item => treeByKeyId.get(item.keyId) ?? ({ ...item, children: [] } as MenuPageItem)),
-            total,
             page: input.page,
-            pageSize: input.pageSize
+            size: input.size,
+            total,
+            list: items.map(item => treeByKeyId.get(item.keyId) ?? ({ ...item, children: [] } as MenuPageItem))
         }
     }
 

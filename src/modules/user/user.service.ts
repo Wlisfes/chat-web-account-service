@@ -11,7 +11,7 @@ import {
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
-import { PageResult, assertUid, generateUid } from '@wlisfes/chat-web-base-schema/utils'
+import { assertUid, generateUid } from '@wlisfes/chat-web-base-schema/utils'
 import { PasswordService } from '@/modules/auth/password.service'
 import { PermissionService } from '@/modules/permission/permission.service'
 import {
@@ -96,18 +96,18 @@ export class UserService {
         })
     }
 
-    async findPage(actorUid: string, query: UserQueryDto): Promise<PageResult<TbAccountUser>> {
+    async findPage(actorUid: string, query: UserQueryDto) {
         const builder = this.userRepository.createQueryBuilder('user')
         await this.applyDataScope(builder, actorUid)
-        if (query.keyword?.trim()) {
-            const keyword = `%${this.escapeLike(query.keyword.trim())}%`
+        if (query.vague?.trim()) {
+            const vague = `%${this.escapeLike(query.vague.trim())}%`
             builder.andWhere(
                 new Brackets(where => {
                     where
-                        .where("user.number LIKE :keyword ESCAPE '\\\\'", { keyword })
-                        .orWhere("user.name LIKE :keyword ESCAPE '\\\\'", { keyword })
-                        .orWhere("user.phone LIKE :keyword ESCAPE '\\\\'", { keyword })
-                        .orWhere("user.email LIKE :keyword ESCAPE '\\\\'", { keyword })
+                        .where("user.number LIKE :vague ESCAPE '\\\\'", { vague })
+                        .orWhere("user.name LIKE :vague ESCAPE '\\\\'", { vague })
+                        .orWhere("user.phone LIKE :vague ESCAPE '\\\\'", { vague })
+                        .orWhere("user.email LIKE :vague ESCAPE '\\\\'", { vague })
                 })
             )
         }
@@ -142,11 +142,11 @@ export class UserService {
         }
         builder
             .orderBy('user.keyId', 'DESC')
-            .skip((query.page - 1) * query.pageSize)
-            .take(query.pageSize)
+            .skip((query.page - 1) * query.size)
+            .take(query.size)
         const [items, total] = await builder.getManyAndCount()
         const enrichedItems = await this.enrichUsers(items)
-        return { items: enrichedItems, total, page: query.page, pageSize: query.pageSize }
+        return { page: query.page, size: query.size, total, list: enrichedItems }
     }
 
     async findOne(actorUid: string, targetUid: string) {

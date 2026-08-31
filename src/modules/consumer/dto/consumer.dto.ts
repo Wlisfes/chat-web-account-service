@@ -8,7 +8,7 @@ import {
     TbAccountConsumerSource,
     TbAccountConsumerStatus
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { SizePageDto } from '@wlisfes/chat-web-base-schema/utils'
+import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 
 export class CreateConsumerDto {
     @ApiProperty({ description: '客户名称', example: '测试客户' })
@@ -103,7 +103,7 @@ export class ResolveConsumerDto extends PickType(TbAccountConsumerDto, ['keyId']
 export class SelectConsumerDto extends PartialType(PickType(TbAccountConsumerDto, ['name'] as const)) {}
 
 export class ListConsumerDto extends IntersectionType(
-    SizePageDto,
+    PageDto,
     PartialType(PickType(TbAccountConsumerDto, ['name', 'status', 'currency', 'payMode', 'authStatus', 'source'] as const))
 ) {
     @ApiProperty({ description: '财务品牌主键', required: false, example: 1 })
