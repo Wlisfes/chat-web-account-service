@@ -467,6 +467,10 @@ test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
     const response = {
         statusCode: undefined,
         body: undefined,
+        headers: {},
+        setHeader(name, value) {
+            this.headers[name] = value
+        },
         status(code) {
             this.statusCode = code
             return this
@@ -491,15 +495,20 @@ test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
     new HttpExceptionFilter().catch(new BadRequestException(['验证码错误']), host)
 
     assert.equal(response.statusCode, 200)
-    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'timestamp'])
+    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'logId', 'timestamp'])
     assert.equal(response.body.code, 400)
     assert.equal(response.body.message, '验证码错误')
+    assert.equal(response.headers['x-request-id'], response.body.logId)
     assert.match(response.body.timestamp, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
 })
 
 test('健康检查异常保留原生 HTTP 状态', () => {
     const response = {
         statusCode: undefined,
+        headers: {},
+        setHeader(name, value) {
+            this.headers[name] = value
+        },
         status(code) {
             this.statusCode = code
             return this
