@@ -4,6 +4,7 @@ import { AUTH_TOKEN_AUTHENTICATOR, AuthSessionService, JwtAuthGuard, TokenServic
 import { TbAccountUser } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { AuthController } from '@/modules/auth/auth.controller'
 import { AuthService } from '@/modules/auth/auth.service'
+import { AuthUtilsService } from '@/modules/auth/auth.utils.service'
 import { CaptchaService } from '@/modules/auth/captcha.service'
 import { PasswordService } from '@/modules/auth/password.service'
 
@@ -12,6 +13,7 @@ import { PasswordService } from '@/modules/auth/password.service'
     controllers: [AuthController],
     providers: [
         AuthService,
+        AuthUtilsService,
         AuthSessionService,
         CaptchaService,
         JwtAuthGuard,

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { RedisService } from '@wlisfes/chat-web-base-schema/redis'
 import { DataSource } from 'typeorm'
+import { ServiceDependencyResponseDto, ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/dto/api-response.dto'
 
 type TableRow = {
     tableName: string
@@ -16,15 +17,15 @@ export class HealthService {
         private readonly redisService: RedisService
     ) {}
 
-    getLiveness() {
+    public async getLiveness(): Promise<ServiceLivenessResponseDto> {
         return { status: 'UP', timestamp: new Date().toISOString() }
     }
 
-    async getReadiness() {
+    public async getReadiness(): Promise<ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
         const jwtSecret = this.configService.get<string>('JWT_SECRET') || this.configService.get<string>('security.jwt.secret')
         const jwtConfigured = typeof jwtSecret === 'string' && jwtSecret.length >= 32
-        let database: Record<string, unknown>
+        let database: ServiceDependencyResponseDto
         let databaseReady = false
         try {
             const placeholders = requiredTables.map(() => '?').join(', ')
@@ -50,7 +51,7 @@ export class HealthService {
             }
         }
 
-        let redis: Record<string, unknown>
+        let redis: ServiceDependencyResponseDto
         let redisReady = false
         try {
             redisReady = await this.redisService.ping()

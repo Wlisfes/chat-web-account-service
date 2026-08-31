@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { TbAccountMenu, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { PageResult, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { MenuTreeNodeResponseDto } from '@/dto/api-response.dto'
 import { MenuUtilsService } from '@/modules/menu/menu.utils.service'
 import { isNotEmpty } from 'class-validator'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -17,7 +19,7 @@ export class MenuService {
     ) {}
 
     /**菜单树结构**/
-    public async httpBaseAccountMenuTree() {
+    public async httpBaseAccountMenuTree(): Promise<MenuTreeNodeResponseDto[]> {
         const menus = await this.database.builder(this.menuRepository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
@@ -94,7 +96,7 @@ export class MenuService {
     }
 
     /**删除菜单**/
-    public async httpBaseAccountDeleteMenu(body: MenuDto.MenuKeyDto): Promise<void> {
+    public async httpBaseAccountDeleteMenu(body: MenuDto.MenuKeyDto): Promise<SuccessResponseDataDto> {
         await this.menuRepository.manager.transaction(async manager => {
             await this.menuUtilsService.lockTree(manager)
             await this.menuUtilsService.findRequired(body.keyId, manager)
@@ -106,5 +108,6 @@ export class MenuService {
             }
             return await manager.delete(TbAccountMenu, { keyId: body.keyId })
         })
+        return { success: true }
     }
 }

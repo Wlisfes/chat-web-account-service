@@ -14,8 +14,8 @@ export class PermissionController {
         operation: { summary: '获取当前用户的角色、权限码和菜单树' },
         response: { type: EffectiveAccessResponseDto, description: '当前用户有效权限' }
     })
-    httpBaseAccountPermissionResolver(@CurrentPrincipal() principal: AuthPrincipal) {
-        return this.permissionService.getEffectiveAccess(principal.uid)
+    public async httpBaseAccountPermissionResolver(@CurrentPrincipal() principal: AuthPrincipal) {
+        return this.permissionService.httpBaseAccountPermissionResolver(principal)
     }
 
     @ApiServiceDecorator(Get('data/scope'), {
@@ -23,7 +23,10 @@ export class PermissionController {
         request: { source: 'query', type: PermissionDataScopeQueryDto },
         response: { type: EffectiveDataScopeResponseDto, description: '指定资源的有效数据范围' }
     })
-    httpBaseAccountPermissionDataScope(@CurrentPrincipal() principal: AuthPrincipal, @Query() query: PermissionDataScopeQueryDto) {
-        return this.permissionService.resolveDataScope(principal.uid, query.resourceCode)
+    public async httpBaseAccountPermissionDataScope(
+        @CurrentPrincipal() principal: AuthPrincipal,
+        @Query() query: PermissionDataScopeQueryDto
+    ) {
+        return this.permissionService.httpBaseAccountPermissionDataScope(principal, query)
     }
 }

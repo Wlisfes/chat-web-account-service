@@ -24,8 +24,8 @@ export class UserController {
         request: { source: 'body', type: CreateUserDto },
         response: { type: AccountUserResponseDto, description: '新增后的账号信息' }
     })
-    httpBaseAccountCreateUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateUserDto) {
-        return this.userService.create(principal.uid, input)
+    public async httpBaseAccountCreateUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateUserDto) {
+        return this.userService.httpBaseAccountCreateUser(principal, input)
     }
 
     @RequirePermissions('account:user:list')
@@ -34,8 +34,8 @@ export class UserController {
         request: { source: 'body', type: UserQueryDto },
         response: { type: UserPageResponseDto, description: '账号分页数据' }
     })
-    httpBaseAccountColumnUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UserQueryDto) {
-        return this.userService.findPage(principal.uid, input)
+    public async httpBaseAccountColumnUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UserQueryDto) {
+        return this.userService.httpBaseAccountColumnUser(principal, input)
     }
 
     @RequirePermissions('account:user:list')
@@ -44,8 +44,8 @@ export class UserController {
         request: { source: 'query', type: UserUidDto },
         response: { type: UserDetailResponseDto, description: '账号详情' }
     })
-    httpBaseAccountUserResolver(@CurrentPrincipal() principal: AuthPrincipal, @Query() query: UserUidDto) {
-        return this.userService.findOne(principal.uid, query.uid)
+    public async httpBaseAccountUserResolver(@CurrentPrincipal() principal: AuthPrincipal, @Query() query: UserUidDto) {
+        return this.userService.httpBaseAccountUserResolver(principal, query)
     }
 
     @RequirePermissions('account:user:update')
@@ -54,9 +54,8 @@ export class UserController {
         request: { source: 'body', type: UpdateUserPayloadDto },
         response: { type: AccountUserResponseDto, description: '更新后的账号信息' }
     })
-    httpBaseAccountUpdateUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UpdateUserPayloadDto) {
-        const { uid, ...payload } = input
-        return this.userService.update(principal.uid, uid, payload)
+    public async httpBaseAccountUpdateUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UpdateUserPayloadDto) {
+        return this.userService.httpBaseAccountUpdateUser(principal, input)
     }
 
     @RequirePermissions('account:user:password:reset')
@@ -65,9 +64,11 @@ export class UserController {
         request: { source: 'body', type: ResetUserPasswordPayloadDto },
         response: { type: SuccessResponseDataDto, description: '密码重置结果' }
     })
-    async httpBaseAccountResetUserPassword(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ResetUserPasswordPayloadDto) {
-        await this.userService.resetPassword(principal.uid, input.uid, input)
-        return { success: true }
+    public async httpBaseAccountResetUserPassword(
+        @CurrentPrincipal() principal: AuthPrincipal,
+        @Body() input: ResetUserPasswordPayloadDto
+    ) {
+        return this.userService.httpBaseAccountResetUserPassword(principal, input)
     }
 
     @RequirePermissions('account:user:organization:assign')
@@ -76,12 +77,11 @@ export class UserController {
         request: { source: 'body', type: ReplaceUserOrganizationsPayloadDto },
         response: { type: SuccessResponseDataDto, description: '账号组织关系更新结果' }
     })
-    async httpBaseAccountUpdateUserOrganization(
+    public async httpBaseAccountUpdateUserOrganization(
         @CurrentPrincipal() principal: AuthPrincipal,
         @Body() input: ReplaceUserOrganizationsPayloadDto
     ) {
-        await this.userService.replaceOrganizations(principal.uid, input.uid, input)
-        return { success: true }
+        return this.userService.httpBaseAccountUpdateUserOrganization(principal, input)
     }
 
     @RequirePermissions('account:user:role:assign')
@@ -90,8 +90,7 @@ export class UserController {
         request: { source: 'body', type: ReplaceUserRolesPayloadDto },
         response: { type: SuccessResponseDataDto, description: '账号角色更新结果' }
     })
-    async httpBaseAccountUpdateUserRole(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ReplaceUserRolesPayloadDto) {
-        await this.userService.replaceRoles(principal.uid, input.uid, input)
-        return { success: true }
+    public async httpBaseAccountUpdateUserRole(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ReplaceUserRolesPayloadDto) {
+        return this.userService.httpBaseAccountUpdateUserRole(principal, input)
     }
 }

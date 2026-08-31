@@ -9,6 +9,7 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { OrganizationController } from '@/modules/organization/organization.controller'
 import { OrganizationService } from '@/modules/organization/organization.service'
+import { OrganizationUtilsService } from '@/modules/organization/organization.utils.service'
 
 @Module({
     imports: [
@@ -21,7 +22,7 @@ import { OrganizationService } from '@/modules/organization/organization.service
         ])
     ],
     controllers: [OrganizationController],
-    providers: [OrganizationService],
+    providers: [OrganizationService, OrganizationUtilsService],
     exports: [OrganizationService]
 })
 export class OrganizationModule {}

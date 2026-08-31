@@ -2,10 +2,13 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { AuthSessionService, TokenService } from '@wlisfes/chat-web-base-schema/auth'
 import type { AuthPrincipal, AuthTokenAuthenticator } from '@wlisfes/chat-web-base-schema/auth'
-import { TbAccountUser, TbAccountUserEmploymentStatus, TbAccountUserStatus } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { TbAccountUser } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Repository } from 'typeorm'
+import { AccessTokenResponseDto, AccountUserResponseDto, LoginResponseDto } from '@/dto/api-response.dto'
 import { CaptchaService } from '@/modules/auth/captcha.service'
-import { LoginDto } from '@/modules/auth/dto/login.dto'
+import * as AuthDto from '@/modules/auth/dto/login.dto'
+import { AuthUtilsService } from '@/modules/auth/auth.utils.service'
 import { PasswordService } from '@/modules/auth/password.service'
 
 @Injectable()
@@ -15,22 +18,26 @@ export class AuthService implements AuthTokenAuthenticator {
         private readonly passwordService: PasswordService,
         private readonly tokenService: TokenService,
         private readonly sessionService: AuthSessionService,
-        private readonly captchaService: CaptchaService
+        private readonly captchaService: CaptchaService,
+        private readonly authUtilsService: AuthUtilsService
     ) {}
 
-    async login(input: LoginDto, captchaSid?: string) {
+    /**生成图形验证码*/
+    public async httpBaseAccountWriteCodex(query: AuthDto.CodexWriteQueryDto): Promise<{ sid: string; svg: string; expiresIn: number }> {
+        const captcha = await this.captchaService.create(query.inverse === '1')
+        return { ...captcha, expiresIn: this.captchaService.expiresIn }
+    }
+
+    /**账号密码登录并签发访问令牌*/
+    public async httpBaseAccountLoginToken(input: AuthDto.LoginDto, captchaSid?: string): Promise<LoginResponseDto> {
         await this.captchaService.verify(captchaSid, input.code)
         const account = input.account.trim()
-        const user = await this.userRepository
-            .createQueryBuilder('user')
-            .addSelect('user.password')
-            .where('user.number = :account OR user.phone = :account OR user.email = :account', { account })
-            .getOne()
+        const user = await this.authUtilsService.findUserByAccountRequired(account)
 
-        if (!user || !(await this.passwordService.verify(input.password, user.password))) {
+        if (!(await this.passwordService.verify(input.password, user.password))) {
             throw new UnauthorizedException('账号或密码错误')
         }
-        this.assertActiveUser(user)
+        this.authUtilsService.assertActiveUser(user)
 
         await this.userRepository.update({ uid: user.uid }, { lastLoginTime: new Date() })
         const issued = this.tokenService.issueAccessToken(user.uid)
@@ -47,43 +54,35 @@ export class AuthService implements AuthTokenAuthenticator {
         }
     }
 
-    async authenticateToken(token: string): Promise<AuthPrincipal> {
-        const claims = this.tokenService.verifyAccessToken(token)
-        await this.sessionService.assertActive(claims)
-        const user = await this.userRepository.findOne({ where: { uid: claims.sub } })
-        if (!user) {
-            throw new UnauthorizedException('账号不存在')
-        }
-        this.assertActiveUser(user)
-        return { uid: user.uid, sessionId: claims.jti }
-    }
-
-    async refresh(principal: AuthPrincipal) {
+    /**续期并轮换当前登录会话*/
+    public async httpBaseAccountContinueToken(principal: AuthPrincipal): Promise<AccessTokenResponseDto> {
         const issued = this.tokenService.issueAccessToken(principal.uid)
         await this.sessionService.rotate(principal.sessionId, issued.claims)
         const { claims: _claims, ...token } = issued
         return token
     }
 
-    async logout(principal: AuthPrincipal): Promise<void> {
+    /**退出并撤销当前登录会话*/
+    public async httpBaseAccountLogoutToken(principal: AuthPrincipal): Promise<SuccessResponseDataDto> {
         await this.sessionService.revoke(principal.sessionId)
+        return { success: true }
     }
 
-    async getCurrentUser(principal: AuthPrincipal) {
-        const user = await this.userRepository.findOne({ where: { uid: principal.uid } })
-        if (!user) {
-            throw new UnauthorizedException('账号不存在')
-        }
-        this.assertActiveUser(user)
-        return user
+    /**获取当前登录账号*/
+    public async httpBaseAccountResolverToken(principal: AuthPrincipal): Promise<AccountUserResponseDto> {
+        return this.authUtilsService.findActiveUserRequired(principal.uid)
     }
 
-    private assertActiveUser(user: TbAccountUser): void {
-        if (user.status !== TbAccountUserStatus.ENABLED) {
-            throw new UnauthorizedException('账号已禁用')
-        }
-        if (user.employmentStatus !== TbAccountUserEmploymentStatus.EMPLOYED) {
-            throw new UnauthorizedException('账号已离职')
-        }
+    /**校验访问令牌并返回身份主体*/
+    public async httpBaseAccountIntrospectToken(token: string): Promise<AuthPrincipal> {
+        return this.authenticateToken(token)
+    }
+
+    /**执行共享鉴权器要求的令牌认证*/
+    public async authenticateToken(token: string): Promise<AuthPrincipal> {
+        const claims = this.tokenService.verifyAccessToken(token)
+        await this.sessionService.assertActive(claims)
+        await this.authUtilsService.findActiveUserRequired(claims.sub)
+        return { uid: claims.sub, sessionId: claims.jti }
     }
 }

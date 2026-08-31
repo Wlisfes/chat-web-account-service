@@ -22,8 +22,8 @@ export class RoleController {
         operation: { summary: '获取角色列表' },
         response: { type: RoleResponseDto, isArray: true, description: '角色列表' }
     })
-    httpBaseAccountSelectRole() {
-        return this.roleService.findAll()
+    public async httpBaseAccountSelectRole() {
+        return this.roleService.httpBaseAccountSelectRole()
     }
 
     @RequirePermissions('account:role:list')
@@ -32,8 +32,8 @@ export class RoleController {
         request: { source: 'query', type: RoleKeyDto },
         response: { type: RoleResponseDto, description: '角色权限详情' }
     })
-    httpBaseAccountRoleResolver(@Query() query: RoleKeyDto) {
-        return this.roleService.findOne(query.keyId)
+    public async httpBaseAccountRoleResolver(@Query() query: RoleKeyDto) {
+        return this.roleService.httpBaseAccountRoleResolver(query)
     }
 
     @RequirePermissions('account:role:create')
@@ -42,8 +42,8 @@ export class RoleController {
         request: { source: 'body', type: CreateRoleDto },
         response: { type: TbAccountRoleDto, description: '新增后的角色' }
     })
-    httpBaseAccountCreateRole(@Body() input: CreateRoleDto) {
-        return this.roleService.create(input)
+    public async httpBaseAccountCreateRole(@Body() input: CreateRoleDto) {
+        return this.roleService.httpBaseAccountCreateRole(input)
     }
 
     @RequirePermissions('account:role:update')
@@ -52,9 +52,8 @@ export class RoleController {
         request: { source: 'body', type: UpdateRolePayloadDto },
         response: { type: TbAccountRoleDto, description: '更新后的角色' }
     })
-    httpBaseAccountUpdateRole(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UpdateRolePayloadDto) {
-        const { keyId, ...payload } = input
-        return this.roleService.update(principal.uid, keyId, payload)
+    public async httpBaseAccountUpdateRole(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UpdateRolePayloadDto) {
+        return this.roleService.httpBaseAccountUpdateRole(principal, input)
     }
 
     @RequirePermissions('account:role:delete')
@@ -63,9 +62,8 @@ export class RoleController {
         request: { source: 'body', type: RoleKeyDto },
         response: { type: SuccessResponseDataDto, description: '角色删除结果' }
     })
-    async httpBaseAccountDeleteRole(@Body() input: RoleKeyDto) {
-        await this.roleService.remove(input.keyId)
-        return { success: true }
+    public async httpBaseAccountDeleteRole(@Body() input: RoleKeyDto) {
+        return this.roleService.httpBaseAccountDeleteRole(input)
     }
 
     @RequirePermissions('account:role:grant')
@@ -74,9 +72,8 @@ export class RoleController {
         request: { source: 'body', type: ReplaceRoleMenusPayloadDto },
         response: { type: SuccessResponseDataDto, description: '角色菜单权限更新结果' }
     })
-    async httpBaseAccountUpdateRoleMenu(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ReplaceRoleMenusPayloadDto) {
-        await this.roleService.replaceMenus(principal.uid, input.keyId, input)
-        return { success: true }
+    public async httpBaseAccountUpdateRoleMenu(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ReplaceRoleMenusPayloadDto) {
+        return this.roleService.httpBaseAccountUpdateRoleMenu(principal, input)
     }
 
     @RequirePermissions('account:role:grant')
@@ -85,8 +82,10 @@ export class RoleController {
         request: { source: 'body', type: ReplaceRoleDataScopesPayloadDto },
         response: { type: SuccessResponseDataDto, description: '角色数据范围更新结果' }
     })
-    async httpBaseAccountUpdateRoleDataScope(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: ReplaceRoleDataScopesPayloadDto) {
-        await this.roleService.replaceDataScopes(principal.uid, input.keyId, input)
-        return { success: true }
+    public async httpBaseAccountUpdateRoleDataScope(
+        @CurrentPrincipal() principal: AuthPrincipal,
+        @Body() input: ReplaceRoleDataScopesPayloadDto
+    ) {
+        return this.roleService.httpBaseAccountUpdateRoleDataScope(principal, input)
     }
 }

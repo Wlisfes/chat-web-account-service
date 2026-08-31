@@ -74,6 +74,7 @@ export class UserOrganizationMembershipDto {
     positionName?: string
 
     @ApiPropertyOptional({
+        description: '用户组织关系状态',
         enum: TbAccountUserOrganizationStatus,
         enumName: 'TbAccountUserOrganizationStatus',
         default: TbAccountUserOrganizationStatus.ENABLED,

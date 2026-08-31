@@ -15,8 +15,8 @@ export class OrganizationController {
         operation: { summary: '获取完整组织树' },
         response: { type: OrganizationTreeNodeResponseDto, isArray: true, description: '完整组织树' }
     })
-    httpBaseAccountOrganizationTree() {
-        return this.organizationService.getTree()
+    public async httpBaseAccountOrganizationTree() {
+        return this.organizationService.httpBaseAccountOrganizationTree()
     }
 
     @RequirePermissions('account:organization:list')
@@ -25,8 +25,8 @@ export class OrganizationController {
         request: { source: 'query', type: OrganizationKeyDto },
         response: { type: TbAccountOrganizationDto, description: '组织详情' }
     })
-    httpBaseAccountOrganizationResolver(@Query() query: OrganizationKeyDto) {
-        return this.organizationService.findOne(query.keyId)
+    public async httpBaseAccountOrganizationResolver(@Query() query: OrganizationKeyDto) {
+        return this.organizationService.httpBaseAccountOrganizationResolver(query)
     }
 
     @RequirePermissions('account:organization:create')
@@ -35,8 +35,8 @@ export class OrganizationController {
         request: { source: 'body', type: CreateOrganizationDto },
         response: { type: TbAccountOrganizationDto, description: '新增后的组织节点' }
     })
-    httpBaseAccountCreateOrganization(@Body() input: CreateOrganizationDto) {
-        return this.organizationService.create(input)
+    public async httpBaseAccountCreateOrganization(@Body() input: CreateOrganizationDto) {
+        return this.organizationService.httpBaseAccountCreateOrganization(input)
     }
 
     @RequirePermissions('account:organization:update')
@@ -45,9 +45,8 @@ export class OrganizationController {
         request: { source: 'body', type: UpdateOrganizationPayloadDto },
         response: { type: TbAccountOrganizationDto, description: '更新后的组织节点' }
     })
-    httpBaseAccountUpdateOrganization(@Body() input: UpdateOrganizationPayloadDto) {
-        const { keyId, ...payload } = input
-        return this.organizationService.update(keyId, payload)
+    public async httpBaseAccountUpdateOrganization(@Body() input: UpdateOrganizationPayloadDto) {
+        return this.organizationService.httpBaseAccountUpdateOrganization(input)
     }
 
     @RequirePermissions('account:organization:delete')
@@ -56,8 +55,7 @@ export class OrganizationController {
         request: { source: 'body', type: OrganizationKeyDto },
         response: { type: SuccessResponseDataDto, description: '组织删除结果' }
     })
-    async httpBaseAccountDeleteOrganization(@Body() input: OrganizationKeyDto) {
-        await this.organizationService.remove(input.keyId)
-        return { success: true }
+    public async httpBaseAccountDeleteOrganization(@Body() input: OrganizationKeyDto) {
+        return this.organizationService.httpBaseAccountDeleteOrganization(input)
     }
 }

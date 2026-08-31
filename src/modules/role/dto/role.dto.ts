@@ -62,6 +62,7 @@ export class RoleDataScopeRuleDto {
     scopeType: TbAccountRoleDataScopeType
 
     @ApiPropertyOptional({
+        description: '数据范围规则状态',
         enum: TbAccountRoleDataScopeStatus,
         enumName: 'TbAccountRoleDataScopeStatus',
         default: TbAccountRoleDataScopeStatus.ENABLED,

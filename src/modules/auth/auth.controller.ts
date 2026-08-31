@@ -5,16 +5,13 @@ import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@
 import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import type { Request, Response } from 'express'
 import { AuthService } from '@/modules/auth/auth.service'
-import { AUTH_CAPTCHA_COOKIE, CaptchaService } from '@/modules/auth/captcha.service'
+import { AUTH_CAPTCHA_COOKIE } from '@/modules/auth/captcha.service'
 import { CodexWriteQueryDto, LoginDto } from '@/modules/auth/dto/login.dto'
 import { AccessTokenResponseDto, AccountUserResponseDto, AuthPrincipalResponseDto, LoginResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('身份认证', 'auth')
 export class AuthController {
-    constructor(
-        private readonly authService: AuthService,
-        private readonly captchaService: CaptchaService
-    ) {}
+    constructor(private readonly authService: AuthService) {}
 
     @Public()
     @ApiServiceDecorator(Get('codex/write'), {
@@ -27,11 +24,11 @@ export class AuthController {
             description: 'SVG 图形验证码'
         }
     })
-    async httpAuthCodexWrite(@Req() request: Request, @Res() response: Response, @Query() query: CodexWriteQueryDto) {
-        const captcha = await this.captchaService.create(query.inverse === '1')
+    public async httpBaseAccountWriteCodex(@Req() request: Request, @Res() response: Response, @Query() query: CodexWriteQueryDto) {
+        const captcha = await this.authService.httpBaseAccountWriteCodex(query)
         response.cookie(AUTH_CAPTCHA_COOKIE, captcha.sid, {
             httpOnly: true,
-            maxAge: this.captchaService.expiresIn * 1000,
+            maxAge: captcha.expiresIn * 1000,
             path: '/',
             sameSite: 'lax',
             secure: request.secure || request.header('x-forwarded-proto') === 'https'
@@ -51,8 +48,12 @@ export class AuthController {
         request: { source: 'body', type: LoginDto },
         response: { type: LoginResponseDto, description: '登录成功并返回 Bearer Token' }
     })
-    async httpAuthAccountToken(@Req() request: Request, @Res({ passthrough: true }) response: Response, @Body() input: LoginDto) {
-        const result = await this.authService.login(input, this.getCookie(request, AUTH_CAPTCHA_COOKIE))
+    public async httpBaseAccountLoginToken(
+        @Req() request: Request,
+        @Res({ passthrough: true }) response: Response,
+        @Body() input: LoginDto
+    ) {
+        const result = await this.authService.httpBaseAccountLoginToken(input, this.getCookie(request, AUTH_CAPTCHA_COOKIE))
         response.clearCookie(AUTH_CAPTCHA_COOKIE, { path: '/' })
         return result
     }
@@ -63,8 +64,8 @@ export class AuthController {
         response: { type: AccessTokenResponseDto, description: '轮换后的 Bearer Token' },
         bearerAuth: true
     })
-    httpAuthAccountTokenContinue(@CurrentPrincipal() principal: AuthPrincipal) {
-        return this.authService.refresh(principal)
+    public async httpBaseAccountContinueToken(@CurrentPrincipal() principal: AuthPrincipal) {
+        return this.authService.httpBaseAccountContinueToken(principal)
     }
 
     @HttpCode(HttpStatus.OK)
@@ -73,9 +74,8 @@ export class AuthController {
         response: { type: SuccessResponseDataDto, description: '退出登录结果' },
         bearerAuth: true
     })
-    async httpAuthAccountTokenLogout(@CurrentPrincipal() principal: AuthPrincipal) {
-        await this.authService.logout(principal)
-        return { success: true }
+    public async httpBaseAccountLogoutToken(@CurrentPrincipal() principal: AuthPrincipal) {
+        return this.authService.httpBaseAccountLogoutToken(principal)
     }
 
     @ApiServiceDecorator(Get('token/resolver'), {
@@ -83,8 +83,8 @@ export class AuthController {
         response: { type: AccountUserResponseDto, description: '当前登录账号信息' },
         bearerAuth: true
     })
-    httpAuthAccountTokenResolver(@CurrentPrincipal() principal: AuthPrincipal) {
-        return this.authService.getCurrentUser(principal)
+    public async httpBaseAccountResolverToken(@CurrentPrincipal() principal: AuthPrincipal) {
+        return this.authService.httpBaseAccountResolverToken(principal)
     }
 
     @Public()
@@ -94,12 +94,13 @@ export class AuthController {
         response: { type: AuthPrincipalResponseDto, description: '令牌对应的身份主体' },
         bearerAuth: true
     })
-    httpAuthAccountTokenIntrospect(@Req() request: Request): Promise<AuthPrincipal> {
+    public async httpBaseAccountIntrospectToken(@Req() request: Request): Promise<AuthPrincipal> {
         const match = request.header('authorization')?.match(/^Bearer\s+([^\s]+)$/i)
         if (!match) throw new UnauthorizedException('缺少 Bearer 访问令牌')
-        return this.authService.authenticateToken(match[1])
+        return this.authService.httpBaseAccountIntrospectToken(match[1])
     }
 
+    /** HTTP Cookie 解析属于协议适配，禁止下沉到业务 Service。 */
     private getCookie(request: Request, name: string): string | undefined {
         const encodedName = `${encodeURIComponent(name)}=`
         for (const entry of request.header('cookie')?.split(';') ?? []) {

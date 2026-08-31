@@ -2,17 +2,18 @@ import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { RedisService } from '@wlisfes/chat-web-base-schema/redis'
 import { create } from 'svg-captcha'
+import { isEmpty } from 'class-validator'
 
 export const AUTH_CAPTCHA_COOKIE = 'chat-web-account-captcha'
 
 @Injectable()
 export class CaptchaService {
     private readonly keyPrefix = 'chat-web:account:captcha'
-    readonly expiresIn = 180
+    public readonly expiresIn = 180
 
     constructor(private readonly redisService: RedisService) {}
 
-    async create(inverse = false): Promise<{ sid: string; svg: string }> {
+    public async create(inverse = false): Promise<{ sid: string; svg: string }> {
         const sid = randomUUID()
         const captcha = create({
             charPreset: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
@@ -26,8 +27,8 @@ export class CaptchaService {
         return { sid, svg: captcha.data }
     }
 
-    async verify(sid: string | undefined, input: string): Promise<void> {
-        if (!sid) {
+    public async verify(sid: string | undefined, input: string): Promise<void> {
+        if (isEmpty(sid)) {
             throw new BadRequestException('验证码不存在或已过期')
         }
         const expected = await this.redisService.getDel(this.getKey(sid))

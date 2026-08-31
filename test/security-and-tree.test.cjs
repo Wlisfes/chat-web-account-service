@@ -15,6 +15,7 @@ const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { OrganizationService } = require('../dist/modules/organization/organization.service')
+const { OrganizationUtilsService } = require('../dist/modules/organization/organization.utils.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 const {
@@ -67,18 +68,15 @@ function fakeRedis() {
 
 test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
     const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
-    const controller = new AuthController(
-        {
-            async authenticateToken(token) {
-                assert.equal(token, 'account-token')
-                return principal
-            }
-        },
-        {}
-    )
+    const controller = new AuthController({
+        async httpBaseAccountIntrospectToken(token) {
+            assert.equal(token, 'account-token')
+            return principal
+        }
+    })
     const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
-    assert.equal(await controller.httpAuthAccountTokenIntrospect(request), principal)
-    assert.throws(() => controller.httpAuthAccountTokenIntrospect({ header: () => undefined }), /缺少 Bearer/)
+    assert.equal(await controller.httpBaseAccountIntrospectToken(request), principal)
+    await assert.rejects(() => controller.httpBaseAccountIntrospectToken({ header: () => undefined }), /缺少 Bearer/)
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
@@ -204,11 +202,21 @@ function fakeOrganizationManager({ hasMember = false } = {}) {
     return manager
 }
 
+function createOrganizationService(manager) {
+    const repository = { manager }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    return new OrganizationService(repository, new OrganizationUtilsService(repository, database))
+}
+
 test('空部门删除时级联删除专属岗位角色并移除其他角色中的部门授权', async () => {
     const manager = fakeOrganizationManager()
-    const service = new OrganizationService({ manager })
+    const service = createOrganizationService(manager)
 
-    await service.remove(156)
+    await service.httpBaseAccountDeleteOrganization({ keyId: 156 })
 
     const roleDelete = manager.deletes.find(item => item.entity === TbAccountRole)
     assert.deepEqual(roleDelete.criteria.keyId.value, [154])
@@ -221,9 +229,9 @@ test('空部门删除时级联删除专属岗位角色并移除其他角色中�
 
 test('部门仍有员工时禁止删除且不清理岗位角色', async () => {
     const manager = fakeOrganizationManager({ hasMember: true })
-    const service = new OrganizationService({ manager })
+    const service = createOrganizationService(manager)
 
-    await assert.rejects(() => service.remove(156), /组织仍有关联成员/)
+    await assert.rejects(() => service.httpBaseAccountDeleteOrganization({ keyId: 156 }), /组织仍有关联成员/)
     assert.equal(manager.deletes.length, 0)
 })
 

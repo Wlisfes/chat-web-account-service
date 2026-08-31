@@ -11,6 +11,7 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { RoleController } from '@/modules/role/role.controller'
 import { RoleService } from '@/modules/role/role.service'
+import { RoleUtilsService } from '@/modules/role/role.utils.service'
 
 @Module({
     imports: [
@@ -25,7 +26,7 @@ import { RoleService } from '@/modules/role/role.service'
         ])
     ],
     controllers: [RoleController],
-    providers: [RoleService],
+    providers: [RoleService, RoleUtilsService],
     exports: [RoleService]
 })
 export class RoleModule {}

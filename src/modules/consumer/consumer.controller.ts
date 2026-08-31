@@ -22,8 +22,8 @@ export class ConsumerController {
         request: { source: 'body', type: CreateConsumerDto },
         response: { type: ConsumerResponseDto, description: '新增后的客户信息' }
     })
-    httpBaseAccountCreateConsumer(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateConsumerDto) {
-        return this.consumerService.create(principal.uid, input)
+    public async httpBaseAccountCreateConsumer(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: CreateConsumerDto) {
+        return this.consumerService.httpBaseAccountCreateConsumer(principal, input)
     }
 
     @ApiServiceDecorator(Post('update'), {
@@ -31,8 +31,8 @@ export class ConsumerController {
         request: { source: 'body', type: UpdateConsumerDto },
         response: { type: ConsumerResponseDto, description: '更新后的客户信息' }
     })
-    httpBaseAccountUpdateConsumer(@Body() input: UpdateConsumerDto) {
-        return this.consumerService.update(input)
+    public async httpBaseAccountUpdateConsumer(@Body() input: UpdateConsumerDto) {
+        return this.consumerService.httpBaseAccountUpdateConsumer(input)
     }
 
     @ApiServiceDecorator(Post('column'), {
@@ -40,8 +40,8 @@ export class ConsumerController {
         request: { source: 'body', type: ListConsumerDto },
         response: { type: ConsumerPageResponseDto, description: '客户分页数据' }
     })
-    httpBaseAccountColumnConsumer(@Body() input: ListConsumerDto) {
-        return this.consumerService.list(input)
+    public async httpBaseAccountColumnConsumer(@Body() input: ListConsumerDto) {
+        return this.consumerService.httpBaseAccountColumnConsumer(input)
     }
 
     @ApiServiceDecorator(Post('update/status'), {
@@ -49,8 +49,8 @@ export class ConsumerController {
         request: { source: 'body', type: UpdateConsumerStatusDto },
         response: { type: ConsumerResponseDto, description: '更新后的客户信息' }
     })
-    httpBaseAccountUpdateConsumerStatus(@Body() input: UpdateConsumerStatusDto) {
-        return this.consumerService.updateStatus(input)
+    public async httpBaseAccountUpdateConsumerStatus(@Body() input: UpdateConsumerStatusDto) {
+        return this.consumerService.httpBaseAccountUpdateConsumerStatus(input)
     }
 
     @ApiServiceDecorator(Get('resolver'), {
@@ -58,8 +58,8 @@ export class ConsumerController {
         request: { source: 'query', type: ResolveConsumerDto },
         response: { type: ConsumerResponseDto, description: '客户详情' }
     })
-    httpBaseAccountResolverConsumer(@Query() input: ResolveConsumerDto) {
-        return this.consumerService.resolve(input.keyId)
+    public async httpBaseAccountResolverConsumer(@Query() query: ResolveConsumerDto) {
+        return this.consumerService.httpBaseAccountResolverConsumer(query)
     }
 
     @ApiServiceDecorator(Get('select'), {
@@ -67,7 +67,7 @@ export class ConsumerController {
         request: { source: 'query', type: SelectConsumerDto },
         response: { type: ConsumerSelectResponseDto, isArray: true, description: '客户下拉选项' }
     })
-    httpBaseAccountSelectConsumer(@Query() input: SelectConsumerDto) {
-        return this.consumerService.select(input)
+    public async httpBaseAccountSelectConsumer(@Query() query: SelectConsumerDto) {
+        return this.consumerService.httpBaseAccountSelectConsumer(query)
     }
 }

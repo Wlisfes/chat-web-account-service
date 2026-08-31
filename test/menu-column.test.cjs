@@ -137,3 +137,34 @@ test('菜单 column 保留名称、权限码和路由筛选条件', async () => 
     assert.equal(query.params.permissionCode, '%account:user%')
     assert.equal(query.params.path, '%/system/user%')
 })
+
+test('菜单删除返回与接口文档一致的成功结果', async () => {
+    const manager = {
+        async existsBy() {
+            return false
+        },
+        async delete() {
+            return { affected: 1 }
+        }
+    }
+    const repository = {
+        manager: {
+            async transaction(callback) {
+                return callback(manager)
+            }
+        }
+    }
+    const menuUtilsService = {
+        async lockTree(transactionManager) {
+            assert.equal(transactionManager, manager)
+        },
+        async findRequired(keyId, transactionManager) {
+            assert.equal(keyId, 1)
+            assert.equal(transactionManager, manager)
+            return { keyId }
+        }
+    }
+    const service = new MenuService(repository, {}, menuUtilsService)
+
+    assert.deepEqual(await service.httpBaseAccountDeleteMenu({ keyId: 1 }), { success: true })
+})
