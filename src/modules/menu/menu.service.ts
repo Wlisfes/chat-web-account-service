@@ -1,174 +1,110 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
+import { TbAccountMenu, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { PageResult, buildTree } from '@wlisfes/chat-web-base-schema/utils'
+import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { MenuUtilsService } from '@/modules/menu/menu.utils.service'
+import { isNotEmpty } from 'class-validator'
 import { InjectRepository } from '@nestjs/typeorm'
-import { TbAccountMenu, TbAccountMenuType, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { EntityManager, Repository } from 'typeorm'
-import { PageResult, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
-import { CreateMenuDto, MenuColumnQueryDto, UpdateMenuDto } from '@/modules/menu/dto/menu.dto'
+import { Repository } from 'typeorm'
+import * as MenuDto from '@/modules/menu/dto/menu.dto'
 
 @Injectable()
 export class MenuService {
-    constructor(@InjectRepository(TbAccountMenu) private readonly menuRepository: Repository<TbAccountMenu>) {}
+    constructor(
+        @InjectRepository(TbAccountMenu) private readonly menuRepository: Repository<TbAccountMenu>,
+        private readonly database: DataBaseService,
+        private readonly menuUtilsService: MenuUtilsService
+    ) {}
 
-    async getTree() {
-        const menus = await this.menuRepository.find({ order: { sort: 'ASC', keyId: 'ASC' } })
+    /**菜单树结构**/
+    public async httpBaseAccountMenuTree() {
+        const menus = await this.database.builder(this.menuRepository, qb =>
+            qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
+        )
         return buildTree(menus)
     }
 
-    async findPage(input: MenuColumnQueryDto): Promise<PageResult<TbAccountMenu>> {
-        const query = this.menuRepository.createQueryBuilder('menu')
-        if (input.parentKeyId === undefined || input.parentKeyId === null) {
-            query.andWhere('menu.parentKeyId IS NULL')
-        } else {
-            query.andWhere('(menu.keyId = :parentKeyId OR menu.parentKeyId = :parentKeyId)', { parentKeyId: input.parentKeyId })
-        }
-        this.applyLikeFilter(query, 'menu.name', 'name', input.name)
-        this.applyLikeFilter(query, 'menu.permissionCode', 'permissionCode', input.permissionCode)
-        this.applyLikeFilter(query, 'menu.path', 'path', input.path)
-        if (input.parentKeyId === undefined || input.parentKeyId === null) {
-            query.orderBy('menu.sort', 'ASC').addOrderBy('menu.keyId', 'ASC')
-        } else {
-            query
-                .orderBy('CASE WHEN menu.keyId = :parentKeyId THEN 0 ELSE 1 END', 'ASC')
-                .addOrderBy('menu.sort', 'ASC')
-                .addOrderBy('menu.keyId', 'ASC')
-        }
-        query.skip((input.page - 1) * input.size).take(input.size)
-
-        const [items, total] = await query.getManyAndCount()
-
-        return {
-            page: input.page,
-            size: input.size,
-            total,
-            list: items
-        }
+    /**菜单分页数据**/
+    public async httpBaseAccountColumnMenu(body: MenuDto.MenuColumnQueryDto): Promise<PageResult<TbAccountMenu>> {
+        return this.database.builder(this.menuRepository, async qb => {
+            if (isNotEmpty(body.parentKeyId)) {
+                qb.where('(t.keyId = :parentKeyId OR t.parentKeyId = :parentKeyId)', { parentKeyId: body.parentKeyId })
+                qb.orderBy('CASE WHEN t.keyId = :parentKeyId THEN 0 ELSE 1 END', 'ASC')
+                qb.addOrderBy('t.sort', 'ASC')
+            } else {
+                qb.where('t.parentKeyId IS NULL')
+                qb.orderBy('t.sort', 'ASC')
+            }
+            if (isNotEmpty(body.name)) {
+                qb.andWhere('t.name LIKE :name', { name: `%${body.name.trim()}%` })
+            }
+            if (isNotEmpty(body.permissionCode)) {
+                qb.andWhere('t.permissionCode LIKE :permissionCode', { permissionCode: `%${body.permissionCode.trim()}%` })
+            }
+            if (isNotEmpty(body.path)) {
+                qb.andWhere('t.path LIKE :path', { path: `%${body.path.trim()}%` })
+            }
+            qb.addOrderBy('t.keyId', 'ASC')
+            qb.skip((body.page - 1) * body.size).take(body.size)
+            return await qb.getManyAndCount().then(([list, total]) => {
+                return { page: body.page, size: body.size, list, total }
+            })
+        })
     }
 
-    async findOne(keyId: number): Promise<TbAccountMenu> {
-        const menu = await this.menuRepository.findOne({ where: { keyId } })
-        if (!menu) {
-            throw new NotFoundException('菜单不存在')
-        }
-        return menu
+    /**菜单详情**/
+    public async httpBaseAccountMenuResolver(query: MenuDto.MenuKeyDto): Promise<TbAccountMenu> {
+        return this.menuUtilsService.findRequired(query.keyId)
     }
 
-    async create(input: CreateMenuDto): Promise<TbAccountMenu> {
+    /**新增菜单**/
+    public async httpBaseAccountCreateMenu(body: MenuDto.CreateMenuDto): Promise<TbAccountMenu> {
         return this.menuRepository.manager.transaction(async manager => {
-            await this.lockTree(manager)
-            const parentKeyId = input.parentKeyId ?? null
-            await this.assertParent(manager, parentKeyId)
-            await this.assertPermissionCodeAvailable(manager, input.permissionCode)
-            this.assertMenuFields(input)
-
-            const menu = manager.create(TbAccountMenu, { ...input, parentKeyId: parentKeyId as unknown as number })
+            await this.menuUtilsService.lockTree(manager)
+            await this.menuUtilsService.findParentRequired(body.parentKeyId, manager)
+            await this.menuUtilsService.findPermissionCodeAvailable(manager, body.permissionCode)
+            await this.menuUtilsService.findMenuFieldsRequired(body)
+            const menu = manager.create(TbAccountMenu, { ...body, parentKeyId: body.parentKeyId })
             return manager.save(menu)
         })
     }
 
-    async update(keyId: number, input: UpdateMenuDto): Promise<TbAccountMenu> {
+    /**编辑菜单**/
+    public async httpBaseAccountUpdateMenu(body: MenuDto.UpdateMenuPayloadDto): Promise<TbAccountMenu> {
+        const { keyId, ...input } = body
         return this.menuRepository.manager.transaction(async manager => {
-            await this.lockTree(manager)
-            const menu = await manager.findOneBy(TbAccountMenu, { keyId })
-            if (!menu) {
-                throw new NotFoundException('菜单不存在')
-            }
+            await this.menuUtilsService.lockTree(manager)
+            const menu = await this.menuUtilsService.findRequired(keyId, manager)
 
             const nextParentKeyId = input.parentKeyId === undefined ? menu.parentKeyId : (input.parentKeyId ?? null)
             if (nextParentKeyId === keyId) {
                 throw new BadRequestException('菜单不能成为自己的父节点')
             }
-            await this.assertParent(manager, nextParentKeyId)
-            if (input.permissionCode !== undefined && input.permissionCode !== menu.permissionCode) {
-                await this.assertPermissionCodeAvailable(manager, input.permissionCode, keyId)
+            await this.menuUtilsService.findParentRequired(nextParentKeyId, manager)
+            if (isNotEmpty(input.permissionCode) && input.permissionCode !== menu.permissionCode) {
+                await this.menuUtilsService.findPermissionCodeAvailable(manager, input.permissionCode, keyId)
             }
-
-            const nextMenu = { ...menu, ...input, parentKeyId: nextParentKeyId }
-            this.assertMenuFields(nextMenu)
-            manager.merge(TbAccountMenu, menu, input, { parentKeyId: nextParentKeyId as unknown as number })
+            await manager.merge(TbAccountMenu, menu, input, { parentKeyId: nextParentKeyId })
+            await this.menuUtilsService.findMenuFieldsRequired(menu)
             await manager.save(menu)
-
-            const menus = await manager.find(TbAccountMenu)
-            try {
-                assertValidTree(menus, '菜单树')
-            } catch (error) {
-                throw new BadRequestException(error instanceof Error ? error.message : String(error))
-            }
-            return menu
+            return await this.menuUtilsService.findAssertTree(manager).then(() => {
+                return menu
+            })
         })
     }
 
-    async remove(keyId: number): Promise<void> {
+    /**删除菜单**/
+    public async httpBaseAccountDeleteMenu(body: MenuDto.MenuKeyDto): Promise<void> {
         await this.menuRepository.manager.transaction(async manager => {
-            await this.lockTree(manager)
-            const menu = await manager.findOneBy(TbAccountMenu, { keyId })
-            if (!menu) {
-                throw new NotFoundException('菜单不存在')
-            }
-            if (await manager.existsBy(TbAccountMenu, { parentKeyId: keyId })) {
+            await this.menuUtilsService.lockTree(manager)
+            await this.menuUtilsService.findRequired(body.keyId, manager)
+            if (await manager.existsBy(TbAccountMenu, { parentKeyId: body.keyId })) {
                 throw new ConflictException('菜单存在下级节点，不能删除')
             }
-            if (await manager.existsBy(TbAccountRoleMenu, { menuKeyId: keyId })) {
+            if (await manager.existsBy(TbAccountRoleMenu, { menuKeyId: body.keyId })) {
                 throw new ConflictException('菜单仍被角色引用，不能删除')
             }
-            await manager.delete(TbAccountMenu, { keyId })
+            return await manager.delete(TbAccountMenu, { keyId: body.keyId })
         })
-    }
-
-    private async assertParent(manager: EntityManager, parentKeyId?: number | null): Promise<void> {
-        if (!parentKeyId) {
-            return
-        }
-        const parent = await manager.findOneBy(TbAccountMenu, { keyId: parentKeyId })
-        if (!parent) {
-            throw new BadRequestException('父菜单不存在')
-        }
-        if (parent.type === TbAccountMenuType.BUTTON) {
-            throw new BadRequestException('按钮节点不能包含下级菜单')
-        }
-    }
-
-    private async assertPermissionCodeAvailable(manager: EntityManager, permissionCode?: string, excludedKeyId?: number): Promise<void> {
-        const normalized = permissionCode?.trim()
-        if (!normalized) {
-            return
-        }
-        const query = manager
-            .getRepository(TbAccountMenu)
-            .createQueryBuilder('menu')
-            .where('menu.permissionCode = :permissionCode', { permissionCode: normalized })
-        if (excludedKeyId) {
-            query.andWhere('menu.keyId <> :excludedKeyId', { excludedKeyId })
-        }
-        if (await query.getExists()) {
-            throw new ConflictException('菜单权限码已存在')
-        }
-    }
-
-    private assertMenuFields(menu: Pick<TbAccountMenu, 'type' | 'permissionCode' | 'path' | 'externalUrl'>): void {
-        if (menu.type === TbAccountMenuType.BUTTON && !menu.permissionCode?.trim()) {
-            throw new BadRequestException('按钮节点必须配置权限码')
-        }
-        if (menu.type === TbAccountMenuType.MENU && !menu.path?.trim() && !menu.externalUrl?.trim()) {
-            throw new BadRequestException('菜单节点必须配置路由路径或外部链接')
-        }
-    }
-
-    private async lockTree(manager: EntityManager): Promise<void> {
-        await manager.getRepository(TbAccountMenu).createQueryBuilder('menu').setLock('pessimistic_write').getMany()
-    }
-
-    private applyLikeFilter(
-        query: ReturnType<Repository<TbAccountMenu>['createQueryBuilder']>,
-        column: string,
-        parameter: string,
-        value?: string
-    ): void {
-        const normalized = value?.trim()
-        if (!normalized) return
-        query.andWhere(`${column} LIKE :${parameter} ESCAPE '\\\\'`, { [parameter]: `%${this.escapeLike(normalized)}%` })
-    }
-
-    private escapeLike(value: string): string {
-        return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
     }
 }
