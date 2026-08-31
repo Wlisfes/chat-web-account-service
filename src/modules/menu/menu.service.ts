@@ -17,9 +17,9 @@ export class MenuService {
     async findPage(input: MenuColumnQueryDto): Promise<PageResult<TbAccountMenu>> {
         const query = this.menuRepository.createQueryBuilder('menu')
         if (input.parentKeyId === undefined || input.parentKeyId === null) {
-            query.where('menu.parentKeyId IS NULL')
+            query.andWhere('menu.parentKeyId IS NULL')
         } else {
-            query.where('(menu.keyId = :parentKeyId OR menu.parentKeyId = :parentKeyId)', { parentKeyId: input.parentKeyId })
+            query.andWhere('(menu.keyId = :parentKeyId OR menu.parentKeyId = :parentKeyId)', { parentKeyId: input.parentKeyId })
         }
         this.applyLikeFilter(query, 'menu.name', 'name', input.name)
         this.applyLikeFilter(query, 'menu.permissionCode', 'permissionCode', input.permissionCode)
