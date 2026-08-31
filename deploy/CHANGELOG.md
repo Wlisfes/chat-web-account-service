@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-08-31：升级共享包并接入独立 Redis index
+
+- 影响机器：`chat-home-server`。
+- 关联版本：`@wlisfes/chat-web-base-schema@1.4.19`。
+- 变更内容：Account 升级共享包依赖；`RedisModule` 改为 `RedisModule.forRoot({ database: 0 })`，确保会话和验证码固定使用 Account Redis index `0`。
+- 机器侧操作：重新安装依赖并重新构建 Account；确认 Nacos `redis.database` 使用 `0`，不把 Redis 连接字段补回 `.env`。
+- 验证命令：`yarn install --frozen-lockfile`、`yarn build`、`yarn test`；部署后检查 `/health` 与 Redis index。
+- 回滚方法：恢复上一版 Account 镜像和 `@wlisfes/chat-web-base-schema@1.4.18`；Nacos 配置和 Redis 数据不回滚。
+
 ## 2026-08-29：部署前清理旧版 Nacos 覆盖项
 
 - 变更内容：部署流水线自动从主机 `.env` 移除 `NACOS_REQUEST_TIMEOUT`、`NACOS_REGISTER_PORT`、`NACOS_REGISTER_IP`、`NACOS_REGISTER_REQUIRED`、`NACOS_GROUP` 和 `NACOS_CONFIG_GROUP`，统一使用共享包默认值。

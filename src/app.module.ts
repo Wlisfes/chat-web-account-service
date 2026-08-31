@@ -23,7 +23,7 @@ import { AppService } from '@/app.service'
         HttpResponseModule,
         ConfigModule.forRoot({ isGlobal: true }),
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
-        RedisModule,
+        RedisModule.forRoot({ database: 0 }),
         DatabaseModule,
         AuthModule,
         ConsumerModule,
