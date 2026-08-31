@@ -47,6 +47,16 @@ async function createDocument() {
 
 test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     const document = await createDocument()
+    for (const schemaName of ['UserPageResponseDto', 'MenuPageResponseDto', 'ConsumerPageResponseDto']) {
+        const properties = document.components.schemas?.[schemaName]?.properties ?? {}
+        assert.deepEqual(Object.keys(properties).sort(), ['list', 'page', 'size', 'total'])
+        assert.equal(properties.pageSize, undefined, `${schemaName} 不能保留 pageSize`)
+        assert.equal(properties.items, undefined, `${schemaName} 不能保留 items`)
+    }
+    const userQueryProperties = document.components.schemas?.UserQueryDto?.properties ?? {}
+    assert.ok(userQueryProperties.vague, 'UserQueryDto 必须提供 vague 模糊查询字段')
+    assert.equal(userQueryProperties.keyword, undefined, 'UserQueryDto 不能保留 keyword 字段')
+
     const operations = Object.entries(document.paths).flatMap(([path, pathItem]) =>
         Object.entries(pathItem)
             .filter(([, operation]) => operation?.responses)

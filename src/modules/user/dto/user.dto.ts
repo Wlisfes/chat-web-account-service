@@ -28,7 +28,7 @@ export class UserQueryDto extends PageDto {
     @IsOptional()
     @IsString({ message: '查询关键词必须是字符串' })
     @MaxLength(128, { message: '查询关键词长度不能超过128位' })
-    keyword?: string
+    vague?: string
 
     @ApiPropertyOptional({
         description: '账号状态',
