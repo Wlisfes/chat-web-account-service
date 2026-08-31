@@ -38,7 +38,10 @@ export class MenuUtilsService {
     }
 
     /**获取父菜单详情**/
-    public async findParentRequired(parentKeyId: number, manager?: EntityManager): Promise<TbAccountMenu> {
+    public async findParentRequired(parentKeyId?: number | null, manager?: EntityManager): Promise<TbAccountMenu | null> {
+        if (isEmpty(parentKeyId)) {
+            return null
+        }
         return await this.findRequired(parentKeyId, manager).then(data => {
             if (data.type === TbAccountMenuType.BUTTON) {
                 throw new BadRequestException('按钮节点不能包含下级菜单')
