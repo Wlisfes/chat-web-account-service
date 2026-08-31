@@ -4,7 +4,7 @@ const assert = require('node:assert/strict')
 const { MenuService } = require('../dist/modules/menu/menu.service')
 
 const menus = [
-    { keyId: 1, parentKeyId: null, sort: 10, name: '系统管理' },
+    { keyId: 1, parentKeyId: null, sort: 30, name: '系统管理' },
     { keyId: 2, parentKeyId: null, sort: 20, name: '业务管理' },
     { keyId: 3, parentKeyId: 1, sort: 10, name: '用户管理' },
     { keyId: 4, parentKeyId: 3, sort: 10, name: '用户列表' },
@@ -16,7 +16,7 @@ function fakeRepository(rows) {
     return {
         queries,
         createQueryBuilder() {
-            const state = { conditions: [], params: {}, skip: 0, take: rows.length }
+            const state = { conditions: [], params: {}, orderBy: undefined, skip: 0, take: rows.length }
             queries.push(state)
             return {
                 where(expression, params) {
@@ -29,10 +29,12 @@ function fakeRepository(rows) {
                     Object.assign(state.params, params)
                     return this
                 },
-                orderBy() {
+                orderBy(expression, direction) {
+                    state.orderBy = { expression, direction }
                     return this
                 },
-                addOrderBy() {
+                addOrderBy(expression, direction) {
+                    state.orderBy ??= { expression, direction }
                     return this
                 },
                 skip(value) {
@@ -49,7 +51,14 @@ function fakeRepository(rows) {
                     const matched = condition.includes('IS NULL')
                         ? rows.filter(item => item.parentKeyId === null)
                         : rows.filter(item => item.keyId === parentKeyId || item.parentKeyId === parentKeyId)
-                    const ordered = [...matched].sort((left, right) => left.sort - right.sort || left.keyId - right.keyId)
+                    const ordered = [...matched].sort((left, right) => {
+                        if (state.orderBy?.expression.includes('CASE')) {
+                            const leftPriority = left.keyId === parentKeyId ? 0 : 1
+                            const rightPriority = right.keyId === parentKeyId ? 0 : 1
+                            if (leftPriority !== rightPriority) return leftPriority - rightPriority
+                        }
+                        return left.sort - right.sort || left.keyId - right.keyId
+                    })
                     return [ordered.slice(state.skip, state.skip + state.take), ordered.length]
                 }
             }
@@ -65,7 +74,7 @@ test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async ()
 
     assert.deepEqual(
         result.list.map(item => item.keyId),
-        [1, 2]
+        [2, 1]
     )
     assert.equal(result.total, 2)
     assert.ok(result.list.every(item => !Object.hasOwn(item, 'children')))

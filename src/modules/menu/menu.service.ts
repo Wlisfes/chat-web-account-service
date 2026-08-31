@@ -24,7 +24,14 @@ export class MenuService {
         this.applyLikeFilter(query, 'menu.name', 'name', input.name)
         this.applyLikeFilter(query, 'menu.permissionCode', 'permissionCode', input.permissionCode)
         this.applyLikeFilter(query, 'menu.path', 'path', input.path)
-        query.orderBy('menu.sort', 'ASC').addOrderBy('menu.keyId', 'ASC')
+        if (input.parentKeyId === undefined || input.parentKeyId === null) {
+            query.orderBy('menu.sort', 'ASC').addOrderBy('menu.keyId', 'ASC')
+        } else {
+            query
+                .orderBy('CASE WHEN menu.keyId = :parentKeyId THEN 0 ELSE 1 END', 'ASC')
+                .addOrderBy('menu.sort', 'ASC')
+                .addOrderBy('menu.keyId', 'ASC')
+        }
         query.skip((input.page - 1) * input.size).take(input.size)
 
         const [items, total] = await query.getManyAndCount()
