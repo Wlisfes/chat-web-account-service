@@ -20,10 +20,10 @@ import { AppService } from '@/app.service'
 
 @Module({
     imports: [
-        HttpResponseModule,
         ConfigModule.forRoot({ isGlobal: true }),
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
         RedisModule.forRoot({ database: 0 }),
+        HttpResponseModule,
         DatabaseModule,
         AuthModule,
         ConsumerModule,
