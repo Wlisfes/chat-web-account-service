@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator'
+import { isNotEmpty, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, MaxLength, Min, ValidateIf } from 'class-validator'
 
 export class CodexWriteQueryDto {
     @ApiPropertyOptional({ description: '是否使用反色验证码；1 表示启用，0 表示关闭', enum: ['0', '1'], default: '0', example: '0' })
@@ -17,11 +17,19 @@ export class CodexWriteQueryDto {
 }
 
 export class LoginDto {
-    @ApiProperty({ description: '工号、手机号或邮箱', example: '1001' })
+    @ApiProperty({ description: '登录标识，支持工号、手机号或邮箱；优先使用此字段', example: '1001' })
+    @ValidateIf(input => isNotEmpty(input.account) || !isNotEmpty(input.number))
     @IsString({ message: '登录账号必须是字符串' })
     @IsNotEmpty({ message: '登录账号必填' })
     @MaxLength(128, { message: '登录账号长度不能超过128位' })
     account: string
+
+    @ApiPropertyOptional({ description: '兼容旧版客户端的工号字段；未传 account 时作为登录标识', example: '1001', deprecated: true })
+    @ValidateIf(input => isNotEmpty(input.number))
+    @IsString({ message: '工号必须是字符串' })
+    @IsNotEmpty({ message: '工号不能为空' })
+    @MaxLength(32, { message: '工号长度不能超过32位' })
+    number?: string
 
     @ApiProperty({ description: '登录密码', example: 'Abc123456', writeOnly: true })
     @IsString({ message: '登录密码必须是字符串' })

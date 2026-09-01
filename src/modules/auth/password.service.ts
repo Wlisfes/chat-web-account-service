@@ -17,6 +17,17 @@ export class PasswordService {
     }
 
     async verify(password: string, encodedHash: string): Promise<boolean> {
+        if (await this.verifyEncoded(password, encodedHash)) {
+            return true
+        }
+
+        /** 兼容历史管理端使用 btoa(encodeURIComponent(password)) 传输的登录请求。 */
+        const legacyPassword = this.decodeLegacyClientPassword(password)
+        return legacyPassword !== password && (await this.verifyEncoded(legacyPassword, encodedHash))
+    }
+
+    /** 使用当前 scrypt 参数校验密码摘要。 */
+    private async verifyEncoded(password: string, encodedHash: string): Promise<boolean> {
         const [algorithm, nText, rText, pText, saltText, hashText, extra] = encodedHash.split('$')
         if (algorithm !== ALGORITHM || extra !== undefined || !saltText || !hashText) {
             return false
@@ -49,6 +60,24 @@ export class PasswordService {
             return timingSafeEqual(actual, expected)
         } catch {
             return false
+        }
+    }
+
+    /** 严格还原历史客户端的 Base64 + encodeURIComponent 编码，不接受近似或非规范 Base64。 */
+    private decodeLegacyClientPassword(password: string): string {
+        if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(password)) {
+            return password
+        }
+
+        try {
+            const decodedUri = Buffer.from(password, 'base64').toString('utf8')
+            if (Buffer.from(decodedUri, 'utf8').toString('base64') !== password) {
+                return password
+            }
+            const decodedPassword = decodeURIComponent(decodedUri)
+            return encodeURIComponent(decodedPassword) === decodedUri ? decodedPassword : password
+        } catch {
+            return password
         }
     }
 

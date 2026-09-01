@@ -1,9 +1,13 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { BadRequestException } = require('@nestjs/common')
+const { plainToInstance } = require('class-transformer')
+const { validate } = require('class-validator')
 
 const { buildTree, assertValidTree, generateUid } = require('@wlisfes/chat-web-base-schema/utils')
 const { PasswordService } = require('../dist/modules/auth/password.service')
+const { LoginDto } = require('../dist/modules/auth/dto/login.dto')
+const { AuthService } = require('../dist/modules/auth/auth.service')
 const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-schema/auth')
 const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
 const { RedisService } = require('@wlisfes/chat-web-base-schema/redis')
@@ -251,6 +255,78 @@ test('scrypt 密码哈希可校验正确密码并拒绝错误密码', async () =
     assert.equal(await service.verify('Correct-Horse-2026', encoded), true)
     assert.equal(await service.verify('wrong-password', encoded), false)
     assert.equal(await service.verify('Correct-Horse-2026', 'invalid'), false)
+})
+
+test('密码校验兼容旧管理端的 Base64 + encodeURIComponent 编码', async () => {
+    const service = new PasswordService()
+    const encoded = await service.hash('123456')
+    const legacyPassword = Buffer.from(encodeURIComponent('123456'), 'utf8').toString('base64')
+
+    assert.equal(await service.verify(legacyPassword, encoded), true)
+    assert.equal(await service.verify('123456', encoded), true)
+    assert.equal(await service.verify('MTIzNDU2=', encoded), false)
+})
+
+test('登录 DTO 兼容旧版 number 工号字段并保留 account 字段', async () => {
+    const numberInput = plainToInstance(LoginDto, { number: '1001', password: '123456', code: 'ABCD' })
+    const accountInput = plainToInstance(LoginDto, { account: '1001', password: '123456', code: 'ABCD' })
+    const accountWithEmptyLegacyNumber = plainToInstance(LoginDto, { account: '1001', number: '', password: '123456', code: 'ABCD' })
+    const invalidAccountWithNumber = plainToInstance(LoginDto, { account: 1001, number: '1001', password: '123456', code: 'ABCD' })
+    const missingIdentifier = plainToInstance(LoginDto, { password: '123456', code: 'ABCD' })
+
+    assert.equal(numberInput.number, '1001')
+    assert.equal(accountInput.account, '1001')
+    assert.equal((await validate(numberInput)).length, 0)
+    assert.equal((await validate(accountInput)).length, 0)
+    assert.equal((await validate(accountWithEmptyLegacyNumber)).length, 0)
+    assert.ok((await validate(invalidAccountWithNumber)).some(error => error.property === 'account'))
+    assert.ok((await validate(missingIdentifier)).some(error => error.property === 'account'))
+})
+
+test('登录服务可使用工号和旧版编码密码完成认证', async () => {
+    const passwordService = new PasswordService()
+    const storedPassword = await passwordService.hash('123456')
+    const legacyPassword = Buffer.from(encodeURIComponent('123456'), 'utf8').toString('base64')
+    const calls = []
+    const user = {
+        uid: '2149446185344106496',
+        number: '1001',
+        name: '测试账号',
+        avatar: null,
+        password: storedPassword
+    }
+    const service = new AuthService(
+        {
+            async update(criteria, fields) {
+                calls.push({ criteria, fields })
+            }
+        },
+        passwordService,
+        {
+            issueAccessToken(uid) {
+                return {
+                    accessToken: 'access-token',
+                    tokenType: 'Bearer',
+                    expiresIn: 36000,
+                    claims: { sub: uid, jti: 'session-id', exp: 9999999999 }
+                }
+            }
+        },
+        { async create() {} },
+        { async verify() {} },
+        {
+            async findUserByAccountRequired(identifier) {
+                calls.push(identifier)
+                return user
+            },
+            assertActiveUser() {}
+        }
+    )
+
+    const result = await service.httpBaseAccountLoginToken({ number: '1001', password: legacyPassword, code: 'ABCD' })
+    assert.equal(calls[0], '1001')
+    assert.equal(result.accessToken, 'access-token')
+    assert.equal(result.user.number, '1001')
 })
 
 test('JWT 可验证且拒绝篡改和不同密钥', () => {

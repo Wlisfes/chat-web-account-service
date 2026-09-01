@@ -52,8 +52,8 @@ function readHiddenFromTerminal() {
 
 async function main() {
     const password = process.stdin.isTTY ? await readHiddenFromTerminal() : await readFromPipe()
-    if (password.length < 8 || password.length > 128) {
-        throw new Error('Password length must be between 8 and 128 characters.')
+    if (password.length < 6 || password.length > 128) {
+        throw new Error('密码长度必须保持6~128位。')
     }
     const hash = await new PasswordService().hash(password)
     process.stdout.write(`${hash}\n`)

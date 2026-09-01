@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountUser, TbAccountUserEmploymentStatus, TbAccountUserStatus } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { isEmpty } from 'class-validator'
 import { Repository } from 'typeorm'
 
 @Injectable()
@@ -11,10 +12,17 @@ export class AuthUtilsService {
         private readonly database: DataBaseService
     ) {}
 
-    /** 按登录标识查找包含密码摘要的账号。 */
+    /** 按工号、手机号或邮箱查找包含密码摘要的账号。 */
     public async findUserByAccountRequired(account: string): Promise<TbAccountUser> {
+        const loginIdentifier = account?.trim()
+        if (isEmpty(loginIdentifier)) {
+            throw new UnauthorizedException('登录账号必填')
+        }
         const user = await this.database.builder(this.userRepository, qb =>
-            qb.addSelect('t.password').where('t.number = :account OR t.phone = :account OR t.email = :account', { account }).getOne()
+            qb
+                .addSelect('t.password')
+                .where('t.number = :loginIdentifier OR t.phone = :loginIdentifier OR t.email = :loginIdentifier', { loginIdentifier })
+                .getOne()
         )
         if (!user) {
             throw new UnauthorizedException('账号或密码错误')

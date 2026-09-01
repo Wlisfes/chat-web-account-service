@@ -4,6 +4,7 @@ import { AuthSessionService, TokenService } from '@wlisfes/chat-web-base-schema/
 import type { AuthPrincipal, AuthTokenAuthenticator } from '@wlisfes/chat-web-base-schema/auth'
 import { TbAccountUser } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { isEmpty, isNotEmpty } from 'class-validator'
 import { Repository } from 'typeorm'
 import { AccessTokenResponseDto, AccountUserResponseDto, LoginResponseDto } from '@/dto/api-response.dto'
 import { CaptchaService } from '@/modules/auth/captcha.service'
@@ -31,7 +32,10 @@ export class AuthService implements AuthTokenAuthenticator {
     /**账号密码登录并签发访问令牌*/
     public async httpBaseAccountLoginToken(input: AuthDto.LoginDto, captchaSid?: string): Promise<LoginResponseDto> {
         await this.captchaService.verify(captchaSid, input.code)
-        const account = input.account.trim()
+        const account = isNotEmpty(input.account?.trim()) ? input.account.trim() : input.number?.trim()
+        if (isEmpty(account)) {
+            throw new UnauthorizedException('登录账号必填')
+        }
         const user = await this.authUtilsService.findUserByAccountRequired(account)
 
         if (!(await this.passwordService.verify(input.password, user.password))) {
