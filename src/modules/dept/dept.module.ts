@@ -7,9 +7,9 @@ import {
     TbAccountUser,
     TbAccountUserOrganization
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { OrganizationController } from '@/modules/organization/organization.controller'
-import { OrganizationService } from '@/modules/organization/organization.service'
-import { OrganizationUtilsService } from '@/modules/organization/organization.utils.service'
+import { DeptController } from '@/modules/dept/dept.controller'
+import { DeptService } from '@/modules/dept/dept.service'
+import { DeptUtilsService } from '@/modules/dept/dept.utils.service'
 
 @Module({
     imports: [
@@ -21,8 +21,8 @@ import { OrganizationUtilsService } from '@/modules/organization/organization.ut
             TbAccountUser
         ])
     ],
-    controllers: [OrganizationController],
-    providers: [OrganizationService, OrganizationUtilsService],
-    exports: [OrganizationService]
+    controllers: [DeptController],
+    providers: [DeptService, DeptUtilsService],
+    exports: [DeptService]
 })
-export class OrganizationModule {}
+export class DeptModule {}

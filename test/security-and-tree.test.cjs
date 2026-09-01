@@ -18,8 +18,8 @@ const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
-const { OrganizationService } = require('../dist/modules/organization/organization.service')
-const { OrganizationUtilsService } = require('../dist/modules/organization/organization.utils.service')
+const { DeptService } = require('../dist/modules/dept/dept.service')
+const { DeptUtilsService } = require('../dist/modules/dept/dept.utils.service')
 const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 const {
@@ -135,7 +135,7 @@ test('树校验拒绝循环和缺失父节点', () => {
     )
 })
 
-function fakeOrganizationManager({ hasMember = false } = {}) {
+function fakeDeptManager({ hasMember = false } = {}) {
     const deletes = []
     const candidateScopes = [
         { keyId: 153, roleKeyId: 154 },
@@ -206,21 +206,21 @@ function fakeOrganizationManager({ hasMember = false } = {}) {
     return manager
 }
 
-function createOrganizationService(manager) {
+function createDeptService(manager) {
     const repository = { manager }
     const database = {
         builder(currentRepository, callback) {
             return callback(currentRepository.createQueryBuilder('t'))
         }
     }
-    return new OrganizationService(repository, new OrganizationUtilsService(repository, database))
+    return new DeptService(repository, new DeptUtilsService(repository, database))
 }
 
 test('空部门删除时级联删除专属岗位角色并移除其他角色中的部门授权', async () => {
-    const manager = fakeOrganizationManager()
-    const service = createOrganizationService(manager)
+    const manager = fakeDeptManager()
+    const service = createDeptService(manager)
 
-    await service.httpBaseAccountDeleteOrganization({ keyId: 156 })
+    await service.httpBaseAccountDeleteDept({ keyId: 156 })
 
     const roleDelete = manager.deletes.find(item => item.entity === TbAccountRole)
     assert.deepEqual(roleDelete.criteria.keyId.value, [154])
@@ -232,10 +232,10 @@ test('空部门删除时级联删除专属岗位角色并移除其他角色中�
 })
 
 test('部门仍有员工时禁止删除且不清理岗位角色', async () => {
-    const manager = fakeOrganizationManager({ hasMember: true })
-    const service = createOrganizationService(manager)
+    const manager = fakeDeptManager({ hasMember: true })
+    const service = createDeptService(manager)
 
-    await assert.rejects(() => service.httpBaseAccountDeleteOrganization({ keyId: 156 }), /组织仍有关联成员/)
+    await assert.rejects(() => service.httpBaseAccountDeleteDept({ keyId: 156 }), /组织仍有关联成员/)
     assert.equal(manager.deletes.length, 0)
 })
 

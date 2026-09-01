@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const { TbAccountMenuType } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
-const { MenuUtilsService } = require('../dist/modules/menu/menu.utils.service')
+const { SheetUtilsService } = require('../dist/modules/sheet/sheet.utils.service')
 
 test('父菜单为空时允许菜单创建或移动到顶层', async () => {
     let managerQueryCount = 0
@@ -17,7 +17,7 @@ test('父菜单为空时允许菜单创建或移动到顶层', async () => {
             builderQueryCount += 1
         }
     }
-    const service = new MenuUtilsService({}, database)
+    const service = new SheetUtilsService({}, database)
 
     await assert.doesNotReject(() => service.findParentRequired(null, manager))
     await assert.doesNotReject(() => service.findParentRequired(undefined, manager))
@@ -34,7 +34,7 @@ test('按钮节点不能作为父菜单', async () => {
             return parent
         }
     }
-    const service = new MenuUtilsService({}, {})
+    const service = new SheetUtilsService({}, {})
 
     await assert.rejects(() => service.findParentRequired(parent.keyId, manager), /按钮节点不能包含下级菜单/)
     assert.equal(queryCount, 1)

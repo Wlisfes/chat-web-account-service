@@ -8,9 +8,9 @@ import { RedisModule } from '@wlisfes/chat-web-base-schema/redis'
 import { DatabaseModule } from '@/modules/database/database.module'
 import { AuthModule } from '@/modules/auth/auth.module'
 import { ConsumerModule } from '@/modules/consumer/consumer.module'
-import { MenuModule } from '@/modules/menu/menu.module'
+import { SheetModule } from '@/modules/sheet/sheet.module'
 import { HealthModule } from '@/modules/health/health.module'
-import { OrganizationModule } from '@/modules/organization/organization.module'
+import { DeptModule } from '@/modules/dept/dept.module'
 import { PermissionGuard } from '@/modules/permission/permission.guard'
 import { PermissionModule } from '@/modules/permission/permission.module'
 import { RoleModule } from '@/modules/role/role.module'
@@ -29,8 +29,8 @@ import { AppService } from '@/app.service'
         ConsumerModule,
         HealthModule,
         PermissionModule,
-        OrganizationModule,
-        MenuModule,
+        DeptModule,
+        SheetModule,
         RoleModule,
         UserModule
     ],

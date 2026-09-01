@@ -86,12 +86,12 @@ export class AccountUserResponseDto extends OmitType(TbAccountUserDto, ['passwor
 
 export class AccountUserSummaryResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
 
-export class MenuTreeNodeResponseDto extends TbAccountMenuDto {
-    @ApiProperty({ description: '下级菜单节点', type: () => MenuTreeNodeResponseDto, isArray: true, example: [] })
-    children: MenuTreeNodeResponseDto[]
+export class SheetTreeNodeResponseDto extends TbAccountMenuDto {
+    @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeResponseDto, isArray: true, example: [] })
+    children: SheetTreeNodeResponseDto[]
 }
 
-export class MenuPageResponseDto extends PageResponseDataDto {
+export class SheetPageResponseDto extends PageResponseDataDto {
     @ApiProperty({
         description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点',
         type: [TbAccountMenuDto]
@@ -99,15 +99,15 @@ export class MenuPageResponseDto extends PageResponseDataDto {
     list: TbAccountMenuDto[]
 }
 
-export class OrganizationTreeNodeResponseDto extends TbAccountOrganizationDto {
+export class DeptTreeNodeResponseDto extends TbAccountOrganizationDto {
     @ApiProperty({ description: '组织成员数量', example: 12 })
     memberCount: number
 
     @ApiProperty({ description: '组织负责人', type: AccountUserSummaryResponseDto, nullable: true, required: false })
     leader?: AccountUserSummaryResponseDto | null
 
-    @ApiProperty({ description: '下级组织节点', type: () => OrganizationTreeNodeResponseDto, isArray: true, example: [] })
-    children: OrganizationTreeNodeResponseDto[]
+    @ApiProperty({ description: '下级组织节点', type: () => DeptTreeNodeResponseDto, isArray: true, example: [] })
+    children: DeptTreeNodeResponseDto[]
 }
 
 export class RoleDataScopeOrganizationResponseDto extends TbAccountRoleDataScopeOrganizationDto {}
@@ -135,8 +135,8 @@ export class EffectiveAccessResponseDto {
     @ApiProperty({ description: '有效权限编码', type: [String], example: ['account:consumer:list'] })
     permissionCodes: string[]
 
-    @ApiProperty({ description: '当前账号可访问的菜单树', type: [MenuTreeNodeResponseDto] })
-    menuTree: MenuTreeNodeResponseDto[]
+    @ApiProperty({ description: '当前账号可访问的菜单树', type: [SheetTreeNodeResponseDto] })
+    menuTree: SheetTreeNodeResponseDto[]
 }
 
 export class EffectiveDataScopeResponseDto {

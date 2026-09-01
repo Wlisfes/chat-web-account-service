@@ -17,26 +17,26 @@ import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
 import { EntityManager, In, Repository } from 'typeorm'
-import { OrganizationTreeNodeResponseDto } from '@/dto/api-response.dto'
+import { DeptTreeNodeResponseDto } from '@/dto/api-response.dto'
 
 @Injectable()
-export class OrganizationUtilsService {
+export class DeptUtilsService {
     constructor(
-        @InjectRepository(TbAccountOrganization) private readonly organizationRepository: Repository<TbAccountOrganization>,
+        @InjectRepository(TbAccountOrganization) private readonly deptRepository: Repository<TbAccountOrganization>,
         private readonly database: DataBaseService
     ) {}
 
     /**查询并组装完整组织树*/
-    public async findTree(): Promise<OrganizationTreeNodeResponseDto[]> {
-        const organizations = await this.database.builder(this.organizationRepository, qb =>
+    public async findTree(): Promise<DeptTreeNodeResponseDto[]> {
+        const organizations = await this.database.builder(this.deptRepository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
-        const memberships = await this.organizationRepository.manager.find(TbAccountUserOrganization, {
+        const memberships = await this.deptRepository.manager.find(TbAccountUserOrganization, {
             where: { status: TbAccountUserOrganizationStatus.ENABLED }
         })
         const leaderUids = [...new Set(organizations.map(item => item.leaderUserUid).filter((value): value is string => isNotEmpty(value)))]
         const leaders =
-            leaderUids.length > 0 ? await this.organizationRepository.manager.find(TbAccountUser, { where: { uid: In(leaderUids) } }) : []
+            leaderUids.length > 0 ? await this.deptRepository.manager.find(TbAccountUser, { where: { uid: In(leaderUids) } }) : []
         const leaderByUid = new Map(leaders.map(item => [item.uid, item]))
         const memberCounts = memberships.reduce((counts, item) => {
             counts.set(item.organizationKeyId, (counts.get(item.organizationKeyId) ?? 0) + 1)
@@ -48,14 +48,14 @@ export class OrganizationUtilsService {
                 memberCount: memberCounts.get(organization.keyId) ?? 0,
                 leader: isNotEmpty(organization.leaderUserUid) ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
             }))
-        ) as OrganizationTreeNodeResponseDto[]
+        ) as DeptTreeNodeResponseDto[]
     }
 
     /**获取必需的组织详情*/
     public async findRequired(keyId: number, manager?: EntityManager): Promise<TbAccountOrganization> {
         const organization = isNotEmpty(manager)
             ? await manager.findOneBy(TbAccountOrganization, { keyId })
-            : await this.database.builder(this.organizationRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
+            : await this.database.builder(this.deptRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
         if (!organization) {
             throw new NotFoundException('组织不存在')
         }

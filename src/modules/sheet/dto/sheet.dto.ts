@@ -5,7 +5,7 @@ import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
 
 /**右侧菜单表格的分页筛选条件。*/
-export class MenuColumnQueryDto extends PageDto {
+export class SheetColumnQueryDto extends PageDto {
     @ApiPropertyOptional({
         description: '父菜单主键；未传或传 null 时查询一级节点，传入主键时返回该节点及其直接下级节点',
         example: 1,
@@ -36,7 +36,7 @@ export class MenuColumnQueryDto extends PageDto {
     path?: string
 }
 
-export class CreateMenuDto extends PickType(TbAccountMenuDto, [
+export class CreateSheetDto extends PickType(TbAccountMenuDto, [
     'parentKeyId',
     'type',
     'name',
@@ -52,9 +52,9 @@ export class CreateMenuDto extends PickType(TbAccountMenuDto, [
     'status'
 ] as const) {}
 
-export class UpdateMenuDto extends PartialType(CreateMenuDto) {}
+export class UpdateSheetDto extends PartialType(CreateSheetDto) {}
 
-export class MenuKeyDto {
+export class SheetKeyDto {
     @ApiProperty({ description: '菜单主键', example: 1 })
     @Type(() => Number)
     @IsInt({ message: '菜单主键必须是整数' })
@@ -62,4 +62,4 @@ export class MenuKeyDto {
     keyId: number
 }
 
-export class UpdateMenuPayloadDto extends IntersectionType(MenuKeyDto, UpdateMenuDto) {}
+export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}

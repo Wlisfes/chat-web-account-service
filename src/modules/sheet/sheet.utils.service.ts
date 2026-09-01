@@ -7,9 +7,9 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { EntityManager, Repository } from 'typeorm'
 
 @Injectable()
-export class MenuUtilsService {
+export class SheetUtilsService {
     constructor(
-        @InjectRepository(TbAccountMenu) private readonly menuRepository: Repository<TbAccountMenu>,
+        @InjectRepository(TbAccountMenu) private readonly sheetRepository: Repository<TbAccountMenu>,
         private readonly database: DataBaseService
     ) {}
 
@@ -22,19 +22,19 @@ export class MenuUtilsService {
 
     /**获取菜单详情**/
     public async findRequired(keyId: number, manager?: EntityManager): Promise<TbAccountMenu> {
-        let menu: TbAccountMenu | null = null
+        let sheet: TbAccountMenu | null = null
         if (isEmpty(keyId)) {
             throw new BadRequestException('菜单ID不能为空')
         }
         if (isNotEmpty(manager)) {
-            menu = await manager.findOneBy(TbAccountMenu, { keyId })
+            sheet = await manager.findOneBy(TbAccountMenu, { keyId })
         } else {
-            menu = await this.database.builder(this.menuRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
+            sheet = await this.database.builder(this.sheetRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
         }
-        if (!menu) {
+        if (!sheet) {
             throw new NotFoundException('菜单不存在')
         }
-        return menu
+        return sheet
     }
 
     /**获取父菜单详情**/
@@ -69,20 +69,20 @@ export class MenuUtilsService {
     }
 
     /**校验菜单字段**/
-    public findMenuFieldsRequired(menu: Pick<TbAccountMenu, 'type' | 'permissionCode' | 'path' | 'externalUrl'>): void {
-        if (menu.type === TbAccountMenuType.BUTTON && !menu.permissionCode?.trim()) {
+    public findSheetFieldsRequired(sheet: Pick<TbAccountMenu, 'type' | 'permissionCode' | 'path' | 'externalUrl'>): void {
+        if (sheet.type === TbAccountMenuType.BUTTON && !sheet.permissionCode?.trim()) {
             throw new BadRequestException('按钮节点必须配置权限码')
         }
-        if (menu.type === TbAccountMenuType.MENU && !menu.path?.trim() && !menu.externalUrl?.trim()) {
+        if (sheet.type === TbAccountMenuType.MENU && !sheet.path?.trim() && !sheet.externalUrl?.trim()) {
             throw new BadRequestException('菜单节点必须配置路由路径或外部链接')
         }
     }
 
     /**校验菜单树结构**/
     public async findAssertTree(manager: EntityManager): Promise<void> {
-        const menus = await manager.find(TbAccountMenu)
+        const sheets = await manager.find(TbAccountMenu)
         try {
-            return assertValidTree(menus, '菜单树')
+            return assertValidTree(sheets, '菜单树')
         } catch (error) {
             throw new BadRequestException(error instanceof Error ? error.message : String(error))
         }

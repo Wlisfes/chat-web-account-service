@@ -10,8 +10,8 @@ const controllers = [
     require('../dist/app.controller').AppController,
     require('../dist/modules/auth/auth.controller').AuthController,
     require('../dist/modules/consumer/consumer.controller').ConsumerController,
-    require('../dist/modules/menu/menu.controller').MenuController,
-    require('../dist/modules/organization/organization.controller').OrganizationController,
+    require('../dist/modules/sheet/sheet.controller').SheetController,
+    require('../dist/modules/dept/dept.controller').DeptController,
     require('../dist/modules/permission/permission.controller').PermissionController,
     require('../dist/modules/role/role.controller').RoleController,
     require('../dist/modules/user/user.controller').UserController
@@ -47,7 +47,7 @@ async function createDocument() {
 
 test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     const document = await createDocument()
-    for (const schemaName of ['UserPageResponseDto', 'MenuPageResponseDto', 'ConsumerPageResponseDto']) {
+    for (const schemaName of ['UserPageResponseDto', 'SheetPageResponseDto', 'ConsumerPageResponseDto']) {
         const properties = document.components.schemas?.[schemaName]?.properties ?? {}
         assert.deepEqual(Object.keys(properties).sort(), ['list', 'page', 'size', 'total'])
         assert.equal(properties.pageSize, undefined, `${schemaName} 不能保留 pageSize`)
@@ -62,6 +62,11 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
             .filter(([, operation]) => operation?.responses)
             .map(([method, operation]) => ({ path, method, operation }))
     )
+
+    assert.ok(document.paths['/sheet/tree/structure'], '菜单管理接口必须使用 /sheet 路由前缀')
+    assert.ok(document.paths['/dept/tree/structure'], '部门组织接口必须使用 /dept 路由前缀')
+    assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
+    assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
     assert.equal(operations.length, 43)
     assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 23)

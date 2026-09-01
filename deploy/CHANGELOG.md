@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-02：统一菜单与部门模块路由命名
+
+- 影响机器：`chat-home-server`；本次仅提交 `developer`，未合并 `main` 或触发部署。
+- 关联版本：Account、Manager 和 Gateway 的本次 `developer` 分支提交。
+- 变更内容：Account 的菜单模块目录、类和 DTO 统一为 `sheet`，部门组织模块统一为 `dept`；公开接口前缀由 `/api/account/menu`、`/api/account/organization` 调整为 `/api/account/sheet`、`/api/account/dept`。数据库实体、表名和已持久化权限码保持不变。
+- 机器侧操作：发布时先部署 Account，再部署 Manager；Nacos Gateway 继续使用 `/api/account/**` 通配路由，无需新增路由配置。
+- 验证命令：执行 `yarn build`、`yarn tsc --noEmit -p tsconfig.json`、`node --test test/*.test.cjs`；部署后检查 `/api/account/sheet/tree/structure`、`/api/account/dept/tree/structure` 和 `/health/live`。
+- 回滚方法：恢复上一版 Account 与 Manager 完整 Git SHA；若需回滚路由，使用旧版 `/api/account/menu`、`/api/account/organization` 客户端和镜像，数据库与权限数据不回滚。
+
 ## 2026-08-31：升级共享包并接入独立 Redis index
 
 - 影响机器：`chat-home-server`。

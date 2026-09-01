@@ -25,9 +25,9 @@
 
 ## HTTP 模块实现基准
 
-- `src/modules/menu/` 中的 Controller、Service、Utils Service、Module 和 DTO 是本仓库 HTTP 业务模块的唯一结构基准；重构其他模块时保持该基准目录稳定，不得复制出另一套分层或命名规则。
+- `src/modules/sheet/` 中的 Controller、Service、Utils Service、Module 和 DTO 是本仓库 HTTP 业务模块的唯一结构基准；菜单管理模块使用 `sheet` 命名，数据库实体仍保留 `TbAccountMenu` 等持久化名称。重构其他模块时保持该基准目录稳定，不得复制出另一套分层或命名规则。
 - Controller 必须保持为薄协议层：除装饰器、`query`/`body` DTO、当前身份参数和调用同名 Service 方法外，不得进行 DTO 拆包、字段转换、默认值注入、数据库访问、业务校验或响应结构拼装。
-- 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountMenuTree`、`httpBaseAccountMenuResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
+- 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountSheetTree`、`httpBaseAccountSheetResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
 - Cookie 读写、Header 解析、流或文件响应、SVG 输出等依赖 Express 的纯 HTTP 协议适配允许保留在 Controller。禁止把 `Request`、`Response`、Cookie、Header 或响应发送逻辑传入业务 Service；协议例外必须写中文职责注释。
 - 每个接口入参必须使用模块 `dto/` 下独立 DTO。Controller 不得以内联类型、散乱原始参数或私有 Adapter 代替 DTO；服务端三态字段需要由 DTO 明确保留 `undefined`、`null` 与具体值。
 - 业务 Service 引用本模块请求 DTO 时统一使用 `import * as <Module>Dto` 命名空间归组，并通过 `<Module>Dto.<Type>` 标注参数；响应 DTO 继续按需使用命名导入，禁止把请求与响应协议混在同一组散乱导入中。
@@ -39,7 +39,7 @@
 - 多步校验后写入、唯一性校验后写入、层级调整和关联关系替换必须由 Service 建立 TypeORM 事务；Utils 方法参与事务时接收 `EntityManager` 并始终使用该 Manager 的 Repository，需要并发保护时先锁定相关数据。Module 按 `imports`、`controllers`、`providers`、`exports` 组织。
 - 普通可选入参使用 `isEmpty`/`isNotEmpty` 判断，禁止使用 `value === undefined`、`value === null` 或隐式 truthy 判空。实体或 Map 查询结果可使用 `if (!entity)` 获得 TypeScript 类型收窄；数组使用明确的 `length === 0`/`length > 0`，布尔业务状态按布尔语义判断。
 - 三态更新字段以业务语义优先，例如 `parentKeyId` 的 `undefined` 表示不修改、`null` 表示清空父级、数字表示设置父级；此类必要的 `=== undefined` 判断允许保留，但必须紧邻中文注释说明三态含义。
-- 重构不得改变现有路由、HTTP 方法、权限码、认证方式、响应字段、异常消息和事务语义；完成后至少执行格式检查、TypeScript 类型检查、Nest 构建和完整测试。
+- 常规重构不得改变现有路由、HTTP 方法、权限码、认证方式、响应字段、异常消息和事务语义；明确的模块命名迁移若需同步公开路由，必须同时更新客户端、回归测试和部署变更记录，并提供回滚方法。完成后至少执行格式检查、TypeScript 类型检查、Nest 构建和完整测试。
 
 ## 部署变更记录
 

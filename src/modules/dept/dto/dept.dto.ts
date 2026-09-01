@@ -3,7 +3,7 @@ import { TbAccountOrganizationDto } from '@wlisfes/chat-web-base-schema/chat-web
 import { Type } from 'class-transformer'
 import { IsInt, Min } from 'class-validator'
 
-export class CreateOrganizationDto extends PickType(TbAccountOrganizationDto, [
+export class CreateDeptDto extends PickType(TbAccountOrganizationDto, [
     'parentKeyId',
     'code',
     'name',
@@ -13,9 +13,9 @@ export class CreateOrganizationDto extends PickType(TbAccountOrganizationDto, [
     'status'
 ] as const) {}
 
-export class UpdateOrganizationDto extends PartialType(CreateOrganizationDto) {}
+export class UpdateDeptDto extends PartialType(CreateDeptDto) {}
 
-export class OrganizationKeyDto {
+export class DeptKeyDto {
     @ApiProperty({ description: '组织主键', example: 1 })
     @Type(() => Number)
     @IsInt({ message: '组织主键必须是整数' })
@@ -23,4 +23,4 @@ export class OrganizationKeyDto {
     keyId: number
 }
 
-export class UpdateOrganizationPayloadDto extends IntersectionType(OrganizationKeyDto, UpdateOrganizationDto) {}
+export class UpdateDeptPayloadDto extends IntersectionType(DeptKeyDto, UpdateDeptDto) {}

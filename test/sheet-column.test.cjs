@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { MenuService } = require('../dist/modules/menu/menu.service')
+const { SheetService } = require('../dist/modules/sheet/sheet.service')
 
 const menus = [
     { keyId: 1, parentKeyId: null, sort: 30, name: '系统管理' },
@@ -79,9 +79,9 @@ function fakeDatabaseService() {
 
 test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async () => {
     const repository = fakeRepository(menus)
-    const service = new MenuService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService())
 
-    const result = await service.httpBaseAccountColumnMenu({ page: 1, size: 50 })
+    const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50 })
 
     assert.deepEqual(
         result.list.map(item => item.keyId),
@@ -94,9 +94,9 @@ test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async ()
 
 test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', async () => {
     const repository = fakeRepository(menus)
-    const service = new MenuService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService())
 
-    const result = await service.httpBaseAccountColumnMenu({ page: 1, size: 50, parentKeyId: 1 })
+    const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50, parentKeyId: 1 })
 
     assert.deepEqual(
         result.list.map(item => item.keyId),
@@ -110,18 +110,18 @@ test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', as
 test('菜单 column 使用共享数据库查询构造器', async () => {
     const repository = fakeRepository(menus)
     const database = fakeDatabaseService()
-    const service = new MenuService(repository, database)
+    const service = new SheetService(repository, database)
 
-    await service.httpBaseAccountColumnMenu({ page: 1, size: 10 })
+    await service.httpBaseAccountColumnSheet({ page: 1, size: 10 })
 
     assert.equal(database.calls.length, 1)
 })
 
 test('菜单 column 保留名称、权限码和路由筛选条件', async () => {
     const repository = fakeRepository(menus)
-    const service = new MenuService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService())
 
-    await service.httpBaseAccountColumnMenu({
+    await service.httpBaseAccountColumnSheet({
         page: 1,
         size: 10,
         name: '用户',
@@ -154,7 +154,7 @@ test('菜单删除返回与接口文档一致的成功结果', async () => {
             }
         }
     }
-    const menuUtilsService = {
+    const sheetUtilsService = {
         async lockTree(transactionManager) {
             assert.equal(transactionManager, manager)
         },
@@ -164,7 +164,7 @@ test('菜单删除返回与接口文档一致的成功结果', async () => {
             return { keyId }
         }
     }
-    const service = new MenuService(repository, {}, menuUtilsService)
+    const service = new SheetService(repository, {}, sheetUtilsService)
 
-    assert.deepEqual(await service.httpBaseAccountDeleteMenu({ keyId: 1 }), { success: true })
+    assert.deepEqual(await service.httpBaseAccountDeleteSheet({ keyId: 1 }), { success: true })
 })
