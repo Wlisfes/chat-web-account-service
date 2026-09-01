@@ -8,7 +8,9 @@ import {
     TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserOrganizationStatus,
-    TbAccountUserRole
+    TbAccountUserRole,
+    TbAccountPosition,
+    TbAccountUserPosition
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
@@ -24,6 +26,8 @@ const USER_RESOURCE_CODE = 'account:user'
 export class UserUtilsService {
     constructor(
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
+        @InjectRepository(TbAccountPosition) private readonly positionRepository: Repository<TbAccountPosition>,
+        @InjectRepository(TbAccountUserPosition) private readonly userPositionRepository: Repository<TbAccountUserPosition>,
         private readonly database: DataBaseService,
         private readonly permissionService: PermissionService
     ) {}
@@ -82,17 +86,20 @@ export class UserUtilsService {
         if (!user) {
             throw new NotFoundException('账号不存在')
         }
-        const [memberships, roleRelations] = await Promise.all([
+        const [memberships, roleRelations, positionRelations] = await Promise.all([
             this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
-            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: normalizedTargetUid } })
+            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: normalizedTargetUid } }),
+            this.userPositionRepository.find({ where: { userUid: normalizedTargetUid } })
         ])
         const organizationKeyIds = memberships.map(item => item.organizationKeyId)
         const roleKeyIds = roleRelations.map(item => item.roleKeyId)
-        const [organizations, roles] = await Promise.all([
+        const positionKeyIds = positionRelations.map(item => item.positionKeyId)
+        const [organizations, roles, positions] = await Promise.all([
             organizationKeyIds.length > 0
                 ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
                 : [],
-            roleKeyIds.length > 0 ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : []
+            roleKeyIds.length > 0 ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : [],
+            positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : []
         ])
         const membershipByOrganization = new Map(memberships.map(item => [item.organizationKeyId, item]))
         return {
@@ -105,7 +112,9 @@ export class UserUtilsService {
                 membershipStatus: membershipByOrganization.get(organization.keyId)?.status ?? TbAccountUserOrganizationStatus.DISABLED
             })),
             roleKeyIds,
-            roles
+            roles,
+            positionKeyIds,
+            positions
         }
     }
 
@@ -159,6 +168,13 @@ export class UserUtilsService {
         }
     }
 
+    /**校验职位列表存在。*/
+    public async findPositionsRequired(manager: EntityManager, positionKeyIds: number[]): Promise<void> {
+        if (positionKeyIds.length === 0) return
+        const positions = await manager.find(TbAccountPosition, { where: { keyId: In(positionKeyIds) } })
+        if (positions.length !== positionKeyIds.length) throw new BadRequestException('职位列表包含不存在的职位')
+    }
+
     /**批量写入账号组织关系*/
     public async insertMemberships(manager: EntityManager, userUid: string, memberships: UserOrganizationMembershipDto[]): Promise<void> {
         if (memberships.length === 0) {
@@ -187,18 +203,31 @@ export class UserUtilsService {
         )
     }
 
+    /**替换账号职位关系。*/
+    public async replacePositions(manager: EntityManager, userUid: string, positionKeyIds: number[]): Promise<void> {
+        await manager.delete(TbAccountUserPosition, { userUid })
+        if (positionKeyIds.length > 0) {
+            await manager.insert(
+                TbAccountUserPosition,
+                positionKeyIds.map(positionKeyId => ({ userUid, positionKeyId }))
+            )
+        }
+    }
+
     /**批量补充账号组织和角色信息*/
     public async enrichUsers(users: TbAccountUser[]): Promise<UserDetailResponseDto[]> {
         const userUids = users.map(user => user.uid)
         if (userUids.length === 0) {
             return []
         }
-        const [memberships, roleRelations] = await Promise.all([
+        const [memberships, roleRelations, positionRelations] = await Promise.all([
             this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
-            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: In(userUids) } })
+            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: In(userUids) } }),
+            this.userPositionRepository.find({ where: { userUid: In(userUids) } })
         ])
         const organizationKeyIds = [...new Set(memberships.map(item => item.organizationKeyId))]
         const roleKeyIds = [...new Set(roleRelations.map(item => item.roleKeyId))]
+        const positionKeyIds = [...new Set(positionRelations.map(item => item.positionKeyId))]
         const organizationsPromise: Promise<TbAccountOrganization[]> =
             organizationKeyIds.length > 0
                 ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
@@ -207,12 +236,16 @@ export class UserUtilsService {
             roleKeyIds.length > 0
                 ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } })
                 : Promise.resolve([])
-        const [organizations, roles] = await Promise.all([organizationsPromise, rolesPromise])
+        const positionsPromise: Promise<TbAccountPosition[]> =
+            positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : Promise.resolve([])
+        const [organizations, roles, positions] = await Promise.all([organizationsPromise, rolesPromise, positionsPromise])
         const organizationByKeyId = new Map<number, TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
         const roleByKeyId = new Map<number, TbAccountRole>(roles.map(item => [item.keyId, item]))
+        const positionByKeyId = new Map<number, TbAccountPosition>(positions.map(item => [item.keyId, item]))
         return users.map(user => {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
+            const userPositionRelations = positionRelations.filter(item => item.userUid === user.uid)
             const userOrganizations: UserOrganizationResponseDto[] = []
             for (const membership of userMemberships) {
                 const organization = organizationByKeyId.get(membership.organizationKeyId)
@@ -234,7 +267,12 @@ export class UserUtilsService {
                 memberships: userMemberships,
                 organizations: userOrganizations,
                 roleKeyIds: userRoleRelations.map(item => item.roleKeyId),
-                roles: userRoles
+                roles: userRoles,
+                positionKeyIds: userPositionRelations.map(item => item.positionKeyId),
+                positions: userPositionRelations.flatMap(item => {
+                    const position = positionByKeyId.get(item.positionKeyId)
+                    return position ? [{ keyId: position.keyId, name: position.name }] : []
+                })
             }
         })
     }

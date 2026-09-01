@@ -30,6 +30,7 @@ export class UserService {
     public async httpBaseAccountCreateUser(principal: AuthPrincipal, input: UserDto.CreateUserDto): Promise<AccountUserResponseDto> {
         const memberships = input.memberships ?? []
         const roleKeyIds = input.roleKeyIds ?? []
+        const positionKeyIds = input.positionKeyIds ?? []
         this.userUtilsService.findMembershipsRequired(memberships)
         await this.userUtilsService.findCanAssignOrganizations(
             principal.uid,
@@ -46,7 +47,8 @@ export class UserService {
                 memberships.map(item => item.organizationKeyId)
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
-            const { memberships: _memberships, roleKeyIds: _roleKeyIds, password, ...fields } = input
+            await this.userUtilsService.findPositionsRequired(manager, positionKeyIds)
+            const { memberships: _memberships, roleKeyIds: _roleKeyIds, positionKeyIds: _positionKeyIds, password, ...fields } = input
             const user = manager.create(TbAccountUser, {
                 ...fields,
                 uid: generateUid(),
@@ -55,6 +57,7 @@ export class UserService {
             const saved = await manager.save(user)
             await this.userUtilsService.insertMemberships(manager, saved.uid, memberships)
             await this.userUtilsService.insertRoles(manager, saved.uid, roleKeyIds)
+            await this.userUtilsService.replacePositions(manager, saved.uid, positionKeyIds)
             saved.password = undefined as unknown as string
             return saved
         })
@@ -108,6 +111,12 @@ export class UserService {
                     { filterRoleKeyId: input.roleKeyId }
                 )
             }
+            if ((input.positionKeyIds?.length ?? 0) > 0) {
+                qb.andWhere(
+                    `EXISTS (SELECT 1 FROM tb_account_user_position filter_user_position WHERE filter_user_position.user_uid = t.uid AND filter_user_position.position_key_id IN (:...filterPositionKeyIds))`,
+                    { filterPositionKeyIds: input.positionKeyIds }
+                )
+            }
             qb.orderBy('t.keyId', 'DESC')
                 .skip((input.page - 1) * input.size)
                 .take(input.size)
@@ -134,8 +143,16 @@ export class UserService {
         return this.userRepository.manager.transaction(async manager => {
             const user = await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findUserUnique(manager, fields, targetUid)
-            manager.merge(TbAccountUser, user, fields)
-            return manager.save(user)
+            const { positionKeyIds, ...userFields } = fields
+            manager.merge(TbAccountUser, user, userFields)
+            const saved = await manager.save(user)
+            // positionKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
+            if (positionKeyIds !== undefined) {
+                const nextPositionKeyIds = positionKeyIds ?? []
+                await this.userUtilsService.findPositionsRequired(manager, nextPositionKeyIds)
+                await this.userUtilsService.replacePositions(manager, targetUid, nextPositionKeyIds)
+            }
+            return saved
         })
     }
 

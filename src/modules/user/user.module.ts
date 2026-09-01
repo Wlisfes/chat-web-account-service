@@ -5,7 +5,9 @@ import {
     TbAccountRole,
     TbAccountUser,
     TbAccountUserOrganization,
-    TbAccountUserRole
+    TbAccountUserRole,
+    TbAccountPosition,
+    TbAccountUserPosition
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { AuthModule } from '@/modules/auth/auth.module'
 import { UserController } from '@/modules/user/user.controller'
@@ -14,7 +16,15 @@ import { UserUtilsService } from '@/modules/user/user.utils.service'
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([TbAccountUser, TbAccountUserOrganization, TbAccountUserRole, TbAccountOrganization, TbAccountRole]),
+        TypeOrmModule.forFeature([
+            TbAccountUser,
+            TbAccountUserOrganization,
+            TbAccountUserRole,
+            TbAccountOrganization,
+            TbAccountRole,
+            TbAccountPosition,
+            TbAccountUserPosition
+        ]),
         AuthModule
     ],
     controllers: [UserController],

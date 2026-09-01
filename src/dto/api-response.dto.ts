@@ -4,6 +4,7 @@ import {
     TbAccountConsumerDto,
     TbAccountMenuDto,
     TbAccountOrganizationDto,
+    TbAccountPositionDto,
     TbAccountRoleDataScopeDto,
     TbAccountRoleDataScopeOrganizationDto,
     TbAccountRoleDto,
@@ -198,6 +199,18 @@ export class ConsumerSelectResponseDto extends PickType(TbAccountConsumerDto, [
     brandId: number
 }
 
+export class PositionResponseDto extends TbAccountPositionDto {
+    @ApiProperty({ description: '关联员工数量', example: 12 })
+    accountCount: number
+}
+
+export class PositionPageResponseDto extends PageResponseDataDto {
+    @ApiProperty({ description: '职位列表', type: [PositionResponseDto] })
+    list: PositionResponseDto[]
+}
+
+export class PositionSelectResponseDto extends PickType(TbAccountPositionDto, ['keyId', 'name'] as const) {}
+
 export class UserOrganizationResponseDto extends TbAccountOrganizationDto {
     @ApiProperty({ description: '是否为主组织', example: true })
     isPrimary: boolean
@@ -225,6 +238,12 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
 
     @ApiProperty({ description: '账号角色', type: [TbAccountRoleDto] })
     roles: TbAccountRoleDto[]
+
+    @ApiProperty({ description: '账号职位主键', type: [Number], example: [1, 2] })
+    positionKeyIds: number[]
+
+    @ApiProperty({ description: '账号职位', type: [PositionSelectResponseDto] })
+    positions: PositionSelectResponseDto[]
 }
 
 export class UserPageResponseDto extends PageResponseDataDto {

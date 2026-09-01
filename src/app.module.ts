@@ -15,6 +15,7 @@ import { PermissionGuard } from '@/modules/permission/permission.guard'
 import { PermissionModule } from '@/modules/permission/permission.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
+import { PositionModule } from '@/modules/position/position.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
@@ -32,7 +33,8 @@ import { AppService } from '@/app.service'
         DeptModule,
         SheetModule,
         RoleModule,
-        UserModule
+        UserModule,
+        PositionModule
     ],
     controllers: [AppController],
     providers: [AppService, { provide: APP_GUARD, useExisting: JwtAuthGuard }, { provide: APP_GUARD, useExisting: PermissionGuard }]

@@ -23,7 +23,18 @@ import {
 } from 'class-validator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 
-export class UserQueryDto extends PageDto {
+class PositionKeyIdsDto {
+    @ApiPropertyOptional({ description: '职位主键数组', type: [Number], example: [1, 2] })
+    @IsOptional()
+    @IsArray({ message: '职位主键列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单个账号最多关联100个职位' })
+    @ArrayUnique({ message: '职位主键不能重复' })
+    @IsInt({ each: true, message: '职位主键必须是整数' })
+    @Min(1, { each: true, message: '职位主键必须大于0' })
+    positionKeyIds?: number[]
+}
+
+export class UserQueryDto extends IntersectionType(PageDto, PositionKeyIdsDto) {
     @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询', example: '张三' })
     @IsOptional()
     @IsString({ message: '查询关键词必须是字符串' })
@@ -108,18 +119,21 @@ export class ReplaceUserRolesDto {
     roleKeyIds: number[]
 }
 
-export class CreateUserDto extends PickType(TbAccountUserDto, [
-    'number',
-    'phone',
-    'email',
-    'name',
-    'avatar',
-    'status',
-    'employmentStatus',
-    'password',
-    'employmentTime',
-    'resignationTime'
-] as const) {
+export class CreateUserDto extends IntersectionType(
+    PickType(TbAccountUserDto, [
+        'number',
+        'phone',
+        'email',
+        'name',
+        'avatar',
+        'status',
+        'employmentStatus',
+        'password',
+        'employmentTime',
+        'resignationTime'
+    ] as const),
+    PositionKeyIdsDto
+) {
     @ApiPropertyOptional({
         description: '创建时一并设置的组织关系',
         type: [UserOrganizationMembershipDto],
@@ -142,18 +156,21 @@ export class CreateUserDto extends PickType(TbAccountUserDto, [
     roleKeyIds?: number[]
 }
 
-export class UpdateUserDto extends PartialType(
-    PickType(TbAccountUserDto, [
-        'number',
-        'phone',
-        'email',
-        'name',
-        'avatar',
-        'status',
-        'employmentStatus',
-        'employmentTime',
-        'resignationTime'
-    ] as const)
+export class UpdateUserDto extends IntersectionType(
+    PartialType(
+        PickType(TbAccountUserDto, [
+            'number',
+            'phone',
+            'email',
+            'name',
+            'avatar',
+            'status',
+            'employmentStatus',
+            'employmentTime',
+            'resignationTime'
+        ] as const)
+    ),
+    PositionKeyIdsDto
 ) {}
 
 export class ResetUserPasswordDto {

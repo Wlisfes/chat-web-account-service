@@ -13,6 +13,7 @@ const controllers = [
     require('../dist/modules/sheet/sheet.controller').SheetController,
     require('../dist/modules/dept/dept.controller').DeptController,
     require('../dist/modules/permission/permission.controller').PermissionController,
+    require('../dist/modules/position/position.controller').PositionController,
     require('../dist/modules/role/role.controller').RoleController,
     require('../dist/modules/user/user.controller').UserController
 ]
@@ -47,7 +48,7 @@ async function createDocument() {
 
 test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     const document = await createDocument()
-    for (const schemaName of ['UserPageResponseDto', 'SheetPageResponseDto', 'ConsumerPageResponseDto']) {
+    for (const schemaName of ['UserPageResponseDto', 'SheetPageResponseDto', 'ConsumerPageResponseDto', 'PositionPageResponseDto']) {
         const properties = document.components.schemas?.[schemaName]?.properties ?? {}
         assert.deepEqual(Object.keys(properties).sort(), ['list', 'page', 'size', 'total'])
         assert.equal(properties.pageSize, undefined, `${schemaName} 不能保留 pageSize`)
@@ -68,9 +69,9 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 43)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 23)
-    assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 9)
+    assert.equal(operations.length, 49)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 27)
+    assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 11)
 
     for (const { path, method, operation } of operations) {
         const operationLabel = `${method.toUpperCase()} ${path}`

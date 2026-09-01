@@ -96,12 +96,15 @@ const EMPTY_TARGET_TABLES = [
     'tb_account_user_role',
     'tb_account_role_menu',
     'tb_account_role_data_scope',
-    'tb_account_role_data_scope_organization'
+    'tb_account_role_data_scope_organization',
+    'tb_account_position',
+    'tb_account_user_position'
 ]
 
 const ROUTE_PATH_MAP = new Map([
     ['/deploy/system/router', '/deploy/system/sheet'],
-    ['/deploy/system/user', '/deploy/system/account']
+    ['/deploy/system/user', '/deploy/system/account'],
+    ['/deploy/system/position', '/deploy/system/position']
 ])
 
 const VISIBLE_ROUTE_PATHS = new Set([
@@ -112,7 +115,8 @@ const VISIBLE_ROUTE_PATHS = new Set([
     '/deploy/system/sheet',
     '/deploy/system/role',
     '/deploy/system/account',
-    '/deploy/system/dept'
+    '/deploy/system/dept',
+    '/deploy/system/position'
 ])
 
 const PERMISSION_CODE_MAP = new Map([
@@ -122,7 +126,8 @@ const PERMISSION_CODE_MAP = new Map([
     ['base:deploy:system:router:delete', 'account:menu:delete'],
     ['base:deploy:system:role', 'account:role:list'],
     ['base:deploy:system:user', 'account:user:list'],
-    ['base:deploy:system:dept', 'account:organization:list']
+    ['base:deploy:system:dept', 'account:organization:list'],
+    ['base:deploy:system:position', 'account:position:list']
 ])
 
 const EXTRA_PERMISSION_BUTTONS = [
@@ -137,7 +142,10 @@ const EXTRA_PERMISSION_BUTTONS = [
     { parentPermission: 'account:user:list', name: '分配角色', permissionCode: 'account:user:role:assign', sort: 50 },
     { parentPermission: 'account:organization:list', name: '新增组织', permissionCode: 'account:organization:create', sort: 10 },
     { parentPermission: 'account:organization:list', name: '编辑组织', permissionCode: 'account:organization:update', sort: 20 },
-    { parentPermission: 'account:organization:list', name: '删除组织', permissionCode: 'account:organization:delete', sort: 30 }
+    { parentPermission: 'account:organization:list', name: '删除组织', permissionCode: 'account:organization:delete', sort: 30 },
+    { parentPermission: 'account:position:list', name: '新增职位', permissionCode: 'account:position:create', sort: 10 },
+    { parentPermission: 'account:position:list', name: '编辑职位', permissionCode: 'account:position:update', sort: 20 },
+    { parentPermission: 'account:position:list', name: '删除职位', permissionCode: 'account:position:delete', sort: 30 }
 ]
 
 function requiredEnvironment(key: string): string {
@@ -575,6 +583,8 @@ async function migrate(connection: Connection, options: MigrationOptions, superA
         'tb_account_role_data_scope',
         'tb_account_role_data_scope_organization',
         'tb_account_user_role',
+        'tb_account_position',
+        'tb_account_user_position',
         'tb_account_menu',
         'tb_account_role_menu'
     ]) {

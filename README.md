@@ -111,6 +111,8 @@ security:
 
 除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。内部 `/auth/token/introspect` 会自行校验 Bearer Token 并保留真实 HTTP 状态。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
+职位管理使用 `/api/account/position`：`POST /create`、`POST /update`、`GET /resolver`、`POST /column`、`POST /delete` 和 `GET /select`。分页请求和响应统一使用 `page`、`size`、`total`、`list`；账号创建/更新通过 `positionKeyIds` 数组维护职位关系，职位已关联员工时不可删除。
+
 `/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 JWT 密钥是否有效，缺表或密钥缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL并配置 JWT 密钥。
 
 账号数据库的 Nacos 配置格式如下；数据库和表必须由外部 SQL 提前创建，TypeORM 固定关闭 `synchronize` 和自动迁移：

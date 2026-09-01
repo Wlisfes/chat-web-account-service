@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-02：新增职位管理与账号职位关联
+
+- 影响机器：`chat-home-server`。
+- 关联版本：`@wlisfes/chat-web-base-schema` 职位表结构发布版本，以及 Account 本次完整 Git SHA 镜像。
+- 变更内容：新增 `tb_account_position` 职位字典表和 `tb_account_user_position` 账号职位关系表；新增职位分页、详情、下拉、新增、编辑、删除接口；账号创建、编辑、详情和分页筛选支持 `positionKeyIds` 数组。增量 SQL 会把历史组织关系中的 `position_name` 去重迁移为职位及关系数据，删除已关联员工的职位会被拒绝；部署后幂等补齐职位菜单和按钮权限。
+- 机器侧操作：先发布共享 Schema 包，再升级 Account 依赖并部署；部署脚本会自动应用两个职位表增量 SQL 并执行 `repair-position-menus.js --apply`，无需手动建表。不得跳过 Schema 账本或使用 `--remove-orphans`。
+- 验证命令：执行 `yarn build`、`node --test test/*.test.cjs`；部署后检查 `/health/live`、`POST /api/account/position/column`、`GET /api/account/position/select`、账号详情中的 `positionKeyIds`/`positions`，并确认 Nacos 注册实例健康。
+- 回滚方法：恢复上一版 Account 完整镜像；新增表和已迁移职位数据保留，不回滚已应用的增量 SQL。若需隐藏入口，恢复职位菜单权限数据或回滚 Manager 镜像。
+
 ## 2026-09-02：统一菜单与部门模块路由命名
 
 - 影响机器：`chat-home-server`；本次仅提交 `developer`，未合并 `main` 或触发部署。
