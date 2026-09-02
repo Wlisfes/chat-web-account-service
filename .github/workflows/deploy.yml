@@ -187,6 +187,12 @@ jobs:
                   set -eu
                   docker exec chat-web-account-service node dist/cli/repair-position-menus.js --apply
 
+            - name: Repair system task menu
+              shell: bash
+              run: |
+                  set -eu
+                  docker exec chat-web-account-service node dist/cli/repair-datetask-menus.js --apply
+
             - name: Log out from GitHub Container Registry
               if: always()
               shell: bash

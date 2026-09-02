@@ -18,6 +18,7 @@
         "menu:repair-finance": "node dist/cli/repair-finance-menus.js",
         "menu:repair-crm": "node dist/cli/repair-crm-menus.js",
         "menu:repair-position": "node dist/cli/repair-position-menus.js",
+        "menu:repair-datetask": "node dist/cli/repair-datetask-menus.js",
         "test": "yarn build && node --test test/*.test.cjs",
         "start": "nest start",
         "dev": "nest start --watch",
