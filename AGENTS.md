@@ -68,6 +68,7 @@
 - 本服务独占 Redis index `0`，登录会话、验证码和缓存不得写入其他 index。
 - 本服务是身份与会话的唯一所有者。其他服务只能通过 `/auth/token/introspect` 等强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
+- 若新增跨服务调用，地址和超时统一读取 Nacos `feign.chat-web-*.url/timeout`，不得在部署 `.env` 固定业务 URL；当前 Account 不注册无业务用途的 Feign 客户端。
 
 ## Git 提交规范
 

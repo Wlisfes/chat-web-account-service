@@ -1,5 +1,23 @@
 # 部署变更记录
 
+## 2026-09-03：本地 Nacos 客户端端口冲突自动避让
+
+- 影响范围：Account 本地开发启动；`chat-home-server` 的生产容器启动命令不变。
+- 关联版本：Account 本次 `developer` 分支提交。
+- 变更内容：`yarn dev`、`yarn start` 和 `yarn debug` 启动前检测 Nacos Node 客户端默认端口 `7777`，冲突时在 `20000-45000` 中随机选择本机可用端口并仅注入当前子进程；不修改 `.env`、Nacos 或 Docker 配置。
+- 机器侧操作：无需配置固定 `NODE_CLUSTER_CLIENT_PORT`；继续按现有 Nacos 启动参数运行。
+- 验证命令：执行 `yarn prettier --check scripts/start-with-cluster-port.cjs`、`yarn tsc -p tsconfig.json --noEmit`、`yarn build`，并分别验证默认端口空闲和占用场景。
+- 回滚方法：恢复本次提交前的 `package.json` 并删除启动包装器；Nacos 与业务数据无需回滚。
+
+## 2026-09-03：接入嵌套 Feign 配置兼容层
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 本次完整 Git SHA 镜像。
+- 变更内容：启动时读取 Nacos `feign` 节点并映射共享 Feign 运行时所需的地址和超时键；Account 无出站业务调用时不创建额外客户端。Nacos 配置保持人工维护，服务不回写配置。
+- 机器侧操作：仅更新 Account 镜像并重启服务；不要在 `.env` 增加业务地址或超时，也不要修改 Nacos 配置。
+- 验证命令：执行 `yarn build`、`yarn tsc -p tsconfig.json --noEmit` 和 `node --test test/*.test.cjs`；部署后检查 `/health/live` 及 Nacos 注册状态。
+- 回滚方法：恢复上一版 Account 镜像；Nacos 配置不回滚。
+
 ## 2026-09-03：补齐 Skyline 系统任务菜单入口
 
 - 影响机器：`chat-home-server`。
