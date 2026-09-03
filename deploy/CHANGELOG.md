@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-03：接入嵌套 Feign 配置兼容层
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 本次完整 Git SHA 镜像。
+- 变更内容：启动时读取 Nacos `feign` 节点并映射共享 Feign 运行时所需的地址和超时键；Account 无出站业务调用时不创建额外客户端。Nacos 配置保持人工维护，服务不回写配置。
+- 机器侧操作：仅更新 Account 镜像并重启服务；不要在 `.env` 增加业务地址或超时，也不要修改 Nacos 配置。
+- 验证命令：执行 `yarn build`、`yarn tsc -p tsconfig.json --noEmit` 和 `node --test test/*.test.cjs`；部署后检查 `/health/live` 及 Nacos 注册状态。
+- 回滚方法：恢复上一版 Account 镜像；Nacos 配置不回滚。
+
 ## 2026-09-03：补齐 Skyline 系统任务菜单入口
 
 - 影响机器：`chat-home-server`。

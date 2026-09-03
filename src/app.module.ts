@@ -18,11 +18,13 @@ import { UserModule } from '@/modules/user/user.module'
 import { PositionModule } from '@/modules/position/position.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
+import { FeignConfigModule } from '@/modules/feign/feign-config.module'
 
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
+        FeignConfigModule,
         RedisModule.forRoot({ database: 0 }),
         HttpResponseModule,
         DatabaseModule,
