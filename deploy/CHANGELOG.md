@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-03：补齐 Skyline 系统任务菜单入口
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 本次完整 Git SHA 镜像；Skyline 系统任务管理页面 `/deploy/datetask/system`。
+- 变更内容：新增系统任务菜单种子（权限码 `skyline:datetask:list`），挂载到综合设置 `/deploy` 下并授权已有综合设置角色及超级管理员；任务数据和执行逻辑仍由 Skyline 负责，Account 不新增业务表。
+- 机器侧操作：发布 Account 镜像后流水线自动执行 `repair-datetask-menus.js --apply`，无需手工 SQL；不得使用 `--remove-orphans`。
+- 验证命令：执行 `yarn format:check`、`yarn build`、`node --test test/*.test.cjs`；部署后检查账号权限接口返回 `/deploy/datetask/system` 菜单，并确认 Skyline `/health/live` 正常。
+- 回滚方法：恢复上一版 Account 镜像并移除本次菜单及角色关系；不影响 Skyline 表结构和任务数据。
+
 ## 2026-09-02：新增职位管理与账号职位关联
 
 - 影响机器：`chat-home-server`。
