@@ -9,8 +9,8 @@
         "install": "yarn install --ignore-scripts",
         "schema:update": "yarn upgrade @wlisfes/chat-web-base-schema --latest",
         "build": "nest build",
-        "format": "prettier --write \"src/**/*.ts\" \"test/**/*.cjs\" \".github/workflows/*.yml\"",
-        "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.cjs\" \".github/workflows/*.yml\"",
+        "format": "prettier --write \"src/**/*.ts\" \"test/**/*.cjs\" \"scripts/**/*.cjs\" \".github/workflows/*.yml\"",
+        "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.cjs\" \"scripts/**/*.cjs\" \".github/workflows/*.yml\"",
         "password:hash": "yarn build && node scripts/hash-password.cjs",
         "legacy:migrate": "node dist/cli/migrate-legacy-platform.js",
         "legacy:consumer-migrate": "node dist/cli/migrate-legacy-consumer.js",
@@ -20,9 +20,9 @@
         "menu:repair-position": "node dist/cli/repair-position-menus.js",
         "menu:repair-datetask": "node dist/cli/repair-datetask-menus.js",
         "test": "yarn build && node --test test/*.test.cjs",
-        "start": "nest start",
-        "dev": "nest start --watch",
-        "debug": "nest start --debug --watch",
+        "start": "node scripts/start-with-cluster-port.cjs start",
+        "dev": "node scripts/start-with-cluster-port.cjs start --watch",
+        "debug": "node scripts/start-with-cluster-port.cjs start --debug --watch",
         "start:prod": "node dist/main"
     },
     "dependencies": {
