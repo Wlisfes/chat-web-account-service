@@ -516,7 +516,11 @@ test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
         }
     }
     const missing = await new HealthService(dataSource, config({}), redis).getReadiness()
-    const valid = await new HealthService(dataSource, config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }), redis).getReadiness()
+    const valid = await new HealthService(
+        dataSource,
+        config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }),
+        redis
+    ).getReadiness()
     assert.equal(missing.status, 'DOWN')
     assert.equal(missing.security.jwtConfigured, false)
     assert.equal(valid.status, 'UP')
