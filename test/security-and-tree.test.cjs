@@ -73,16 +73,19 @@ function fakeRedis() {
 
 test('Feign 鉴权内省使用同一认证器校验 Bearer Token', async () => {
     const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
-    const controller = new FeignController({
-        async introspect(authorization) {
-            assert.equal(authorization, 'Bearer account-token')
-            return principal
+    const controller = new FeignController(
+        {
+            async introspect(authorization) {
+                assert.equal(authorization, 'Bearer account-token')
+                return principal
+            }
+        },
+        {
+            get() {
+                return 'account-token'
+            }
         }
-    }, {
-        get() {
-            return 'account-token'
-        }
-    })
+    )
     assert.equal(await controller.introspect('Bearer account-token'), principal)
     await assert.rejects(() => controller.introspect(undefined), /缺少有效的 Bearer/)
 })
