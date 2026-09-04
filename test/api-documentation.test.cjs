@@ -9,7 +9,9 @@ const { DocumentBuilder, SwaggerModule } = require('@nestjs/swagger')
 const controllers = [
     require('../dist/app.controller').AppController,
     require('../dist/modules/auth/auth.controller').AuthController,
+    require('../dist/modules/auth/internal-auth.controller').InternalAuthController,
     require('../dist/modules/consumer/consumer.controller').ConsumerController,
+    require('../dist/modules/feign/feign.controller').FeignController,
     require('../dist/modules/sheet/sheet.controller').SheetController,
     require('../dist/modules/dept/dept.controller').DeptController,
     require('../dist/modules/permission/permission.controller').PermissionController,
@@ -17,6 +19,7 @@ const controllers = [
     require('../dist/modules/role/role.controller').RoleController,
     require('../dist/modules/user/user.controller').UserController
 ]
+const { FeignClientAccountManager, getFeignMethodDefinitions } = require('@wlisfes/chat-web-base-schema/feign')
 
 function assertTypedSchema(schema, label) {
     assert.ok(schema, `${label} 缺少 Schema`)
@@ -66,11 +69,18 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
 
     assert.ok(document.paths['/sheet/tree/structure'], '菜单管理接口必须使用 /sheet 路由前缀')
     assert.ok(document.paths['/dept/tree/structure'], '部门组织接口必须使用 /dept 路由前缀')
+    assert.ok(document.paths['/feign/auth/token/introspect']?.get, 'Account 服务必须提供令牌内省接口')
+    assert.ok(document.paths['/internal/auth/token/introspect']?.post, 'Account 服务必须提供网关内部令牌内省接口')
+    assert.ok(document.paths['/consumer/resolver']?.get, 'Account 服务必须提供客户详情接口')
+    assert.ok(document.paths['/consumer/select']?.get, 'Account 服务必须提供客户下拉接口')
+    for (const [methodName, definition] of getFeignMethodDefinitions(FeignClientAccountManager)) {
+        assert.ok(document.paths[definition.path]?.[definition.method.toLowerCase()], `Feign 客户端 ${methodName} 未找到对应服务路由`)
+    }
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 49)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 27)
+    assert.equal(operations.length, 50)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 28)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 11)
 
     for (const { path, method, operation } of operations) {

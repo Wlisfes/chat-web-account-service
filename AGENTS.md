@@ -8,6 +8,7 @@
 - 统一使用 4 空格、无分号、单引号、`printWidth: 140`、无尾随逗号；内部源码统一使用 `@/*` 路径别名。
 - 文件名使用小写 kebab-case 和职责后缀；类、接口、枚举使用 PascalCase，变量、函数和实例属性使用 camelCase，常量和注入 Token 使用 UPPER_SNAKE_CASE。
 - 日志、校验消息、Swagger 描述和面向维护者的错误信息使用中文，代码标识符使用英文。
+- 业务源码和配置文件必须编写清晰、必要的中文注释；配置文件包括 Nacos YAML、Compose、Dockerfile、Actions 和 `.env.example`。新增配置项必须同步说明用途，修改或格式化时必须保留既有注释，不得删除、覆盖或改写；注释中不得出现真实密码、Token、私钥等敏感信息。
 - HTTP Controller 只允许 GET、POST；GET 使用 query，POST 使用 body；多选参数必须是数组，禁止使用 `/:uid` 等路径参数。
 - 分页接口统一使用 `page`（从 1 开始）和 `size`（默认 50、最大 100）作为入参，响应统一返回 `page`、`size`、`total`、`list`；禁止使用 `pageSize`、`items`、`records` 或 `rows` 作为同义字段。
 - 请求日志必须包含 logId、方法、URL、状态码、来源、入参和耗时，并脱敏密码、Token 等敏感字段。
@@ -66,8 +67,10 @@
 
 - 本服务独占 MySQL 数据库 `chat_web_account`，运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
 - 本服务独占 Redis index `0`，登录会话、验证码和缓存不得写入其他 index。
-- 本服务是身份与会话的唯一所有者。其他服务只能通过 `/auth/token/introspect` 等强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话。
+- 本服务是身份与会话的唯一所有者。其他服务只能通过强类型 HTTP 接口访问身份信息，不得共享 JWT 密钥、数据库 Entity 或 Redis 会话；业务 Feign 内省接口在迁移完成前仍使用 `/feign/auth/token/introspect`。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
+- 网关入口认证使用独立的 `/internal/auth/token/introspect` 协议，不归入业务 Feign。该接口使用请求体传递用户 Token，并使用 `X-Service-Token` 校验调用方；服务凭据读取 Nacos `feign.service_token`，不得通过公开网关路由暴露。
+- 本服务提供给其他微服务调用的业务 Feign HTTP 接口按领域模块维护；由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。待迁移的业务模块（例如 `consumer`）迁移完成前，暂不移动其现有 Feign 路由；迁移时再统一收敛到 Feign 模块。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
 - 若新增跨服务调用，地址和超时统一读取 Nacos `feign.chat-web-*.url/timeout`，不得在部署 `.env` 固定业务 URL；当前 Account 不注册无业务用途的 Feign 客户端。
 
 ## Git 提交规范

@@ -12,7 +12,8 @@ const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-sch
 const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
 const { RedisService } = require('@wlisfes/chat-web-base-schema/redis')
 const { CaptchaService } = require('../dist/modules/auth/captcha.service')
-const { AuthController } = require('../dist/modules/auth/auth.controller')
+const { FeignController } = require('../dist/modules/feign/feign.controller')
+const { FeignService } = require('../dist/modules/feign/feign.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
@@ -70,17 +71,30 @@ function fakeRedis() {
     }
 }
 
-test('账号鉴权内省使用同一认证器校验 Bearer Token', async () => {
+test('Feign 鉴权内省使用同一认证器校验 Bearer Token', async () => {
     const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
-    const controller = new AuthController({
-        async httpBaseAccountIntrospectToken(token) {
-            assert.equal(token, 'account-token')
+    const controller = new FeignController({
+        async introspect(authorization) {
+            assert.equal(authorization, 'Bearer account-token')
             return principal
         }
     })
-    const request = { header: name => (name === 'authorization' ? 'Bearer account-token' : undefined) }
-    assert.equal(await controller.httpBaseAccountIntrospectToken(request), principal)
-    await assert.rejects(() => controller.httpBaseAccountIntrospectToken({ header: () => undefined }), /缺少 Bearer/)
+    assert.equal(await controller.introspect('Bearer account-token'), principal)
+    await assert.rejects(() => controller.introspect(undefined), /缺少有效的 Bearer/)
+})
+
+test('Feign 服务集中编排鉴权', async () => {
+    const calls = []
+    const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
+    const service = new FeignService({
+        async authenticateToken(token) {
+            calls.push(['introspect', token])
+            return principal
+        }
+    })
+
+    assert.equal(await service.introspect('Bearer account-token'), principal)
+    assert.deepEqual(calls, [['introspect', 'account-token']])
 })
 
 test('部署迁移只接受本服务数据库授权', () => {

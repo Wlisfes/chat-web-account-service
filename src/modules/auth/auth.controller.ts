@@ -1,13 +1,12 @@
-import { Body, Get, HttpCode, HttpStatus, Post, Query, Req, Res, UnauthorizedException } from '@nestjs/common'
+import { Body, Get, HttpCode, HttpStatus, Post, Query, Req, Res } from '@nestjs/common'
 import { CurrentPrincipal, Public } from '@wlisfes/chat-web-base-schema/auth'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import type { Request, Response } from 'express'
 import { AuthService } from '@/modules/auth/auth.service'
 import { AUTH_CAPTCHA_COOKIE } from '@/modules/auth/captcha.service'
 import { CodexWriteQueryDto, LoginDto } from '@/modules/auth/dto/login.dto'
-import { AccessTokenResponseDto, AccountUserResponseDto, AuthPrincipalResponseDto, LoginResponseDto } from '@/dto/api-response.dto'
+import { AccessTokenResponseDto, AccountUserResponseDto, LoginResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('身份认证', 'auth')
 export class AuthController {
@@ -85,19 +84,6 @@ export class AuthController {
     })
     public async httpBaseAccountResolverToken(@CurrentPrincipal() principal: AuthPrincipal) {
         return this.authService.httpBaseAccountResolverToken(principal)
-    }
-
-    @Public()
-    @PreserveHttpStatus()
-    @ApiServiceDecorator(Get('token/introspect'), {
-        operation: { summary: '供内部服务校验访问令牌并获取身份主体' },
-        response: { type: AuthPrincipalResponseDto, description: '令牌对应的身份主体' },
-        bearerAuth: true
-    })
-    public async httpBaseAccountIntrospectToken(@Req() request: Request): Promise<AuthPrincipal> {
-        const match = request.header('authorization')?.match(/^Bearer\s+([^\s]+)$/i)
-        if (!match) throw new UnauthorizedException('缺少 Bearer 访问令牌')
-        return this.authService.httpBaseAccountIntrospectToken(match[1])
     }
 
     /** HTTP Cookie 解析属于协议适配，禁止下沉到业务 Service。 */

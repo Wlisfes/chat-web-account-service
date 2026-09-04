@@ -109,7 +109,7 @@ security:
 
 当前登录有效期为10小时。管理端会在 Token 使用时间达到有效期的30%后，于下一次接口请求时自动调用 `/auth/token/continue` 轮换会话并重新获得10小时；完全空闲超过10小时后需要重新登录。
 
-除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。内部 `/auth/token/introspect` 会自行校验 Bearer Token 并保留真实 HTTP 状态。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
+除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。网关通过受 `feign.service_token` 保护的 `/internal/auth/token/introspect` 校验用户访问令牌；该接口不加入公开网关路由，用户令牌放在请求体，服务间凭据使用独立的 `X-Service-Token` 请求头。历史 `/feign/auth/token/introspect` 仍供尚未迁移的内部调用使用。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
 职位管理使用 `/api/account/position`：`POST /create`、`POST /update`、`GET /resolver`、`POST /column`、`POST /delete` 和 `GET /select`。分页请求和响应统一使用 `page`、`size`、`total`、`list`；账号创建/更新通过 `positionKeyIds` 数组维护职位关系，职位已关联员工时不可删除。
 
@@ -136,6 +136,10 @@ database:
 security:
     session:
         prefix: chat-web:account:session
+
+feign:
+    # 网关内部认证接口使用的服务间凭据；真实值只维护在 Nacos。
+    service_token: replace-with-internal-service-token
 ```
 
 Redis、JWT 和 MySQL 参数统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；不同环境通过各自 Namespace 保存实际地址与凭据，不再放入根目录 `.env`。
