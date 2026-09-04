@@ -78,6 +78,10 @@ test('Feign 鉴权内省使用同一认证器校验 Bearer Token', async () => {
             assert.equal(authorization, 'Bearer account-token')
             return principal
         }
+    }, {
+        get() {
+            return 'account-token'
+        }
     })
     assert.equal(await controller.introspect('Bearer account-token'), principal)
     await assert.rejects(() => controller.introspect(undefined), /缺少有效的 Bearer/)
