@@ -8,7 +8,9 @@ type DatabaseConfig = {
     port?: number | string
     username: string
     password: string
-    database: string
+    database?: string
+    /** 仅用于迁移历史 Nacos 配置；新配置统一写入 database。 */
+    name?: string
     charset?: string
     timezone?: string
 }
@@ -87,7 +89,7 @@ function getDatabaseConfig(root: Record<string, unknown>, boundary: ServiceBound
         throw new Error(`缺少 Nacos 数据库配置：database.${boundary.configKey}`)
     }
     const database = config as DatabaseConfig
-    const databaseName = database.database?.trim()
+    const databaseName = database.database?.trim() || database.name?.trim()
     if (!databaseName || !boundary.databases.includes(databaseName)) {
         throw new Error(`${boundary.configKey} 数据库必须是 ${boundary.databases.join(' 或 ')}`)
     }
