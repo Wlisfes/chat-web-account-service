@@ -87,7 +87,10 @@ test('Feign 鉴权内省使用同一认证器校验 Bearer Token', async () => {
         }
     )
     assert.equal(await controller.introspect('Bearer account-token'), principal)
-    await assert.rejects(() => controller.introspect(undefined), /缺少有效的 Bearer/)
+    await assert.rejects(
+        () => controller.introspect(undefined),
+        error => error?.status === 401
+    )
 })
 
 test('Feign 服务集中编排鉴权', async () => {
