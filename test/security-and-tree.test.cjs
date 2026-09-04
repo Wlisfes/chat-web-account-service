@@ -331,7 +331,7 @@ test('登录服务可使用工号和旧版编码密码完成认证', async () =>
 
 test('JWT 可验证且拒绝篡改和不同密钥', () => {
     const values = {
-        JWT_SECRET: '0123456789abcdef0123456789abcdef',
+        'security.jwt.secret': '0123456789abcdef0123456789abcdef',
         'security.jwt.issuer': 'test-issuer',
         'security.jwt.audience': 'test-audience',
         'security.jwt.accessTokenTtlSeconds': 600
@@ -343,13 +343,13 @@ test('JWT 可验证且拒绝篡改和不同密钥', () => {
     parts[2] = `${parts[2][0] === 'A' ? 'B' : 'A'}${parts[2].slice(1)}`
     assert.throws(() => service.verifyAccessToken(parts.join('.')), /签名/)
 
-    const otherService = new TokenService(config({ ...values, JWT_SECRET: 'abcdef0123456789abcdef0123456789' }))
+    const otherService = new TokenService(config({ ...values, 'security.jwt.secret': 'abcdef0123456789abcdef0123456789' }))
     assert.throws(() => otherService.verifyAccessToken(token.accessToken), /签名/)
 })
 
 test('Redis 登录会话支持创建、轮换和撤销', async () => {
     const redis = fakeRedis()
-    const service = new AuthSessionService(redis, config({ AUTH_SESSION_PREFIX: 'test:session' }))
+    const service = new AuthSessionService(redis, config({ 'security.session.prefix': 'test:session' }))
     const now = Math.floor(Date.now() / 1000)
     const first = { sub: '2149446185344106496', jti: 'first', exp: now + 600 }
     const second = { sub: first.sub, jti: 'second', exp: now + 600 }
@@ -378,12 +378,16 @@ test('图形验证码忽略大小写且只能使用一次', async () => {
     await assert.rejects(() => service.verify(captcha.sid, expected), /验证码错误或已过期/)
 })
 
-test('无认证信息的 REDIS_URL 会合并显式 Redis 用户名和密码', () => {
+test('Nacos Redis 配置会生成带认证信息的连接地址', () => {
     const service = new RedisService(
         config({
-            REDIS_URL: 'redis://chat-web-redis:6379/2',
-            REDIS_USERNAME: 'default',
-            REDIS_PASSWORD: 'p@ss/word'
+            redis: {
+                host: 'chat-web-redis',
+                port: 6379,
+                database: 2,
+                username: 'default',
+                password: 'p@ss/word'
+            }
         })
     )
     const resolved = new URL(service.getConnectionUrl())
@@ -393,11 +397,7 @@ test('无认证信息的 REDIS_URL 会合并显式 Redis 用户名和密码', ()
     assert.equal(resolved.password, 'p%40ss%2Fword')
 })
 
-test('Nacos 远端配置不会覆盖显式环境变量', () => {
-    const previousHost = process.env.REDIS_HOST
-    const previousUrl = process.env.REDIS_URL
-    process.env.REDIS_HOST = 'pinned-local-redis'
-    process.env.REDIS_URL = ''
+test('Nacos 远端配置会写入 ConfigService', () => {
     const values = new Map()
     const configService = {
         set(key, value) {
@@ -405,29 +405,22 @@ test('Nacos 远端配置不会覆盖显式环境变量', () => {
         }
     }
 
-    try {
-        const service = new NacosService(configService, {
-            serverAddr: 'nacos.internal:8848',
-            namespace: 'test',
-            serviceName: 'chat-web-account-service',
-            registerPort: 5010
-        })
-        service.applyRemoteConfig(
-            'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
-            '已加载',
-            'test.yaml',
-            'DEFAULT_GROUP',
-            'test'
-        )
-        assert.equal(values.has('REDIS_HOST'), false)
-        assert.equal(values.has('REDIS_URL'), false)
-        assert.equal(values.get('remoteOnly'), 'enabled')
-    } finally {
-        if (previousHost === undefined) delete process.env.REDIS_HOST
-        else process.env.REDIS_HOST = previousHost
-        if (previousUrl === undefined) delete process.env.REDIS_URL
-        else process.env.REDIS_URL = previousUrl
-    }
+    const service = new NacosService(configService, {
+        serverAddr: 'nacos.internal:8848',
+        namespace: 'test',
+        serviceName: 'chat-web-account-service',
+        registerPort: 5010
+    })
+    service.applyRemoteConfig(
+        'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
+        '已加载',
+        'test.yaml',
+        'DEFAULT_GROUP',
+        'test'
+    )
+    assert.equal(values.get('REDIS_HOST'), 'remote-redis')
+    assert.equal(values.get('REDIS_URL'), 'redis://remote-redis:6379/0')
+    assert.equal(values.get('remoteOnly'), 'enabled')
 })
 
 test('旧平台迁移映射状态并按父子依赖排序', () => {
@@ -523,7 +516,7 @@ test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
         }
     }
     const missing = await new HealthService(dataSource, config({}), redis).getReadiness()
-    const valid = await new HealthService(dataSource, config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }), redis).getReadiness()
+    const valid = await new HealthService(dataSource, config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }), redis).getReadiness()
     assert.equal(missing.status, 'DOWN')
     assert.equal(missing.security.jwtConfigured, false)
     assert.equal(valid.status, 'UP')
@@ -538,7 +531,7 @@ test('就绪检查会拒绝不可用的 Redis 会话存储', async () => {
             return [{ tableName: 'table_a' }]
         }
     }
-    const result = await new HealthService(dataSource, config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }), {
+    const result = await new HealthService(dataSource, config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }), {
         async ping() {
             return false
         }

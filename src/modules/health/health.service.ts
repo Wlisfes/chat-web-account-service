@@ -23,7 +23,7 @@ export class HealthService {
 
     public async getReadiness(): Promise<ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
-        const jwtSecret = this.configService.get<string>('JWT_SECRET') || this.configService.get<string>('security.jwt.secret')
+        const jwtSecret = this.configService.get<string>('security.jwt.secret')
         const jwtConfigured = typeof jwtSecret === 'string' && jwtSecret.length >= 32
         let database: ServiceDependencyResponseDto
         let databaseReady = false

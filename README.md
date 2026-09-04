@@ -122,7 +122,7 @@ database:
     chat-web-account:
         host: mysql
         port: 3306
-        name: chat-web-account
+        database: chat-web-account
         username: account_service
         password: replace-with-secret
         charset: utf8mb4
@@ -132,6 +132,10 @@ database:
         connectTimeout: 10000
         retryAttempts: 5
         retryDelay: 3000
+
+security:
+    session:
+        prefix: chat-web:account:session
 ```
 
 Redis、JWT 和 MySQL 参数统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；不同环境通过各自 Namespace 保存实际地址与凭据，不再放入根目录 `.env`。
