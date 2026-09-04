@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-05：新增网关内部认证接口
+
+- 影响机器：`chat-home-server`；Account 服务内部接口。
+- 关联版本：Account 当前 `developer` 分支改动；未合并 `main`。
+- 变更内容：新增 `/internal/auth/token/introspect`，仅接受带有效 `X-Service-Token` 的 POST 请求，调用现有 `AuthService` 校验 JWT、Redis Session 和用户状态；用户 Token 与服务间凭据分离。历史 Feign 内省接口暂不删除，避免尚未迁移的内部调用中断。
+- 机器侧操作：在 Account Nacos `chat-web-account-service.yaml` 增加 `feign.service_token`，并与 Gateway Nacos `feign.service_token` 使用相同的真实凭据；不要写入 `.env` 或提交仓库。先部署 Account，再启用 Gateway `gateway.auth.enabled`。
+- 验证命令：执行 `yarn build`、`yarn tsc -p tsconfig.json --noEmit` 和 `yarn test`；部署后验证无凭据、错误凭据和无效用户 Token 均被拒绝，合法 Token 返回 `uid` 与 `sessionId`。
+- 回滚方法：恢复 Account 上一版完整 Git SHA；保留 Nacos 服务凭据配置，Gateway 暂停入口认证后按原 Feign 内省链路运行。
+
 ## 2026-09-04：禁止部署流程回写 Nacos 配置
 
 - 影响范围：Account `chat-home-server` 部署流水线。

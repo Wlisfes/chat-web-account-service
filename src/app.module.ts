@@ -16,6 +16,7 @@ import { PermissionModule } from '@/modules/permission/permission.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
 import { PositionModule } from '@/modules/position/position.module'
+import { FeignModule } from '@/modules/feign/feign.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
@@ -34,7 +35,8 @@ import { AppService } from '@/app.service'
         SheetModule,
         RoleModule,
         UserModule,
-        PositionModule
+        PositionModule,
+        FeignModule
     ],
     controllers: [AppController],
     providers: [AppService, { provide: APP_GUARD, useExisting: JwtAuthGuard }, { provide: APP_GUARD, useExisting: PermissionGuard }]
