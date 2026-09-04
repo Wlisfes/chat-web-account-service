@@ -46,9 +46,9 @@ Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证�
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
-部署会在 Schema 升级前运行幂等隔离器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；发现旧全局账号时会在进程内生成随机专用凭据、只授权 `chat_web_account.*` / `chat_web_finance.*`、回写各自 Nacos 并复连验证。密码不输出、不写仓库。隔离完成后 Schema 升级器再次执行 `SHOW GRANTS FOR CURRENT_USER()`，全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
+部署会在 Schema 升级前运行只读隔离校验器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。校验器不会生成随机凭据、修改数据库授权或回写 Nacos，用户填写的字段名、顺序和注释保持不变；如权限不符合要求，请由数据库管理员人工创建专用账号并在 Nacos 中维护连接配置后重新部署。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
 
-新环境数据库名统一使用下划线形式。为兼容 `chat-home-server` 的历史数据卷，隔离器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名授权；部署不会在线重命名数据库。
+新环境数据库名统一使用下划线形式。为兼容 `chat-home-server` 的历史数据卷，校验器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名检查授权；部署不会在线重命名数据库。
 
 核对命令在使用本服务连接参数进入 MySQL 后执行：
 

@@ -1,5 +1,13 @@
 # 部署变更记录
 
+## 2026-09-04：禁止部署流程回写 Nacos 配置
+
+- 影响范围：Account `chat-home-server` 部署流水线。
+- 变更内容：数据库隔离步骤改为只读校验，继续兼容 Nacos `database`/`name` 两种字段；不再生成随机账号、修改授权或回写 Nacos，人工配置的字段、注释和顺序保持原样。
+- 机器侧操作：若校验提示数据库账号权限未隔离，请由数据库管理员人工创建仅拥有本服务数据库权限的账号，并在 Nacos 中维护连接配置后重新部署。
+- 验证命令：执行 `yarn tsc -p tsconfig.json --noEmit`、`yarn build` 和 `yarn test`；检查部署日志无 Nacos 配置发布请求。
+- 回滚方法：恢复上一版 Account 镜像；Nacos 配置和数据库授权不回滚。
+
 ## 2026-09-03：本地 Nacos 客户端端口冲突自动避让
 
 - 影响范围：Account 本地开发启动；`chat-home-server` 的生产容器启动命令不变。

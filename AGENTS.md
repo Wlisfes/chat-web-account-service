@@ -8,6 +8,7 @@
 - 统一使用 4 空格、无分号、单引号、`printWidth: 140`、无尾随逗号；内部源码统一使用 `@/*` 路径别名。
 - 文件名使用小写 kebab-case 和职责后缀；类、接口、枚举使用 PascalCase，变量、函数和实例属性使用 camelCase，常量和注入 Token 使用 UPPER_SNAKE_CASE。
 - 日志、校验消息、Swagger 描述和面向维护者的错误信息使用中文，代码标识符使用英文。
+- 业务源码和配置文件必须编写清晰、必要的中文注释；配置文件包括 Nacos YAML、Compose、Dockerfile、Actions 和 `.env.example`。新增配置项必须同步说明用途，修改或格式化时必须保留既有注释，不得删除、覆盖或改写；注释中不得出现真实密码、Token、私钥等敏感信息。
 - HTTP Controller 只允许 GET、POST；GET 使用 query，POST 使用 body；多选参数必须是数组，禁止使用 `/:uid` 等路径参数。
 - 分页接口统一使用 `page`（从 1 开始）和 `size`（默认 50、最大 100）作为入参，响应统一返回 `page`、`size`、`total`、`list`；禁止使用 `pageSize`、`items`、`records` 或 `rows` 作为同义字段。
 - 请求日志必须包含 logId、方法、URL、状态码、来源、入参和耗时，并脱敏密码、Token 等敏感字段。

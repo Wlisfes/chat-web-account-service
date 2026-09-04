@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto'
 import yaml from 'js-yaml'
 import mysql, { Connection, RowDataPacket } from 'mysql2/promise'
 import { getNacosAccessToken, withNacosAccessToken } from '@/cli/nacos-auth'
@@ -9,7 +8,7 @@ type DatabaseConfig = {
     username: string
     password: string
     database?: string
-    /** 仅用于迁移历史 Nacos 配置；新配置统一写入 database。 */
+    /** 兼容历史 Nacos 配置中的 name 字段；读取时同时支持 database。 */
     name?: string
     charset?: string
     timezone?: string
@@ -65,20 +64,6 @@ async function readNacosConfig(dataId: string): Promise<Record<string, unknown>>
     return config as Record<string, unknown>
 }
 
-async function publishNacosConfig(dataId: string, config: Record<string, unknown>): Promise<void> {
-    const body = await nacosParameters(dataId)
-    body.set('type', 'yaml')
-    body.set('content', yaml.dump(config, { noRefs: true, lineWidth: 160 }))
-    const response = await fetch(`${nacosBaseUrl()}/nacos/v1/cs/configs`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body
-    })
-    if (!response.ok || (await response.text()).trim() !== 'true') {
-        throw new Error(`发布 Nacos 配置失败：dataId=${dataId}, HTTP ${response.status}`)
-    }
-}
-
 function getDatabaseConfig(root: Record<string, unknown>, boundary: ServiceBoundary): { config: DatabaseConfig; database: string } {
     const databases = root.database
     if (!databases || typeof databases !== 'object' || Array.isArray(databases)) {
@@ -127,47 +112,27 @@ function grantsAreIsolated(grants: readonly string[], database: string): boolean
     })
 }
 
-async function isolateService(boundary: ServiceBoundary): Promise<'already-isolated' | 'migrated'> {
+async function verifyServiceDatabase(boundary: ServiceBoundary): Promise<void> {
+    // Nacos 是人工维护的配置源。部署过程只读取并验证，绝不生成凭据或回写配置，
+    // 因而可以完整保留用户填写的字段名称、顺序和注释。
     const root = await readNacosConfig(boundary.dataId)
     const { config, database } = getDatabaseConfig(root, boundary)
-    const source = await connect(config, database)
-    const grants = await getGrants(source)
-    if (grantsAreIsolated(grants, database)) {
-        await source.end()
-        process.stdout.write(`Database account already isolated: ${database}\n`)
-        return 'already-isolated'
-    }
-
-    const password = randomBytes(36).toString('base64url')
-    const principal = `\`${boundary.username}\`@\`%\``
+    const connection = await connect(config, database)
     try {
-        await source.query(`CREATE USER IF NOT EXISTS ${principal} IDENTIFIED BY ?`, [password])
-        await source.query(`ALTER USER ${principal} IDENTIFIED BY ?`, [password])
-        await source.query(`REVOKE ALL PRIVILEGES, GRANT OPTION FROM ${principal}`)
-        await source.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO ${principal}`)
-    } finally {
-        await source.end()
-    }
-
-    config.database = database
-    config.username = boundary.username
-    config.password = password
-    await publishNacosConfig(boundary.dataId, root)
-
-    const verification = await connect(config, database)
-    try {
-        if (!grantsAreIsolated(await getGrants(verification), database)) {
-            throw new Error(`专用数据库账号授权验证失败：${database}`)
+        const grants = await getGrants(connection)
+        if (!grantsAreIsolated(grants, database)) {
+            throw new Error(
+                `${boundary.configKey} 数据库账号权限未隔离：仅允许 USAGE ON *.* 和 ${database}.*；请在数据库/Nacos 中人工配置专用账号后重新部署`
+            )
         }
     } finally {
-        await verification.end()
+        await connection.end()
     }
-    process.stdout.write(`Database account migrated and isolated: ${database}\n`)
-    return 'migrated'
+    process.stdout.write(`Database account verified: ${database}\n`)
 }
 
 async function main(): Promise<void> {
-    for (const boundary of SERVICES) await isolateService(boundary)
+    for (const boundary of SERVICES) await verifyServiceDatabase(boundary)
 }
 
 if (require.main === module) {
