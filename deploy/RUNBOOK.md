@@ -61,6 +61,34 @@ SHOW GRANTS FOR CURRENT_USER();
 
 本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
+## Nacos 配置清单
+
+认证迁出到鉴权服务后，`chat-web-account-service.yaml` 的认证相关配置有增有删：
+
+```yaml
+# 新增：服务间调用统一经网关按 /feign/<服务名> 前缀转发。
+feign:
+    service_token: '<服务间共享凭据>'
+    gateway:
+        url: http://chat-web-gateway-service:5000
+        timeout: 3000
+
+# 新增：校验网关签发的身份上下文，密钥必须与网关完全一致。
+gateway:
+    principal:
+        secret: '<与网关一致的至少32位随机串>'
+        maxAgeSeconds: 60
+```
+
+**必须删除**（删除前确认已原样复制到 `chat-web-auth-service.yaml`）：
+
+- `security.jwt.secret` / `issuer` / `audience` / `accessTokenTtlSeconds`
+- `security.session.prefix`
+- `redis` 整个节点（index `0` 已移交鉴权服务，本服务不再连接 Redis）
+- `feign.chat-web-account` / `chat-web-finance` / `chat-web-crm` / `chat-web-skyline`（已被 `feign.gateway` 取代）
+
+配置缺失时 `/health/ready` 会返回 `DOWN` 且 `security.authConfigured` 为 `false`。
+
 ## 旧平台数据迁移
 
 `dist/cli/migrate-legacy-platform.js` 用于把 staging 库中的 `tb_system_*` 数据转换到当前 `tb_account_*` Schema。命令默认执行完整事务后回滚；只有显式传入 `--apply` 才会提交。
@@ -173,15 +201,15 @@ Actions 应满足：Build 成功、`Deploy to chat-home-server` 成功。容器�
 
 ## 常见故障
 
-| 现象                          | 原因                                  | 处理                                                                                         |
-| ----------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Actions 长时间 Queued         | `chat-home-server` Runner 离线        | 启动 WSL 并重启本仓库 Runner 服务                                                            |
-| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                  | 将 Nacos MySQL 主机改成 `chat-web-mysql`                                                     |
-| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致 | 核对服务器 `.env` 和 Nacos 控制台                                                            |
-| 新镜像不健康                  | 数据库、Nacos或启动代码失败           | 查看容器日志；部署脚本会自动回滚                                                             |
-| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行         | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
-| `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误        | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
-| 网关无法访问 Account           | 容器未健康、网络未接入或 Nacos 无健康实例 | 检查容器健康状态、`chat-web-infrastructure` 网络和 Nacos 服务发现                         |
+| 现象                          | 原因                                      | 处理                                                                                         |
+| ----------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Actions 长时间 Queued         | `chat-home-server` Runner 离线            | 启动 WSL 并重启本仓库 Runner 服务                                                            |
+| `ECONNREFUSED 127.0.0.1:3306` | 容器把自身当成 MySQL                      | 将 Nacos MySQL 主机改成 `chat-web-mysql`                                                     |
+| Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致     | 核对服务器 `.env` 和 Nacos 控制台                                                            |
+| 新镜像不健康                  | 数据库、Nacos或启动代码失败               | 查看容器日志；部署脚本会自动回滚                                                             |
+| `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行             | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
+| `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误            | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
+| 网关无法访问 Account          | 容器未健康、网络未接入或 Nacos 无健康实例 | 检查容器健康状态、`chat-web-infrastructure` 网络和 Nacos 服务发现                            |
 
 ## 恢复顺序
 
