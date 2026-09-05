@@ -22,10 +22,9 @@ export class HealthService {
 
     public async getReadiness(): Promise<ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
-        // 令牌校验依赖鉴权服务的内部协议，账号服务只需确认调用地址与服务凭据已配置。
-        const authServiceUrl = this.configService.get<string>('feign.chat-web-auth.url')
+        // 账号服务的业务 Feign 入口只需要校验共享服务凭据；用户 Token 由 Gateway 交给 Auth 校验。
         const serviceToken = this.configService.get<string>('feign.service_token')
-        const authConfigured = isNotEmpty(authServiceUrl) && isNotEmpty(serviceToken)
+        const authConfigured = isNotEmpty(serviceToken)
         let database: ServiceDependencyResponseDto
         let databaseReady = false
         try {

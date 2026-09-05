@@ -364,14 +364,14 @@ test('就绪检查会报告缺失的数据库表', async () => {
                 return [{ tableName: 'table_a' }]
             }
         },
-        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050', 'feign.service_token': 'service-token' })
+        config({ 'feign.service_token': 'service-token' })
     )
     const result = await service.getReadiness()
     assert.equal(result.status, 'DOWN')
     assert.deepEqual(result.database.missingTables, ['table_b'])
 })
 
-test('就绪检查会拒绝缺失的鉴权服务内部认证配置', async () => {
+test('就绪检查会拒绝缺失的 Feign 服务凭据', async () => {
     const dataSource = {
         isInitialized: true,
         entityMetadatas: [{ tableName: 'table_a' }],
@@ -380,19 +380,10 @@ test('就绪检查会拒绝缺失的鉴权服务内部认证配置', async () =>
         }
     }
     const missing = await new HealthService(dataSource, config({})).getReadiness()
-    const missingToken = await new HealthService(
-        dataSource,
-        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050' })
-    ).getReadiness()
-    const valid = await new HealthService(
-        dataSource,
-        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050', 'feign.service_token': 'service-token' })
-    ).getReadiness()
+    const valid = await new HealthService(dataSource, config({ 'feign.service_token': 'service-token' })).getReadiness()
 
     assert.equal(missing.status, 'DOWN')
     assert.equal(missing.security.authConfigured, false)
-    assert.equal(missingToken.status, 'DOWN')
-    assert.equal(missingToken.security.authConfigured, false)
     assert.equal(valid.status, 'UP')
     assert.equal(valid.security.authConfigured, true)
 })

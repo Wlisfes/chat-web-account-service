@@ -71,12 +71,12 @@
     - `chat-web-base-schema` 中 `tb_account_user` 的任何结构变更必须同时评估鉴权服务，两个仓库的共享包依赖需要成对升级。
     - 运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
 - 本服务不再使用 Redis。登录会话和图形验证码归鉴权服务，index `0` 已移交，不得重新引入 Redis 依赖或连接任何 index。
-- 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；只导入共享包 `AuthModule`，通过内部内省协议校验令牌。共享包的 `auth-session` 子路径只允许鉴权服务导入。
+- 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
 - 授权（权限码校验）仍归本服务：`RequirePermissions`、`PermissionGuard` 和权限数据查询留在这里，不得迁往鉴权服务。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
 - 业务 Feign 的 Authorization 位承载调用方服务凭据（`feign.service_token`），不承载终端用户令牌。跨服务基础查询接口不做权限码校验和数据范围过滤，因此必须限制返回字段和单次数量，例如 `/feign/user/batch/resolver` 只返回 `uid`、`number`、`name`、`avatar` 且单次上限 100。业务 Feign 中不得再出现任何令牌内省接口。
-- 若新增跨服务调用，地址和超时统一读取 Nacos `feign.chat-web-*.url/timeout`，不得在部署 `.env` 固定业务 URL；本服务必须配置 `feign.chat-web-auth.url`、`feign.chat-web-auth.timeout` 和 `feign.service_token`，缺失时就绪检查会返回 DOWN。
+- 所有业务 Feign 调用统一经 Gateway `/feign/**` 转发，地址和超时读取调用方 Nacos `feign.gateway.url/timeout`；本服务作为 Feign 提供方只需配置 `feign.service_token`，不配置 Auth 服务地址。
 
 ## Git 提交规范
 

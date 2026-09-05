@@ -94,26 +94,13 @@ Data ID: chat-web-account-service.yaml
 Group: DEFAULT_GROUP
 ```
 
-配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Redis、RabbitMQ、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
+配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
 
-账号服务负责校验 Bearer Token。JWT 使用 HS256，密钥必须至少32位，并通过 Nacos 配置提供：
-
-```yaml
-security:
-    jwt:
-        secret: replace-with-at-least-32-random-characters
-        issuer: chat-web-account-service
-        audience: chat-web
-        accessTokenTtlSeconds: 36000
-```
-
-当前登录有效期为10小时。管理端会在 Token 使用时间达到有效期的30%后，于下一次接口请求时自动调用 `/auth/token/continue` 轮换会话并重新获得10小时；完全空闲超过10小时后需要重新登录。
-
-除 `/`、健康检查、`/auth/codex/write` 和 `/auth/token/login` 外，接口默认需要登录。网关通过受 `feign.service_token` 保护的 `/internal/auth/token/introspect` 校验用户访问令牌；该接口不加入公开网关路由，用户令牌放在请求体，服务间凭据使用独立的 `X-Service-Token` 请求头。历史 `/feign/auth/token/introspect` 仍供尚未迁移的内部调用使用。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
+认证由独立的 `chat-web-auth-service` 负责。Gateway 收到 `/api/**` 请求后调用 Auth 的内部 `POST /internal/auth/token/introspect` 校验用户令牌，再签发 `X-Gateway-Principal` 身份上下文转发给 Account；Account 只在本地验证该签名上下文，不持有 JWT 密钥、不读取登录会话，也不提供用户令牌内省接口。业务 Feign 路由统一使用 `/feign/account/**`，只校验 Nacos `feign.service_token`。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
 
 职位管理使用 `/api/account/position`：`POST /create`、`POST /update`、`GET /resolver`、`POST /column`、`POST /delete` 和 `GET /select`。分页请求和响应统一使用 `page`、`size`、`total`、`list`；账号创建/更新通过 `positionKeyIds` 数组维护职位关系，职位已关联员工时不可删除。
 
-`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 JWT 密钥是否有效，缺表或密钥缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL并配置 JWT 密钥。
+`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 `feign.service_token` 是否配置，缺表或服务间凭据缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL 并配置服务间凭据。
 
 账号数据库的 Nacos 配置格式如下；数据库和表必须由外部 SQL 提前创建，TypeORM 固定关闭 `synchronize` 和自动迁移：
 
@@ -122,7 +109,7 @@ database:
     chat-web-account:
         host: mysql
         port: 3306
-        database: chat-web-account
+        database: chat_web_account
         username: account_service
         password: replace-with-secret
         charset: utf8mb4
@@ -133,16 +120,12 @@ database:
         retryAttempts: 5
         retryDelay: 3000
 
-security:
-    session:
-        prefix: chat-web:account:session
-
 feign:
-    # 网关内部认证接口使用的服务间凭据；真实值只维护在 Nacos。
+    # Account Feign 提供方校验的服务间凭据；真实值只维护在 Nacos。
     service_token: replace-with-internal-service-token
 ```
 
-Redis、JWT 和 MySQL 参数统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；不同环境通过各自 Namespace 保存实际地址与凭据，不再放入根目录 `.env`。
+MySQL 和服务间凭据统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；登录会话、验证码和 JWT 参数属于 Auth 服务的 Nacos 配置，不在 Account 重复配置，也不放入根目录 `.env`。
 
 本地执行 `yarn run dev` 时，根目录 `.env` 只提供 `NODE_ENV`、`PORT` 和 Nacos 连接参数，使用端口 `5010` 运行。显式 `PORT` 的优先级高于 Nacos 的 `server.port`。
 

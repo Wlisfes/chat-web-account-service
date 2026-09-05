@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-05：移除账号服务的鉴权下游依赖
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 当前 `developer` 分支改动。
+- 变更内容：Account 只保留数据库访问、网关身份上下文验签和 `/feign/account/**` 业务摘要接口；不再连接 Redis、不持有 JWT 配置，也不调用 Auth 令牌内省接口。业务 Feign 入口只校验 `feign.service_token`。
+- 机器侧操作：在 `chat-web-account-service.yaml` 保留 `database.chat-web-account`、`feign.service_token` 与 `gateway.principal`；删除已经迁往 Auth 的 `redis`、`security.jwt`、`security.session`，并删除 Account 不使用的 `feign.gateway` 和逐服务 Feign 地址。保留原有 YAML 注释与其他业务配置。
+- 验证命令：`yarn format:check && yarn test`；部署后验证 `/health/ready`、受保护的 `/api/account/**` 和带系统凭据的 `/feign/account/**`。
+- 回滚方法：恢复上一完整 Git SHA；认证数据仍归 Auth 服务所有，不把 Redis、JWT 或令牌内省重新迁回 Account。
+
 ## 2026-09-05：认证迁出到鉴权服务
 
 - 影响机器：`chat-home-server`；Account 服务与新增的 `chat-web-auth-service`。

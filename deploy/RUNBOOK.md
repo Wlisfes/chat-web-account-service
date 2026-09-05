@@ -21,8 +21,6 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | Docker 网络          | `chat-web-infrastructure`       |
 | 数据库               | `chat_web_account`              |
 | MySQL 授权边界       | 仅 `chat_web_account.*`         |
-| Redis 容器           | `chat-web-redis`                |
-| Redis index          | `0`                             |
 | Nacos Data ID        | `chat-web-account-service.yaml` |
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
@@ -34,13 +32,11 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 共享包包含 `forRootNacosRuntimeOptions` 后，Account 在 `AppModule` 中直接调用 `NacosModule.forRoot(forRootNacosRuntimeOptions(process.env))`，由 base 统一把环境变量转换为完整 `NacosRuntimeOptions`。服务器 `.env` 必须显式提供 `NACOS_SERVER`、`NACOS_NAMESPACE`、`NACOS_SERVICE_NAME` 和 `PORT`；其余字段均由共享包提供默认值，只有确需覆盖时才配置。修改启动连接参数后必须重新创建容器，不能再依赖 Nacos 远端配置反向改变启动连接或注册参数。
 
-仓库根目录和服务器 `deploy/.env.example` 均只保留进程启动及 Nacos 建连/注册字段；数据库、Redis、JWT 和会话前缀统一读取云端 `chat-web-account-service.yaml`。部署目录不再通过环境变量覆盖业务配置，远端 Redis index 必须固定为 `0`。
+仓库根目录和服务器 `deploy/.env.example` 均只保留进程启动及 Nacos 建连/注册字段；数据库、服务间凭据和网关身份上下文配置统一读取云端 `chat-web-account-service.yaml`。部署目录不通过环境变量覆盖业务配置。
 
-只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库、Redis、JWT 和业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
+只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库与业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
-Redis 启动日志仅记录配置来源（URL 或 Host）、是否配置认证、TLS 状态和数据库编号，不记录地址、用户名或密码。Redis 连接参数由 Nacos 管理，修改后需重新创建容器使运行时重新加载。
-
-`/health/live` 只表示进程存活；Docker 使用的 `/health` 会同时检查数据库连接、账号服务全部必需表、Redis 会话存储和 JWT 密钥。返回 503 时，根据 `missingTables`、`redis.connected` 和 `security.jwtConfigured` 检查基础设施、增量 SQL 及密钥配置，不要绕过健康检查。
+`/health/live` 只表示进程存活；Docker 使用的 `/health` 会检查数据库连接、账号服务全部必需表和 `feign.service_token`。返回 503 时，根据 `missingTables` 与 `security.authConfigured` 检查数据库、增量 SQL 和服务间凭据，不要绕过健康检查。
 
 外部客户主表为 `tb_account_consumer`，服务内部管理接口为 `/consumer/**`，经 Gateway 公开为 `/api/account/consumer/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 由 Schema 增量直接删除，不得恢复业务写入。
 
@@ -57,7 +53,7 @@ SELECT DATABASE(), CURRENT_USER();
 SHOW GRANTS FOR CURRENT_USER();
 ```
 
-预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 独占 Redis index `0`；`/feign/auth/token/introspect` 是其他服务获取已验证 `AuthPrincipal` 的内部接口，调用方只转发 Bearer Token，不共享 JWT 密钥或 Redis 会话。
+预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 不再使用 Redis；`/feign/account/**` 只提供账号业务摘要接口，调用方必须携带与 Nacos 一致的 `feign.service_token`，不共享 JWT 密钥或登录会话。
 
 本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
@@ -66,12 +62,9 @@ SHOW GRANTS FOR CURRENT_USER();
 认证迁出到鉴权服务后，`chat-web-account-service.yaml` 的认证相关配置有增有删：
 
 ```yaml
-# 新增：服务间调用统一经网关按 /feign/<服务名> 前缀转发。
+# 账号服务只作为业务 Feign 提供方，校验调用方携带的系统级凭据。
 feign:
     service_token: '<服务间共享凭据>'
-    gateway:
-        url: http://chat-web-gateway-service:5000
-        timeout: 3000
 
 # 新增：校验网关签发的身份上下文，密钥必须与网关完全一致。
 gateway:
@@ -85,9 +78,9 @@ gateway:
 - `security.jwt.secret` / `issuer` / `audience` / `accessTokenTtlSeconds`
 - `security.session.prefix`
 - `redis` 整个节点（index `0` 已移交鉴权服务，本服务不再连接 Redis）
-- `feign.chat-web-account` / `chat-web-finance` / `chat-web-crm` / `chat-web-skyline`（已被 `feign.gateway` 取代）
+- `feign.gateway`（Account 当前不调用其他业务服务，只需要 `feign.service_token`）
 
-配置缺失时 `/health/ready` 会返回 `DOWN` 且 `security.authConfigured` 为 `false`。
+`feign.service_token` 缺失时 `/health/ready` 会返回 `DOWN` 且 `security.authConfigured` 为 `false`；Account 不需要配置 Auth 服务地址或逐服务 Feign 地址。
 
 ## 旧平台数据迁移
 
@@ -161,19 +154,16 @@ $accountPort = 3001
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$accountPort/health"
 ```
 
-日志配置预期为 `json-file`、`max-size=20m`、`max-file=30`。请求日志应包含 `logId`、方法、URL、状态码和耗时；登录请求中的密码、验证码和 Token 必须显示为 `[已隐藏]`。
+日志配置预期为 `json-file`、`max-size=20m`、`max-file=30`。请求日志应包含 `logId`、方法、URL、状态码和耗时；请求中的密码和 Token 必须显示为 `[已隐藏]`。
 
 ### 2. 检查基础设施网络
 
 ```powershell
 docker network inspect chat-web-infrastructure
-docker ps --filter "name=chat-web-mysql" --filter "name=chat-web-nacos" --filter "name=chat-web-redis"
-docker exec chat-web-redis redis-cli ping
+docker ps --filter "name=chat-web-mysql" --filter "name=chat-web-nacos"
 ```
 
-Account、MySQL、Redis、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，Redis 主机应为 `chat-web-redis`，不能是 `127.0.0.1`。
-
-部署脚本始终优先使用账号服务 `.env` 中显式配置的认证信息。不要在服务器 `.env` 中手工固定容器 IP；默认连接应使用稳定 Docker DNS 名 `chat-web-redis`。`REDIS_URL` 已带密码时保持原值；URL 只有主机或用户名、另有 `REDIS_PASSWORD` 时，应用会安全合并两者。当目标能匹配同机 Redis 容器名称、旧短 ID、当前容器地址或网络别名、Account 未配置密码时，脚本使用该容器在账号服务 Docker 网络上的当前 IPv4 地址执行 RESP3 `PING`，并要求命令输出精确等于 `PONG`，不能只根据 `redis-cli` 进程退出码判断；这与 Node Redis 6 的 `HELLO 3` 握手一致，避免服务端返回 `NOAUTH` 但客户端退出码仍为 0 的假阳性，同时完全绕过重复别名和客户端 DNS 差异。验证通过后，脚本原子更新部署目录 `.env` 中的 `REDIS_HOST` 并清空旧的未认证 `REDIS_URL`，文件权限固定为 `0600`；Redis 容器重建导致地址变化时，下次部署会自动刷新。目标要求认证时，脚本从 Redis 容器的 `REDIS_PASSWORD`、`REDIS_PASS`、`REDISCLI_AUTH` 环境键或独立的 `--requirepass` 启动参数中读取密码，要求经过认证的 RESP3 命令同样精确返回 `PONG` 后才安全写入机器侧 `.env`。地址值和密码都不会输出到日志或上传 GitHub，密码也不写入仓库。ACL 文件、自定义配置文件或远程 Redis 不执行自动读取，必须继续使用机器侧 `.env` 的显式配置。
+Account、MySQL、Nacos 必须加入 `chat-web-infrastructure`。Nacos 数据库配置的主机应为 `chat-web-mysql`，不能是 `127.0.0.1`。登录会话、验证码和 Redis index `0` 已由 Auth 服务负责，Account 部署不再探测或修改 Redis 配置。
 
 全新 MySQL 数据卷还必须确认账号数据库已由基础设施初始化脚本创建：
 
@@ -208,7 +198,6 @@ Actions 应满足：Build 成功、`Deploy to chat-home-server` 成功。容器�
 | Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致     | 核对服务器 `.env` 和 Nacos 控制台                                                            |
 | 新镜像不健康                  | 数据库、Nacos或启动代码失败               | 查看容器日志；部署脚本会自动回滚                                                             |
 | `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行             | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
-| `/health` 显示 Redis 未连接   | Redis 容器、网络或密码配置错误            | 执行 `redis-cli ping`；同机密码模式核对部署日志中的凭据来源验证，其他模式核对 `REDIS_*` 配置 |
 | 网关无法访问 Account          | 容器未健康、网络未接入或 Nacos 无健康实例 | 检查容器健康状态、`chat-web-infrastructure` 网络和 Nacos 服务发现                            |
 
 ## 恢复顺序
