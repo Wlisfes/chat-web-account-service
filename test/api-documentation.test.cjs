@@ -73,7 +73,9 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/auth/token/login'], undefined, 'Account 服务不能保留登录接口')
     assert.ok(document.paths['/consumer/resolver']?.get, 'Account 服务必须提供客户详情接口')
     assert.ok(document.paths['/consumer/select']?.get, 'Account 服务必须提供客户下拉接口')
-    assert.ok(document.paths['/feign/user/batch/resolver']?.post, 'Account 服务必须提供账号摘要批量还原接口')
+    // 服务间路由带 /feign/<服务名> 前缀，由网关按该前缀转发且不改写。
+    assert.ok(document.paths['/feign/account/user/batch/resolver']?.post, 'Account 服务必须提供账号摘要批量还原接口')
+    assert.ok(document.paths['/feign/account/consumer/resolver']?.get, 'Account 服务必须提供服务间客户详情接口')
     for (const [methodName, definition] of getFeignMethodDefinitions(FeignClientAccountManager)) {
         assert.ok(document.paths[definition.path]?.[definition.method.toLowerCase()], `Feign 客户端 ${methodName} 未找到对应服务路由`)
     }

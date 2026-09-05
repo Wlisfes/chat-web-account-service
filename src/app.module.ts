@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
-import { AuthModule, JwtAuthGuard } from '@wlisfes/chat-web-base-schema/auth'
+import { GatewayPrincipalGuard, GatewayPrincipalModule } from '@wlisfes/chat-web-base-schema/auth'
 import { HttpResponseModule } from '@wlisfes/chat-web-base-schema/interceptor'
 import { forRootNacosRuntimeOptions, NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
 import { DatabaseModule } from '@/modules/database/database.module'
@@ -24,8 +24,8 @@ import { AppService } from '@/app.service'
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
         HttpResponseModule,
         DatabaseModule,
-        // 认证由鉴权服务负责；账号服务只通过内部内省协议校验令牌，不再持有 JWT 密钥和登录会话。
-        AuthModule,
+        // 用户认证在网关完成一次；账号服务只校验网关签发的身份上下文签名。
+        GatewayPrincipalModule,
         ConsumerModule,
         HealthModule,
         PermissionModule,
@@ -37,6 +37,10 @@ import { AppService } from '@/app.service'
         FeignModule
     ],
     controllers: [AppController],
-    providers: [AppService, { provide: APP_GUARD, useExisting: JwtAuthGuard }, { provide: APP_GUARD, useExisting: PermissionGuard }]
+    providers: [
+        AppService,
+        { provide: APP_GUARD, useExisting: GatewayPrincipalGuard },
+        { provide: APP_GUARD, useExisting: PermissionGuard }
+    ]
 })
 export class AppModule {}
