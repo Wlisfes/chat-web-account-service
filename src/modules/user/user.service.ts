@@ -9,11 +9,12 @@ import {
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { AccountUserBatchDto } from '@wlisfes/chat-web-base-schema/feign'
 import { assertUid, generateUid, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
 import { Brackets, Repository } from 'typeorm'
-import { AccountUserResponseDto, UserDetailResponseDto } from '@/dto/api-response.dto'
-import { PasswordService } from '@/modules/auth/password.service'
+import { AccountUserResponseDto, AccountUserSummaryResponseDto, UserDetailResponseDto } from '@/dto/api-response.dto'
+import { PasswordService } from '@wlisfes/chat-web-base-schema/auth'
 import * as UserDto from '@/modules/user/dto/user.dto'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
 
@@ -133,6 +134,20 @@ export class UserService {
     /**账号详情*/
     public async httpBaseAccountUserResolver(principal: AuthPrincipal, query: UserDto.UserUidDto): Promise<UserDetailResponseDto> {
         return this.userUtilsService.findDetail(principal.uid, query.uid)
+    }
+
+    /**
+     * 批量把账号 UID 还原为展示摘要。
+     *
+     * 供其他服务把 createBy、modifyBy 等操作人字段渲染为姓名工号；只返回展示所需的
+     * 最小字段，不校验权限码也不做数据范围过滤，因此仅通过服务凭据保护的 Feign 暴露。
+     */
+    public async httpBaseAccountBatchResolverUser(input: AccountUserBatchDto): Promise<AccountUserSummaryResponseDto[]> {
+        const uids = [...new Set(input.uids)]
+        if (uids.length === 0) return []
+        return this.database.builder(this.userRepository, qb =>
+            qb.select(['t.uid', 't.number', 't.name', 't.avatar']).where('t.uid IN (:...uids)', { uids }).getMany()
+        )
     }
 
     /**编辑账号*/

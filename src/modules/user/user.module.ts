@@ -9,7 +9,7 @@ import {
     TbAccountPosition,
     TbAccountUserPosition
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { AuthModule } from '@/modules/auth/auth.module'
+import { PasswordService } from '@wlisfes/chat-web-base-schema/auth'
 import { UserController } from '@/modules/user/user.controller'
 import { UserService } from '@/modules/user/user.service'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
@@ -24,11 +24,10 @@ import { UserUtilsService } from '@/modules/user/user.utils.service'
             TbAccountRole,
             TbAccountPosition,
             TbAccountUserPosition
-        ]),
-        AuthModule
+        ])
     ],
     controllers: [UserController],
-    providers: [UserService, UserUtilsService],
+    providers: [UserService, UserUtilsService, PasswordService],
     exports: [UserService]
 })
 export class UserModule {}

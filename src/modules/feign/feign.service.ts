@@ -1,19 +1,33 @@
 import { Injectable } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { FeignClientAccountManager, FeignClientAccountImplementation } from '@wlisfes/chat-web-base-schema/feign'
-import { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
-import { AuthService } from '@/modules/auth/auth.service'
+import {
+    AccountConsumer,
+    AccountUserSummary,
+    AccountUserBatchDto,
+    FeignClientAccountManager,
+    FeignClientAccountImplementation
+} from '@wlisfes/chat-web-base-schema/feign'
+import { ConsumerService } from '@/modules/consumer/consumer.service'
+import { UserService } from '@/modules/user/user.service'
 
-/** 统一编排账号服务当前对外暴露的 Feign 调用，实现与业务模块保持单向依赖。 */
+/** 统一编排账号服务对外暴露的业务 Feign 调用，实现与业务模块保持单向依赖。 */
 @Injectable()
 export class FeignService extends FeignClientAccountManager implements FeignClientAccountImplementation {
-    constructor(private readonly authService: AuthService) {
+    constructor(
+        private readonly consumerService: ConsumerService,
+        private readonly userService: UserService
+    ) {
         super()
     }
 
-    public override async introspect(authorization: string): Promise<AuthPrincipal> {
-        const match = authorization.match(/^Bearer\s+([^\s]+)$/i)
-        if (!match) throw new Error('Bearer 访问令牌格式错误')
-        return this.authService.authenticateToken(match[1])
+    public override async resolveConsumer(_authorization: string, keyId: number): Promise<AccountConsumer> {
+        return this.consumerService.httpBaseAccountResolverConsumer({ keyId })
+    }
+
+    public override async selectConsumers(_authorization: string, name?: string): Promise<AccountConsumer[]> {
+        return this.consumerService.httpBaseAccountSelectConsumer({ name })
+    }
+
+    public override async batchResolveUsers(_authorization: string, input: AccountUserBatchDto): Promise<AccountUserSummary[]> {
+        return this.userService.httpBaseAccountBatchResolverUser(input)
     }
 }

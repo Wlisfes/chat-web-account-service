@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common'
-import { AuthModule } from '@/modules/auth/auth.module'
+import { ConsumerModule } from '@/modules/consumer/consumer.module'
 import { FeignController } from '@/modules/feign/feign.controller'
 import { FeignService } from '@/modules/feign/feign.service'
+import { UserModule } from '@/modules/user/user.module'
 
 @Module({
-    imports: [AuthModule],
+    imports: [ConsumerModule, UserModule],
     controllers: [FeignController],
     providers: [FeignService]
 })

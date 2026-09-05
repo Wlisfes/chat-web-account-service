@@ -36,8 +36,8 @@ export class ServiceDependencyResponseDto {
 }
 
 export class ServiceSecurityResponseDto {
-    @ApiProperty({ description: 'JWT 密钥是否已正确配置', example: true })
-    jwtConfigured: boolean
+    @ApiProperty({ description: '鉴权服务内部认证配置是否完整', example: true })
+    authConfigured: boolean
 }
 
 export class ServiceReadinessResponseDto {
@@ -50,29 +50,8 @@ export class ServiceReadinessResponseDto {
     @ApiProperty({ description: '数据库状态', type: ServiceDependencyResponseDto })
     database: ServiceDependencyResponseDto
 
-    @ApiProperty({ description: 'Redis 状态', type: ServiceDependencyResponseDto })
-    redis: ServiceDependencyResponseDto
-
     @ApiProperty({ description: '安全配置状态', type: ServiceSecurityResponseDto })
     security: ServiceSecurityResponseDto
-}
-
-export class LoginUserResponseDto extends PickType(TbAccountUserDto, ['uid', 'number', 'name', 'avatar'] as const) {}
-
-export class AccessTokenResponseDto {
-    @ApiProperty({ description: 'Bearer 访问令牌', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-    accessToken: string
-
-    @ApiProperty({ description: '令牌类型', enum: ['Bearer'], example: 'Bearer' })
-    tokenType: string
-
-    @ApiProperty({ description: '有效期，单位为秒', example: 36000 })
-    expiresIn: number
-}
-
-export class LoginResponseDto extends AccessTokenResponseDto {
-    @ApiProperty({ description: '当前登录账号', type: LoginUserResponseDto })
-    user: LoginUserResponseDto
 }
 
 export class AccountUserResponseDto extends OmitType(TbAccountUserDto, ['password'] as const) {}

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { InjectDataSource } from '@nestjs/typeorm'
-import { RedisService } from '@wlisfes/chat-web-base-schema/redis'
+import { isNotEmpty } from 'class-validator'
 import { DataSource } from 'typeorm'
 import { ServiceDependencyResponseDto, ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/dto/api-response.dto'
 
@@ -13,8 +13,7 @@ type TableRow = {
 export class HealthService {
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
-        private readonly configService: ConfigService,
-        private readonly redisService: RedisService
+        private readonly configService: ConfigService
     ) {}
 
     public async getLiveness(): Promise<ServiceLivenessResponseDto> {
@@ -23,8 +22,10 @@ export class HealthService {
 
     public async getReadiness(): Promise<ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
-        const jwtSecret = this.configService.get<string>('security.jwt.secret')
-        const jwtConfigured = typeof jwtSecret === 'string' && jwtSecret.length >= 32
+        // 令牌校验依赖鉴权服务的内部协议，账号服务只需确认调用地址与服务凭据已配置。
+        const authServiceUrl = this.configService.get<string>('feign.chat-web-auth.url')
+        const serviceToken = this.configService.get<string>('feign.service_token')
+        const authConfigured = isNotEmpty(authServiceUrl) && isNotEmpty(serviceToken)
         let database: ServiceDependencyResponseDto
         let databaseReady = false
         try {
@@ -51,20 +52,10 @@ export class HealthService {
             }
         }
 
-        let redis: ServiceDependencyResponseDto
-        let redisReady = false
-        try {
-            redisReady = await this.redisService.ping()
-            redis = { connected: redisReady }
-        } catch (error) {
-            redis = { connected: false, error: error instanceof Error ? error.message : String(error) }
-        }
-
         return {
-            status: databaseReady && redisReady && jwtConfigured ? 'UP' : 'DOWN',
+            status: databaseReady && authConfigured ? 'UP' : 'DOWN',
             database,
-            redis,
-            security: { jwtConfigured },
+            security: { authConfigured },
             timestamp: new Date().toISOString()
         }
     }

@@ -1,4 +1,4 @@
-const { PasswordService } = require('../dist/modules/auth/password.service')
+const { PasswordService } = require('@wlisfes/chat-web-base-schema/auth')
 
 function readFromPipe() {
     return new Promise((resolve, reject) => {

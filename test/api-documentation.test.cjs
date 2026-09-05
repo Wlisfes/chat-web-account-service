@@ -8,8 +8,6 @@ const { DocumentBuilder, SwaggerModule } = require('@nestjs/swagger')
 
 const controllers = [
     require('../dist/app.controller').AppController,
-    require('../dist/modules/auth/auth.controller').AuthController,
-    require('../dist/modules/auth/internal-auth.controller').InternalAuthController,
     require('../dist/modules/consumer/consumer.controller').ConsumerController,
     require('../dist/modules/feign/feign.controller').FeignController,
     require('../dist/modules/sheet/sheet.controller').SheetController,
@@ -69,18 +67,21 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
 
     assert.ok(document.paths['/sheet/tree/structure'], '菜单管理接口必须使用 /sheet 路由前缀')
     assert.ok(document.paths['/dept/tree/structure'], '部门组织接口必须使用 /dept 路由前缀')
-    assert.ok(document.paths['/feign/auth/token/introspect']?.get, 'Account 服务必须提供令牌内省接口')
-    assert.ok(document.paths['/internal/auth/token/introspect']?.post, 'Account 服务必须提供网关内部令牌内省接口')
+    // 认证已迁移到鉴权服务，账号服务不得再暴露任何令牌内省路由。
+    assert.equal(document.paths['/feign/auth/token/introspect'], undefined, 'Account 服务不能保留业务 Feign 内省接口')
+    assert.equal(document.paths['/internal/auth/token/introspect'], undefined, 'Account 服务不能保留内部内省接口')
+    assert.equal(document.paths['/auth/token/login'], undefined, 'Account 服务不能保留登录接口')
     assert.ok(document.paths['/consumer/resolver']?.get, 'Account 服务必须提供客户详情接口')
     assert.ok(document.paths['/consumer/select']?.get, 'Account 服务必须提供客户下拉接口')
+    assert.ok(document.paths['/feign/user/batch/resolver']?.post, 'Account 服务必须提供账号摘要批量还原接口')
     for (const [methodName, definition] of getFeignMethodDefinitions(FeignClientAccountManager)) {
         assert.ok(document.paths[definition.path]?.[definition.method.toLowerCase()], `Feign 客户端 ${methodName} 未找到对应服务路由`)
     }
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 50)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 28)
+    assert.equal(operations.length, 46)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 27)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 11)
 
     for (const { path, method, operation } of operations) {

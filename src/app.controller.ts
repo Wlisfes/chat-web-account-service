@@ -21,7 +21,7 @@ export class AppController {
     @Public()
     @ApiServiceDecorator(Get('health'), {
         operation: { summary: '账号服务健康检查' },
-        response: { type: ServiceReadinessResponseDto, description: '数据库、Redis 与安全配置状态' }
+        response: { type: ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
     })
     @PreserveHttpStatus()
     public async httpBaseAccountHealthService() {
@@ -40,7 +40,7 @@ export class AppController {
     @Public()
     @ApiServiceDecorator(Get('health/ready'), {
         operation: { summary: '账号服务就绪检查' },
-        response: { type: ServiceReadinessResponseDto, description: '数据库、Redis 与安全配置状态' }
+        response: { type: ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
     })
     @PreserveHttpStatus()
     public async httpBaseAccountReadinessService() {

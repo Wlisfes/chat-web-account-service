@@ -8,6 +8,7 @@ import { ConsumerUtilsService } from '@/modules/consumer/consumer.utils.service'
 @Module({
     imports: [TypeOrmModule.forFeature([TbAccountConsumer])],
     controllers: [ConsumerController],
-    providers: [ConsumerService, ConsumerUtilsService]
+    providers: [ConsumerService, ConsumerUtilsService],
+    exports: [ConsumerService]
 })
 export class ConsumerModule {}

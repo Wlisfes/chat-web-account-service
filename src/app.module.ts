@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
-import { JwtAuthGuard } from '@wlisfes/chat-web-base-schema/auth'
+import { AuthModule, JwtAuthGuard } from '@wlisfes/chat-web-base-schema/auth'
 import { HttpResponseModule } from '@wlisfes/chat-web-base-schema/interceptor'
 import { forRootNacosRuntimeOptions, NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
-import { RedisModule } from '@wlisfes/chat-web-base-schema/redis'
 import { DatabaseModule } from '@/modules/database/database.module'
-import { AuthModule } from '@/modules/auth/auth.module'
 import { ConsumerModule } from '@/modules/consumer/consumer.module'
 import { SheetModule } from '@/modules/sheet/sheet.module'
 import { HealthModule } from '@/modules/health/health.module'
@@ -24,9 +22,9 @@ import { AppService } from '@/app.service'
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
-        RedisModule.forRoot({ database: 0 }),
         HttpResponseModule,
         DatabaseModule,
+        // 认证由鉴权服务负责；账号服务只通过内部内省协议校验令牌，不再持有 JWT 密钥和登录会话。
         AuthModule,
         ConsumerModule,
         HealthModule,

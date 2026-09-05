@@ -5,15 +5,11 @@ const { plainToInstance } = require('class-transformer')
 const { validate } = require('class-validator')
 
 const { buildTree, assertValidTree, generateUid } = require('@wlisfes/chat-web-base-schema/utils')
-const { PasswordService } = require('../dist/modules/auth/password.service')
-const { LoginDto } = require('../dist/modules/auth/dto/login.dto')
-const { AuthService } = require('../dist/modules/auth/auth.service')
-const { AuthSessionService, TokenService } = require('@wlisfes/chat-web-base-schema/auth')
+const { PasswordService } = require('@wlisfes/chat-web-base-schema/auth')
 const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
-const { RedisService } = require('@wlisfes/chat-web-base-schema/redis')
-const { CaptchaService } = require('../dist/modules/auth/captcha.service')
 const { FeignController } = require('../dist/modules/feign/feign.controller')
 const { FeignService } = require('../dist/modules/feign/feign.service')
+const { UserService } = require('../dist/modules/user/user.service')
 const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
 const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
 const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
@@ -41,70 +37,54 @@ function config(values) {
     }
 }
 
-function fakeRedis() {
-    const values = new Map()
-    const ttls = new Map()
-    return {
-        values,
-        ttls,
-        async get(key) {
-            return values.get(key) ?? null
-        },
-        async getDel(key) {
-            const value = values.get(key) ?? null
-            values.delete(key)
-            return value
-        },
-        async setEx(key, seconds, value) {
-            assert.ok(seconds > 0)
-            values.set(key, value)
-            ttls.set(key, seconds)
-        },
-        async del(key) {
-            values.delete(key)
-        },
-        async rotate(oldKey, newKey, seconds, value) {
-            assert.ok(seconds > 0)
-            values.set(newKey, value)
-            values.delete(oldKey)
-        }
-    }
-}
-
-test('Feign 鉴权内省使用同一认证器校验 Bearer Token', async () => {
-    const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
+test('业务 Feign 不再暴露内省接口，且只接受服务间凭据', async () => {
+    const consumer = { keyId: 12, uid: '2149446185344106496', name: '示例客户' }
     const controller = new FeignController(
-        {
-            async introspect(authorization) {
-                assert.equal(authorization, 'Bearer account-token')
-                return principal
-            }
-        },
-        {
-            get() {
-                return 'account-token'
-            }
-        }
+        new FeignService(
+            {
+                async httpBaseAccountResolverConsumer(query) {
+                    assert.deepEqual(query, { keyId: 12 })
+                    return consumer
+                }
+            },
+            {}
+        ),
+        config({ 'feign.service_token': 'service-token' })
     )
-    assert.equal(await controller.introspect('Bearer account-token'), principal)
+
+    assert.equal(FeignController.prototype.introspect, undefined)
+    assert.equal(await controller.resolveConsumer('Bearer service-token', 12), consumer)
     await assert.rejects(
-        () => controller.introspect(undefined),
+        () => controller.resolveConsumer('Bearer user-token', 12),
         error => error?.status === 401
     )
 })
 
-test('Feign 服务集中编排鉴权', async () => {
-    const calls = []
-    const principal = { uid: '2149446185344106496', sessionId: 'session-id' }
-    const service = new FeignService({
-        async authenticateToken(token) {
-            calls.push(['introspect', token])
-            return principal
+test('批量账号摘要只返回展示字段并对重复 UID 去重', async () => {
+    let received = {}
+    const database = {
+        async builder(repository, handler) {
+            return handler({
+                select(fields) {
+                    received.fields = fields
+                    return this
+                },
+                where(_condition, parameters) {
+                    received.parameters = parameters
+                    return this
+                },
+                async getMany() {
+                    return [{ uid: '1', number: 'A1', name: '张三' }]
+                }
+            })
         }
-    })
+    }
+    const service = new UserService({}, database, {}, {})
 
-    assert.equal(await service.introspect('Bearer account-token'), principal)
-    assert.deepEqual(calls, [['introspect', 'account-token']])
+    assert.deepEqual(await service.httpBaseAccountBatchResolverUser({ uids: [] }), [])
+    assert.deepEqual(await service.httpBaseAccountBatchResolverUser({ uids: ['1', '1', '2'] }), [{ uid: '1', number: 'A1', name: '张三' }])
+    assert.deepEqual(received.fields, ['t.uid', 't.number', 't.name', 't.avatar'])
+    assert.deepEqual(received.parameters, { uids: ['1', '2'] })
 })
 
 test('部署迁移只接受本服务数据库授权', () => {
@@ -291,136 +271,6 @@ test('密码校验兼容旧管理端的 Base64 + encodeURIComponent 编码', asy
     assert.equal(await service.verify('MTIzNDU2=', encoded), false)
 })
 
-test('登录 DTO 兼容旧版 number 工号字段并保留 account 字段', async () => {
-    const numberInput = plainToInstance(LoginDto, { number: '1001', password: '123456', code: 'ABCD' })
-    const accountInput = plainToInstance(LoginDto, { account: '1001', password: '123456', code: 'ABCD' })
-    const accountWithEmptyLegacyNumber = plainToInstance(LoginDto, { account: '1001', number: '', password: '123456', code: 'ABCD' })
-    const invalidAccountWithNumber = plainToInstance(LoginDto, { account: 1001, number: '1001', password: '123456', code: 'ABCD' })
-    const missingIdentifier = plainToInstance(LoginDto, { password: '123456', code: 'ABCD' })
-
-    assert.equal(numberInput.number, '1001')
-    assert.equal(accountInput.account, '1001')
-    assert.equal((await validate(numberInput)).length, 0)
-    assert.equal((await validate(accountInput)).length, 0)
-    assert.equal((await validate(accountWithEmptyLegacyNumber)).length, 0)
-    assert.ok((await validate(invalidAccountWithNumber)).some(error => error.property === 'account'))
-    assert.ok((await validate(missingIdentifier)).some(error => error.property === 'account'))
-})
-
-test('登录服务可使用工号和旧版编码密码完成认证', async () => {
-    const passwordService = new PasswordService()
-    const storedPassword = await passwordService.hash('123456')
-    const legacyPassword = Buffer.from(encodeURIComponent('123456'), 'utf8').toString('base64')
-    const calls = []
-    const user = {
-        uid: '2149446185344106496',
-        number: '1001',
-        name: '测试账号',
-        avatar: null,
-        password: storedPassword
-    }
-    const service = new AuthService(
-        {
-            async update(criteria, fields) {
-                calls.push({ criteria, fields })
-            }
-        },
-        passwordService,
-        {
-            issueAccessToken(uid) {
-                return {
-                    accessToken: 'access-token',
-                    tokenType: 'Bearer',
-                    expiresIn: 36000,
-                    claims: { sub: uid, jti: 'session-id', exp: 9999999999 }
-                }
-            }
-        },
-        { async create() {} },
-        { async verify() {} },
-        {
-            async findUserByAccountRequired(identifier) {
-                calls.push(identifier)
-                return user
-            },
-            assertActiveUser() {}
-        }
-    )
-
-    const result = await service.httpBaseAccountLoginToken({ number: '1001', password: legacyPassword, code: 'ABCD' })
-    assert.equal(calls[0], '1001')
-    assert.equal(result.accessToken, 'access-token')
-    assert.equal(result.user.number, '1001')
-})
-
-test('JWT 可验证且拒绝篡改和不同密钥', () => {
-    const values = {
-        'security.jwt.secret': '0123456789abcdef0123456789abcdef',
-        'security.jwt.issuer': 'test-issuer',
-        'security.jwt.audience': 'test-audience',
-        'security.jwt.accessTokenTtlSeconds': 600
-    }
-    const service = new TokenService(config(values))
-    const token = service.issueAccessToken('2149446185344106496')
-    assert.equal(service.verifyAccessToken(token.accessToken).sub, '2149446185344106496')
-    const parts = token.accessToken.split('.')
-    parts[2] = `${parts[2][0] === 'A' ? 'B' : 'A'}${parts[2].slice(1)}`
-    assert.throws(() => service.verifyAccessToken(parts.join('.')), /签名/)
-
-    const otherService = new TokenService(config({ ...values, 'security.jwt.secret': 'abcdef0123456789abcdef0123456789' }))
-    assert.throws(() => otherService.verifyAccessToken(token.accessToken), /签名/)
-})
-
-test('Redis 登录会话支持创建、轮换和撤销', async () => {
-    const redis = fakeRedis()
-    const service = new AuthSessionService(redis, config({ 'security.session.prefix': 'test:session' }))
-    const now = Math.floor(Date.now() / 1000)
-    const first = { sub: '2149446185344106496', jti: 'first', exp: now + 600 }
-    const second = { sub: first.sub, jti: 'second', exp: now + 600 }
-
-    await service.create(first)
-    await service.assertActive(first)
-    await service.rotate(first.jti, second)
-    await assert.rejects(() => service.assertActive(first), /会话已失效/)
-    await service.assertActive(second)
-    await service.revoke(second.jti)
-    await assert.rejects(() => service.assertActive(second), /会话已失效/)
-})
-
-test('图形验证码忽略大小写且只能使用一次', async () => {
-    const redis = fakeRedis()
-    const service = new CaptchaService(redis)
-    const captcha = await service.create()
-    const [key, expected] = [...redis.values.entries()][0]
-
-    assert.match(key, /^chat-web:account:captcha:/)
-    assert.equal(redis.ttls.get(key), service.expiresIn)
-    assert.equal(service.expiresIn, 180)
-    assert.equal(captcha.sid, key.slice(key.lastIndexOf(':') + 1))
-    assert.match(captcha.svg, /^<svg/)
-    await service.verify(captcha.sid, expected.toLowerCase())
-    await assert.rejects(() => service.verify(captcha.sid, expected), /验证码错误或已过期/)
-})
-
-test('Nacos Redis 配置会生成带认证信息的连接地址', () => {
-    const service = new RedisService(
-        config({
-            redis: {
-                host: 'chat-web-redis',
-                port: 6379,
-                database: 2,
-                username: 'default',
-                password: 'p@ss/word'
-            }
-        })
-    )
-    const resolved = new URL(service.getConnectionUrl())
-    assert.equal(resolved.hostname, 'chat-web-redis')
-    assert.equal(resolved.pathname, '/2')
-    assert.equal(resolved.username, 'default')
-    assert.equal(resolved.password, 'p%40ss%2Fword')
-})
-
 test('Nacos 远端配置会写入 ConfigService', () => {
     const values = new Map()
     const configService = {
@@ -514,19 +364,14 @@ test('就绪检查会报告缺失的数据库表', async () => {
                 return [{ tableName: 'table_a' }]
             }
         },
-        config({ JWT_SECRET: '0123456789abcdef0123456789abcdef' }),
-        {
-            async ping() {
-                return true
-            }
-        }
+        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050', 'feign.service_token': 'service-token' })
     )
     const result = await service.getReadiness()
     assert.equal(result.status, 'DOWN')
     assert.deepEqual(result.database.missingTables, ['table_b'])
 })
 
-test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
+test('就绪检查会拒绝缺失的鉴权服务内部认证配置', async () => {
     const dataSource = {
         isInitialized: true,
         entityMetadatas: [{ tableName: 'table_a' }],
@@ -534,38 +379,22 @@ test('就绪检查会拒绝缺失或过短的 JWT 密钥', async () => {
             return [{ tableName: 'table_a' }]
         }
     }
-    const redis = {
-        async ping() {
-            return true
-        }
-    }
-    const missing = await new HealthService(dataSource, config({}), redis).getReadiness()
+    const missing = await new HealthService(dataSource, config({})).getReadiness()
+    const missingToken = await new HealthService(
+        dataSource,
+        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050' })
+    ).getReadiness()
     const valid = await new HealthService(
         dataSource,
-        config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }),
-        redis
+        config({ 'feign.chat-web-auth.url': 'http://chat-web-auth-service:5050', 'feign.service_token': 'service-token' })
     ).getReadiness()
-    assert.equal(missing.status, 'DOWN')
-    assert.equal(missing.security.jwtConfigured, false)
-    assert.equal(valid.status, 'UP')
-    assert.equal(valid.security.jwtConfigured, true)
-})
 
-test('就绪检查会拒绝不可用的 Redis 会话存储', async () => {
-    const dataSource = {
-        isInitialized: true,
-        entityMetadatas: [{ tableName: 'table_a' }],
-        async query() {
-            return [{ tableName: 'table_a' }]
-        }
-    }
-    const result = await new HealthService(dataSource, config({ 'security.jwt.secret': '0123456789abcdef0123456789abcdef' }), {
-        async ping() {
-            return false
-        }
-    }).getReadiness()
-    assert.equal(result.status, 'DOWN')
-    assert.equal(result.redis.connected, false)
+    assert.equal(missing.status, 'DOWN')
+    assert.equal(missing.security.authConfigured, false)
+    assert.equal(missingToken.status, 'DOWN')
+    assert.equal(missingToken.security.authConfigured, false)
+    assert.equal(valid.status, 'UP')
+    assert.equal(valid.security.authConfigured, true)
 })
 
 test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {

@@ -1,5 +1,27 @@
 # 部署变更记录
 
+## 2026-09-05：认证迁出到鉴权服务
+
+- 影响机器：`chat-home-server`；Account 服务与新增的 `chat-web-auth-service`。
+- 关联版本：共享包升级到 `@wlisfes/chat-web-base-schema@1.5.1`。
+- 变更内容：
+    - 删除 `src/modules/auth/` 全部实现，登录、图形验证码、令牌签发轮换、登出、当前身份解析和令牌内省全部迁往 `chat-web-auth-service`。
+    - 删除业务 Feign 的 `/feign/auth/token/introspect` 与内部 `/internal/auth/token/introspect` 路由；Account 不再持有 JWT 密钥，改为通过共享包 `AuthModule` 调用鉴权服务内部内省协议。
+    - 业务 Feign 收敛为 `/feign/consumer/resolver`、`/feign/consumer/select` 和新增的 `/feign/user/batch/resolver`；Authorization 位改为承载 `feign.service_token` 服务凭据，不再转发终端用户令牌。
+    - 移除 Redis 依赖与 index `0` 使用权，登录会话和验证码由鉴权服务接管；就绪检查改为校验数据库与 `feign.chat-web-auth.*` 配置，不再检查 Redis 和 JWT 密钥。
+    - `PasswordService` 改由共享包提供，账号创建和密码重置行为不变。
+- 机器侧操作：
+    1. 在 Nacos `chat-web-account-service.yaml` 新增 `feign.chat-web-auth.url`（`http://chat-web-auth-service:5050`）和 `feign.chat-web-auth.timeout`（`3000`），保留既有 `feign.service_token`。
+    2. 删除 `chat-web-account-service.yaml` 中的 `security.jwt.*`、`security.session.prefix` 和 `redis` 节点；删除前必须确认这些值已原样复制到 `chat-web-auth-service.yaml`，否则存量令牌与会话会全部失效。
+    3. 必须先部署鉴权服务并验证内省接口可用，再部署本服务。
+- 验证命令：
+    ```bash
+    yarn format:check && yarn test && yarn build
+    docker exec chat-web-account-service node -e "require('http').get('http://127.0.0.1:5010/health/ready', r => r.pipe(process.stdout))"
+    curl -s https://chat-web.lisfes.cn/api/account/user/column -H 'authorization: Bearer <access-token>' -X POST -d '{"page":1,"size":10}' -H 'content-type: application/json'
+    ```
+- 回滚方法：恢复 Account 上一版完整 Git SHA 并回滚共享包依赖版本；同时把 `security.jwt.*`、`security.session.prefix` 和 `redis` 节点恢复到 `chat-web-account-service.yaml`。鉴权服务可继续运行，两侧使用相同 JWT 配置时存量会话不受影响。
+
 ## 2026-09-05：新增网关内部认证接口
 
 - 影响机器：`chat-home-server`；Account 服务内部接口。
