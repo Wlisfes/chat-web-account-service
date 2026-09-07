@@ -78,9 +78,9 @@ gateway:
 - `security.jwt.secret` / `issuer` / `audience` / `accessTokenTtlSeconds`
 - `security.session.prefix`
 - `redis` 整个节点（index `0` 已移交鉴权服务，本服务不再连接 Redis）
-- `feign.gateway` 和 `feign.chat-web-*`（Account 当前不调用其他业务服务）
+- `feign.chat-web-*`（Account 当前不调用其他业务服务）
 
-`feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置 Gateway 或逐服务 Feign 地址。
+`feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置任何出站 Feign 地址。
 
 ## 旧平台数据迁移
 

@@ -179,7 +179,7 @@
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
 - 业务 Feign 的 Authorization 位承载调用方服务凭据（`feign.service_token`），不承载终端用户令牌。跨服务基础查询接口不做权限码校验和数据范围过滤，因此必须限制返回字段和单次数量，例如 `/feign/user/batch/resolver` 只返回 `uid`、`number`、`name`、`avatar` 且单次上限 100。业务 Feign 中不得再出现任何令牌内省接口。
-- 所有业务 Feign 调用统一经 Gateway `/feign/**` 转发，地址和超时读取调用方 Nacos `feign.gateway.url/timeout`；本服务作为 Feign 提供方只需配置 `feign.service_token`，不配置 Auth 服务地址。
+- 业务 Feign 调用方直接访问目标服务的 `/feign/**` 入口，地址和超时按目标服务读取调用方 Nacos `feign.chat-web-<目标服务>.url/timeout`；本服务作为 Feign 提供方只需配置 `feign.service_token`，不配置出站服务地址。
 
 ### 共享 Schema 依赖联动
 

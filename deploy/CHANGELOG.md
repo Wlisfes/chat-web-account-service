@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-07：清理 Account 未使用的 Feign 目标地址
+
+- 影响机器：Home（`chat-server-home`）。
+- 关联版本：待发布 Account 完整 Git SHA；共享 Feign 契约保持当前版本。
+- 变更内容：Account Nacos 仅保留 `feign.service_token`，删除未使用的 CRM、Finance、Skyline 目标地址；Account 不配置出站 Feign 地址。
+- 机器侧操作：更新 Nacos `chat-web-account-service.yaml` 后再切换 Account 镜像，确认服务间凭据未变更。
+- 验证命令：`yarn build && yarn test`；部署后检查 `/health` 和 `/feign/account/**`。
+- 回滚方法：恢复上一完整 Git SHA，并按备份恢复已删除的未使用配置节点。
+
 ## 2026-09-07：停用 Company 部署目标
 
 - 影响机器：Home；Company 已废弃。
