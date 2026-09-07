@@ -36,7 +36,7 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库与业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
-`/health/live` 只表示进程存活；Docker 使用的 `/health` 会检查数据库连接、账号服务全部必需表和 `feign.service_token`。返回 503 时，根据 `missingTables` 与 `security.authConfigured` 检查数据库、增量 SQL 和服务间凭据，不要绕过健康检查。
+`/health/live` 只表示进程存活；Docker 使用的 `/health` 会检查数据库连接、账号服务全部必需表和 `gateway.feign.service_token`。返回 503 时，根据 `missingTables` 与 `security.authConfigured` 检查数据库、增量 SQL 和服务间凭据，不要绕过健康检查。
 
 外部客户主表和客户接口已全部迁移到 CRM。Account 不再注册 `tb_account_consumer`，也不再提供 `/consumer/**` 或 `/feign/account/consumer/**`；Account Schema 的清理增量会在数据完成迁移后删除旧表。
 
@@ -53,7 +53,7 @@ SELECT DATABASE(), CURRENT_USER();
 SHOW GRANTS FOR CURRENT_USER();
 ```
 
-预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 不再使用 Redis；`/feign/account/**` 只提供账号业务摘要接口，调用方必须携带与 Nacos 一致的 `feign.service_token`，不共享 JWT 密钥或登录会话。
+预期当前数据库为 `chat_web_account`，授权目标仅包含 `chat_web_account`。Account 不再使用 Redis；`/feign/account/**` 只提供账号业务摘要接口，调用方必须携带与 Nacos 一致的 `gateway.feign.service_token`，不共享 JWT 密钥或登录会话。
 
 本地基础设施首次使用全新 MySQL 数据卷时，必须先创建 `chat_web_account` 数据库，再运行 Schema 升级器。MySQL 官方镜像只会在空数据目录执行 `/docker-entrypoint-initdb.d` 中的 SQL；给已有数据卷补挂初始化脚本不会重复执行，也不能替代 Schema 增量 SQL。TypeORM 必须继续保持 `synchronize: false` 和 `migrationsRun: false`。
 
@@ -63,8 +63,9 @@ SHOW GRANTS FOR CURRENT_USER();
 
 ```yaml
 # 账号服务只作为业务 Feign 提供方，校验调用方携带的系统级凭据。
-feign:
-    service_token: '<服务间共享凭据>'
+gateway:
+    feign:
+        service_token: '<服务间共享凭据>'
 
 # 新增：校验网关签发的身份上下文，密钥必须与网关完全一致。
 gateway:
@@ -80,7 +81,7 @@ gateway:
 - `redis` 整个节点（index `0` 已移交鉴权服务，本服务不再连接 Redis）
 - `feign.chat-web-*`（Account 当前不调用其他业务服务）
 
-`feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置任何出站 Feign 地址。
+`gateway.feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置任何出站 Feign 地址。
 
 ## 旧平台数据迁移
 

@@ -46,7 +46,7 @@ test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭�
                 return users
             }
         }),
-        config({ 'feign.service_token': 'service-token' })
+        config({ 'gateway.feign.service_token': 'service-token' })
     )
 
     assert.equal(FeignController.prototype.introspect, undefined)
@@ -355,7 +355,7 @@ test('就绪检查会报告缺失的数据库表', async () => {
                 return [{ tableName: 'table_a' }]
             }
         },
-        config({ 'feign.service_token': 'service-token' })
+        config({ 'gateway.feign.service_token': 'service-token' })
     )
     const result = await service.getReadiness()
     assert.equal(result.status, 'DOWN')
@@ -371,7 +371,7 @@ test('就绪检查会拒绝缺失的 Feign 服务凭据', async () => {
         }
     }
     const missing = await new HealthService(dataSource, config({})).getReadiness()
-    const valid = await new HealthService(dataSource, config({ 'feign.service_token': 'service-token' })).getReadiness()
+    const valid = await new HealthService(dataSource, config({ 'gateway.feign.service_token': 'service-token' })).getReadiness()
 
     assert.equal(missing.status, 'DOWN')
     assert.equal(missing.security.authConfigured, false)

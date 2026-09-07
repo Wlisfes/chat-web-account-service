@@ -23,7 +23,7 @@ export class HealthService {
     public async getReadiness(): Promise<ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
         // 账号服务的业务 Feign 入口只需要校验共享服务凭据；用户 Token 由 Gateway 交给 Auth 校验。
-        const serviceToken = this.configService.get<string>('feign.service_token')
+        const serviceToken = this.configService.get<string>('gateway.feign.service_token')
         const authConfigured = isNotEmpty(serviceToken)
         let database: ServiceDependencyResponseDto
         let databaseReady = false
