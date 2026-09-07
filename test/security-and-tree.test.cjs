@@ -40,14 +40,12 @@ function config(values) {
 test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭据', async () => {
     const users = [{ uid: '2149446185344106496', number: 'A1', name: '张三' }]
     const controller = new FeignController(
-        new FeignService(
-            {
-                async httpBaseAccountBatchResolverUser(input) {
-                    assert.deepEqual(input, { uids: ['2149446185344106496'] })
-                    return users
-                }
+        new FeignService({
+            async httpBaseAccountBatchResolverUser(input) {
+                assert.deepEqual(input, { uids: ['2149446185344106496'] })
+                return users
             }
-        ),
+        }),
         config({ 'feign.service_token': 'service-token' })
     )
 
@@ -318,13 +316,7 @@ test('财务菜单种子覆盖现有前端路由并按父级在前排序', () =>
     assert.equal(new Set(paths).size, paths.length)
     assert.deepEqual(
         paths.filter(path => path.split('/').length === 4),
-        [
-            '/finance/deploy/brand',
-            '/finance/deploy/currency',
-            '/finance/deploy/exchange',
-            '/finance/deploy/country',
-            '/finance/rates/sms'
-        ]
+        ['/finance/deploy/brand', '/finance/deploy/currency', '/finance/deploy/exchange', '/finance/deploy/country', '/finance/rates/sms']
     )
     for (const item of FINANCE_MENU_SEEDS) {
         if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
