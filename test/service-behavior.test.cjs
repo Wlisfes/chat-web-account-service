@@ -2,7 +2,6 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const { TbAccountRole } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
-const { ConsumerService } = require('../dist/modules/consumer/consumer.service')
 const { RoleService } = require('../dist/modules/role/role.service')
 
 test('角色新增在同一事务内完成编码校验与写入', async () => {
@@ -43,7 +42,6 @@ test('角色新增在同一事务内完成编码校验与写入', async () => {
         ['transaction', 'findCodeAvailable', 'create', 'save']
     )
 })
-
 test('角色编辑在事务内重新锁定角色并完成编码校验与写入', async () => {
     const calls = []
     const transactionManager = {
@@ -87,7 +85,6 @@ test('角色编辑在事务内重新锁定角色并完成编码校验与写入',
     assert.ok(calls.some(call => call[0] === 'transaction'))
     assert.ok(calls.some(call => call[0] === 'save'))
 })
-
 test('编辑内置角色时优先返回禁止修改编码错误', async () => {
     const calls = []
     const transactionManager = {}
@@ -113,91 +110,4 @@ test('编辑内置角色时优先返回禁止修改编码错误', async () => {
         error => error.message === '系统内置角色不能修改编码'
     )
     assert.deepEqual(calls, [])
-})
-
-test('客户分页通过共享 builder 应用分页并返回统一分页结构', async () => {
-    const queryCalls = []
-    const consumer = { keyId: 5181000, uid: '5181000', ownerUserUid: '2281665656346656771', name: '测试客户' }
-    const queryBuilder = {
-        orderBy(field, direction) {
-            queryCalls.push(['orderBy', field, direction])
-            return this
-        },
-        skip(value) {
-            queryCalls.push(['skip', value])
-            return this
-        },
-        take(value) {
-            queryCalls.push(['take', value])
-            return this
-        },
-        async getManyAndCount() {
-            queryCalls.push(['getManyAndCount'])
-            return [[consumer], 1]
-        }
-    }
-    const repository = {}
-    const database = {
-        builder(currentRepository, callback) {
-            assert.equal(currentRepository, repository)
-            return callback(queryBuilder)
-        }
-    }
-    const consumerUtilsService = {
-        async toManagerContracts(consumers) {
-            assert.deepEqual(consumers, [consumer])
-            return consumers.map(item => ({ ...item, brandId: item.brandKeyId }))
-        }
-    }
-    const service = new ConsumerService(repository, database, consumerUtilsService)
-
-    const result = await service.httpBaseAccountColumnConsumer({ page: 2, size: 10 })
-
-    assert.deepEqual(result, { page: 2, size: 10, total: 1, list: [{ ...consumer, brandId: undefined }] })
-    assert.ok(queryCalls.some(call => call[0] === 'skip' && call[1] === 10))
-    assert.ok(queryCalls.some(call => call[0] === 'take' && call[1] === 10))
-    assert.ok(queryCalls.some(call => call[0] === 'getManyAndCount'))
-})
-
-test('客户编辑在事务内锁定实体后写入', async () => {
-    const calls = []
-    const consumer = { keyId: 5181000, name: '旧客户', ownerUserUid: '2281665656346656771' }
-    const transactionManager = {
-        merge(_entity, target, fields) {
-            calls.push(['merge', fields])
-            Object.assign(target, fields)
-        },
-        async save(target) {
-            calls.push(['save', target])
-            return target
-        }
-    }
-    const repository = {
-        manager: {
-            async transaction(callback) {
-                calls.push(['transaction'])
-                return callback(transactionManager)
-            }
-        }
-    }
-    const consumerUtilsService = {
-        async findRequired(keyId, manager) {
-            assert.equal(keyId, 5181000)
-            assert.equal(manager, transactionManager)
-            calls.push(['findRequired'])
-            return consumer
-        },
-        toManagerContract(target) {
-            return target
-        }
-    }
-    const service = new ConsumerService(repository, {}, consumerUtilsService)
-
-    const result = await service.httpBaseAccountUpdateConsumer({ keyId: 5181000, name: '新客户' })
-
-    assert.equal(result.name, '新客户')
-    assert.deepEqual(
-        calls.map(call => call[0]),
-        ['transaction', 'findRequired', 'merge', 'save']
-    )
 })

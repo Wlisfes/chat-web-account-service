@@ -1,7 +1,6 @@
 import { ApiProperty, OmitType, PickType } from '@nestjs/swagger'
 import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import {
-    TbAccountConsumerDto,
     TbAccountMenuDto,
     TbAccountOrganizationDto,
     TbAccountPositionDto,
@@ -104,7 +103,7 @@ export class EffectiveAccessResponseDto {
     @ApiProperty({ description: '有效角色编码', type: [String], example: ['sales_manager'] })
     roleCodes: string[]
 
-    @ApiProperty({ description: '有效权限编码', type: [String], example: ['account:consumer:list'] })
+    @ApiProperty({ description: '有效权限编码', type: [String], example: ['account:user:list'] })
     permissionCodes: string[]
 
     @ApiProperty({ description: '当前账号可访问的菜单树', type: [SheetTreeNodeResponseDto] })
@@ -120,54 +119,6 @@ export class EffectiveDataScopeResponseDto {
 
     @ApiProperty({ description: '可访问的组织主键', type: [Number], example: [1, 2, 3] })
     organizationKeyIds: number[]
-}
-
-export class ConsumerDepartmentOptionResponseDto {
-    @ApiProperty({ description: '组织主键', example: 1 })
-    keyId: number
-
-    @ApiProperty({ description: '组织名称', example: '华东销售部' })
-    name: string
-
-    @ApiProperty({ description: '兼容前端使用的部门名称', example: '华东销售部' })
-    deptName: string
-}
-
-export class ConsumerResponseDto extends TbAccountConsumerDto {
-    @ApiProperty({ description: '兼容前端使用的业务员 UID', example: '2149446185344106496' })
-    userId: string
-
-    @ApiProperty({ description: '兼容前端使用的品牌主键', example: 1 })
-    brandId: number
-
-    @ApiProperty({ description: '归属业务员信息', type: AccountUserSummaryResponseDto })
-    accountOptions: AccountUserSummaryResponseDto
-
-    @ApiProperty({ description: '归属业务员的组织列表', type: [ConsumerDepartmentOptionResponseDto] })
-    deptOptions: ConsumerDepartmentOptionResponseDto[]
-
-    @ApiProperty({ description: '客户标签', type: [String], example: [] })
-    tags: string[]
-}
-
-export class ConsumerPageResponseDto extends PageResponseDataDto {
-    @ApiProperty({ description: '客户列表', type: [ConsumerResponseDto] })
-    list: ConsumerResponseDto[]
-}
-
-export class ConsumerSelectResponseDto extends PickType(TbAccountConsumerDto, [
-    'keyId',
-    'uid',
-    'ownerUserUid',
-    'name',
-    'alias',
-    'currency',
-    'email',
-    'phone',
-    'status'
-] as const) {
-    @ApiProperty({ description: '兼容前端使用的品牌主键', example: 1 })
-    brandId: number
 }
 
 export class PositionResponseDto extends TbAccountPositionDto {

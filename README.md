@@ -61,26 +61,9 @@ $ yarn run test:cov
 
 本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过 `chat-home-server` 上的仓库专用 Self-hosted Runner 部署；失败时自动回滚。原另一台部署机器已废弃，不再创建部署任务。
 
-外部客户由账号域的 `tb_account_consumer` 管理，管理端通过 `/api/account/consumer/**` 访问；Gateway 只使用 Account 服务前缀，Finance 服务不再保存第二份客户主表。
+外部客户归 CRM 服务管理，Account 不再提供客户接口、客户表或客户数据脚本。
 
 菜单管理分为两类查询：左侧树使用 `GET /api/account/sheet/tree/structure`，右侧表格使用 `POST /api/account/sheet/column`。该接口在 `parentKeyId` 为空时返回所有一级节点，传入主键时将指定节点排在第一条并返回其一层直接下级节点，结果为不带 `children` 的平铺分页数据；同时支持名称、权限码和路由路径筛选。组织管理接口统一使用 `/api/account/dept` 前缀。
-
-旧财务库客户迁移默认 dry-run；迁移账号需临时拥有旧库只读权限和账号库写入权限，运行时服务账号仍只授权账号库：
-
-```bash
-LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate
-LEGACY_FINANCE_DATABASE=legacy_windows yarn legacy:consumer-migrate --apply
-```
-
-`tb_account_consumer.key_id` 从 `5181000` 开始。演示环境可使用固定随机种子生成 120 条客户数据，并轮询分配到最多 20 个启用账号归属人；命令默认只预览，只有 `--apply` 才写入，重复执行会按固定客户 UID 幂等跳过：
-
-```bash
-yarn build
-yarn seed:consumer
-yarn seed:consumer --apply
-```
-
-需要生成演示客户时，在 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`。该选项会在 `chat-home-server` 完成 Schema 升级和健康部署后执行；自动 push 部署不会重复造数。
 
 完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
 

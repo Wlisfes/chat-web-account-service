@@ -37,25 +37,25 @@ function config(values) {
     }
 }
 
-test('业务 Feign 不再暴露内省接口，且只接受服务间凭据', async () => {
-    const consumer = { keyId: 12, uid: '2149446185344106496', name: '示例客户' }
+test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭据', async () => {
+    const users = [{ uid: '2149446185344106496', number: 'A1', name: '张三' }]
     const controller = new FeignController(
         new FeignService(
             {
-                async httpBaseAccountResolverConsumer(query) {
-                    assert.deepEqual(query, { keyId: 12 })
-                    return consumer
+                async httpBaseAccountBatchResolverUser(input) {
+                    assert.deepEqual(input, { uids: ['2149446185344106496'] })
+                    return users
                 }
-            },
-            {}
+            }
         ),
         config({ 'feign.service_token': 'service-token' })
     )
 
     assert.equal(FeignController.prototype.introspect, undefined)
-    assert.equal(await controller.resolveConsumer('Bearer service-token', 12), consumer)
+    assert.equal(FeignController.prototype.resolveConsumer, undefined)
+    assert.deepEqual(await controller.batchResolveUsers('Bearer service-token', { uids: ['2149446185344106496'] }), users)
     await assert.rejects(
-        () => controller.resolveConsumer('Bearer user-token', 12),
+        () => controller.batchResolveUsers('Bearer user-token', { uids: ['2149446185344106496'] }),
         error => error?.status === 401
     )
 })
@@ -323,7 +323,6 @@ test('财务菜单种子覆盖现有前端路由并按父级在前排序', () =>
             '/finance/deploy/currency',
             '/finance/deploy/exchange',
             '/finance/deploy/country',
-            '/finance/account/consumer',
             '/finance/rates/sms'
         ]
     )

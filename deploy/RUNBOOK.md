@@ -25,8 +25,8 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
 | Nacos 服务名         | `chat-web-account-service`      |
-| 部署主机             | `chat-home-server`              |
-| Runner 标签          | `chat-home-server`              |
+| 部署主机             | Company / Home                  |
+| Runner 标签          | `chat-server-company` / `chat-server-home` |
 
 `.env.example` 中的值只是示例，不代表机器的运行基线。Namespace ID 是本机 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例猜测。
 
@@ -38,7 +38,7 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会检查数据库连接、账号服务全部必需表和 `feign.service_token`。返回 503 时，根据 `missingTables` 与 `security.authConfigured` 检查数据库、增量 SQL 和服务间凭据，不要绕过健康检查。
 
-外部客户主表为 `tb_account_consumer`，服务内部管理接口为 `/consumer/**`，经 Gateway 公开为 `/api/account/consumer/**`。该表属于账号域；Finance 数据库中的 `tb_finance_client*` 由 Schema 增量直接删除，不得恢复业务写入。
+外部客户主表和客户接口已全部迁移到 CRM。Account 不再注册 `tb_account_consumer`，也不再提供 `/consumer/**` 或 `/feign/account/consumer/**`；Account Schema 的清理增量会在数据完成迁移后删除旧表。
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
@@ -78,9 +78,9 @@ gateway:
 - `security.jwt.secret` / `issuer` / `audience` / `accessTokenTtlSeconds`
 - `security.session.prefix`
 - `redis` 整个节点（index `0` 已移交鉴权服务，本服务不再连接 Redis）
-- `feign.gateway`（Account 当前不调用其他业务服务，只需要 `feign.service_token`）
+- `feign.gateway` 和 `feign.chat-web-*`（Account 当前不调用其他业务服务）
 
-`feign.service_token` 缺失时 `/health/ready` 会返回 `DOWN` 且 `security.authConfigured` 为 `false`；Account 不需要配置 Auth 服务地址或逐服务 Feign 地址。
+`feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置 Gateway 或逐服务 Feign 地址。
 
 ## 旧平台数据迁移
 
@@ -121,25 +121,7 @@ yarn legacy:migrate --apply
 
 ## 客户演示数据
 
-`tb_account_consumer.key_id` 的标准起点为 `5181000`。`dist/cli/seed-demo-consumer.js` 使用固定种子生成 120 条可重复验证的客户数据，覆盖客户状态、付款模式、类型、阶段、认证、来源、品牌和币种，并轮询分配到最多 20 个启用账号。数据库中必须至少存在两个启用账号，否则脚本拒绝造数，避免所有客户错误集中到同一归属人。
-
-命令默认 dry-run；仅显式 `--apply` 才提交。生产环境应从 GitHub Actions 手动运行 `Build and deploy` 并勾选 `seedDemoConsumers`，由 `chat-home-server` 的 Runner 在容器部署健康后执行：
-
-```bash
-docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js
-docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js --apply
-```
-
-落库后通过本服务数据库连接执行：
-
-```sql
-SELECT COUNT(*) AS consumer_count, MIN(key_id) AS min_key_id, MAX(key_id) AS max_key_id FROM tb_account_consumer;
-SELECT AUTO_INCREMENT FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'tb_account_consumer';
-SELECT COUNT(DISTINCT owner_user_uid) AS owner_count FROM tb_account_consumer;
-SELECT owner_user_uid, COUNT(*) AS consumer_count FROM tb_account_consumer GROUP BY owner_user_uid ORDER BY consumer_count DESC, owner_user_uid;
-```
-
-再次执行 `--apply` 时预期 `pending=0`、`inserted=0`。演示客户 UID 和邮箱使用固定保留区间，禁止把该脚本用于真实客户批量导入。
+外部客户主数据已归 CRM 服务，客户数据演示、迁移和校验统一在 CRM 数据库执行，详见 CRM 的 `deploy/RUNBOOK.md`。Account 不保留客户种子或迁移脚本。
 
 ## 五分钟排障
 

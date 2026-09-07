@@ -82,23 +82,6 @@ export const FINANCE_MENU_SEEDS: FinanceMenuSeed[] = [
     {
         parentPath: '/finance',
         type: 'directory',
-        name: '账户管理',
-        path: '/finance/account',
-        permissionCode: 'finance:account',
-        sort: 20
-    },
-    {
-        parentPath: '/finance/account',
-        type: 'menu',
-        name: '消费用户',
-        path: '/finance/account/consumer',
-        routeName: 'FinanceAccountConsumer',
-        permissionCode: 'finance:consumer:list',
-        sort: 10
-    },
-    {
-        parentPath: '/finance',
-        type: 'directory',
         name: '资费管理',
         path: '/finance/rates',
         permissionCode: 'finance:rates',

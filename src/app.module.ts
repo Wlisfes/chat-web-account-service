@@ -5,7 +5,6 @@ import { GatewayPrincipalGuard, GatewayPrincipalModule } from '@wlisfes/chat-web
 import { HttpResponseModule } from '@wlisfes/chat-web-base-schema/interceptor'
 import { forRootNacosRuntimeOptions, NacosModule } from '@wlisfes/chat-web-base-schema/nacos'
 import { DatabaseModule } from '@/modules/database/database.module'
-import { ConsumerModule } from '@/modules/consumer/consumer.module'
 import { SheetModule } from '@/modules/sheet/sheet.module'
 import { HealthModule } from '@/modules/health/health.module'
 import { DeptModule } from '@/modules/dept/dept.module'
@@ -26,7 +25,6 @@ import { AppService } from '@/app.service'
         DatabaseModule,
         // 用户认证在网关完成一次；账号服务只校验网关签发的身份上下文签名。
         GatewayPrincipalModule,
-        ConsumerModule,
         HealthModule,
         PermissionModule,
         DeptModule,

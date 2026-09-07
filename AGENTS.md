@@ -18,11 +18,11 @@
 - 涉及容器部署时必须遵守本文件部署章节中的主机、Runner、网络、健康检查和回滚约束，禁止使用 `--remove-orphans`。
 - 每次改动至少执行格式检查、TypeScript 类型检查和 Nest 构建；涉及数据库、代理、服务发现或部署时增加运行级验证。
 
-## 单机部署规则
+## 双机部署规则
 
-- 本服务只部署到当前主机 `chat-home-server`，原另一台部署机器已废弃并下线，不得再为废弃机器创建部署任务或多机矩阵。
-- GitHub Actions 使用 `chat-home-server` Runner 标签和 `production-home` Environment，只构建一次完整 Git SHA 镜像并部署到 `/opt/chat-web-account-service`。
-- 本仓库使用独立 Self-hosted Runner；部署必须包含健康检查、部署后验证和失败自动回滚，不得使用 `--remove-orphans`。
+- 本服务默认同时部署到 Company 和 Home 两台独立机器，Runner 标签分别为 `chat-server-company`、`chat-server-home`，Environment 分别为 `production-company`、`production-home`。
+- GitHub Actions 只构建并发布一次完整 Git SHA 镜像，再通过 `company / home` 矩阵部署到 `/opt/chat-web-account-service`；矩阵必须 `fail-fast: false`，并使用 `deploy-${server}` 隔离并发。
+- 两台机器分别安装本仓库专用 Self-hosted Runner；部署必须包含健康检查、部署后验证和失败自动回滚，不得使用 `--remove-orphans`。
 
 ## HTTP 模块实现基准
 
@@ -66,7 +66,7 @@
 ## 服务数据边界
 
 - 本服务与 `chat-web-auth-service` **共享** MySQL 数据库 `chat_web_account`，这是经过评估的特例，不适用于其他任何服务组合。共享边界必须严格遵守：
-    - 本服务是共享库的建表方和唯一写入方，负责全部表结构发布和业务写入。
+    - 本服务是账号域表的建表方和唯一写入方，负责账号域表结构发布和业务写入；外部客户表已迁移到 CRM，Account 不再注册或写入该表。
     - 鉴权服务只读取 `tb_account_user`，唯一写入字段是 `last_login_time`；本服务不得依赖该字段做业务判定，也不得假设它只由自己更新。
     - `chat-web-base-schema` 中 `tb_account_user` 的任何结构变更必须同时评估鉴权服务，两个仓库的共享包依赖需要成对升级。
     - 运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
@@ -74,6 +74,7 @@
 - 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
 - 授权（权限码校验）仍归本服务：`RequirePermissions`、`PermissionGuard` 和权限数据查询留在这里，不得迁往鉴权服务。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
+- 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
 - 业务 Feign 的 Authorization 位承载调用方服务凭据（`feign.service_token`），不承载终端用户令牌。跨服务基础查询接口不做权限码校验和数据范围过滤，因此必须限制返回字段和单次数量，例如 `/feign/user/batch/resolver` 只返回 `uid`、`number`、`name`、`avatar` 且单次上限 100。业务 Feign 中不得再出现任何令牌内省接口。
 - 所有业务 Feign 调用统一经 Gateway `/feign/**` 转发，地址和超时读取调用方 Nacos `feign.gateway.url/timeout`；本服务作为 Feign 提供方只需配置 `feign.service_token`，不配置 Auth 服务地址。

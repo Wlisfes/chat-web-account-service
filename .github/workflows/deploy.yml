@@ -5,12 +5,6 @@ on:
         branches:
             - main
     workflow_dispatch:
-        inputs:
-            seedDemoConsumers:
-                description: Generate 120 demo consumers across enabled account owners
-                required: false
-                default: false
-                type: boolean
 
 jobs:
     verify:
@@ -95,22 +89,32 @@ jobs:
                       github_token=${{ secrets.GITHUB_TOKEN }}
 
     deploy:
-        name: Deploy to chat-home-server
+        name: Deploy to ${{ matrix.server }}
         needs: build
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - server: company
+                      runner: chat-server-company
+                      environment: production-company
+                    - server: home
+                      runner: chat-server-home
+                      environment: production-home
         runs-on:
             - self-hosted
             - linux
-            - chat-home-server
-        environment: production-home
+            - ${{ matrix.runner }}
+        environment: ${{ matrix.environment }}
         concurrency:
-            group: deploy-chat-home-server
-            cancel-in-progress: true
+            group: deploy-${{ matrix.server }}
+            cancel-in-progress: false
         permissions:
             contents: read
             packages: read
         env:
             DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/chat-web-account-service' }}
-            DEPLOYMENT_ENVIRONMENT: production-home
+            DEPLOYMENT_ENVIRONMENT: ${{ matrix.environment }}
             IMAGE: ${{ needs.build.outputs.image }}
 
         steps:
@@ -168,12 +172,11 @@ jobs:
                   cd "$DEPLOY_PATH"
                   ./deploy.sh "$IMAGE" compose.yml
 
-            - name: Seed demo consumers
-              if: ${{ github.event_name == 'workflow_dispatch' && inputs.seedDemoConsumers }}
+            - name: Verify deployed endpoint
               shell: bash
               run: |
                   set -eu
-                  docker exec chat-web-account-service node dist/cli/seed-demo-consumer.js --apply
+                  docker exec chat-web-account-service node -e "require('http').get('http://127.0.0.1:5010/health', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
             - name: Repair CRM menus
               shell: bash
