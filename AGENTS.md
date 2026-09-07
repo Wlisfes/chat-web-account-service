@@ -18,11 +18,11 @@
 - 涉及容器部署时必须遵守本文件部署章节中的主机、Runner、网络、健康检查和回滚约束，禁止使用 `--remove-orphans`。
 - 每次改动至少执行格式检查、TypeScript 类型检查和 Nest 构建；涉及数据库、代理、服务发现或部署时增加运行级验证。
 
-## 双机部署规则
+## 单机部署规则
 
-- 本服务默认同时部署到 Company 和 Home 两台独立机器，Runner 标签分别为 `chat-server-company`、`chat-server-home`，Environment 分别为 `production-company`、`production-home`。
-- GitHub Actions 只构建并发布一次完整 Git SHA 镜像，再通过 `company / home` 矩阵部署到 `/opt/chat-web-account-service`；矩阵必须 `fail-fast: false`，并使用 `deploy-${server}` 隔离并发。
-- 两台机器分别安装本仓库专用 Self-hosted Runner；部署必须包含健康检查、部署后验证和失败自动回滚，不得使用 `--remove-orphans`。
+- Company 部署机已废弃，本服务只部署到 Home，Runner 标签为 `chat-server-home`，Environment 为 `production-home`。
+- GitHub Actions 只构建并发布一次完整 Git SHA 镜像，并部署到 `/opt/chat-web-account-service`。
+- Home 安装本仓库专用 Self-hosted Runner；部署必须包含健康检查、部署后验证和失败自动回滚，不得使用 `--remove-orphans`。
 
 ## HTTP 模块实现基准
 

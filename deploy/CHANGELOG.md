@@ -1,8 +1,17 @@
 # 部署变更记录
 
+## 2026-09-07：停用 Company 部署目标
+
+- 影响机器：Home；Company 已废弃。
+- 关联版本：Account 完整 Git SHA。
+- 变更内容：移除 `chat-server-company` 部署任务，只保留 `chat-server-home` 和 `production-home`。
+- 机器侧操作：Home Runner 保留 `chat-server-home` 标签；无需修改 `.env`、端口、Nacos 或部署目录。
+- 验证命令：检查 Actions 的 `Deploy to home`、容器健康状态和 `/health`。
+- 回滚方法：恢复上一完整 Git SHA；不得恢复已废弃的 Company 部署任务。
+
 ## 2026-09-07：彻底移除 Account 客户域残留
 
-- 影响机器：Company、Home（`chat-server-company`、`chat-server-home`）。
+- 影响机器：Home（`chat-server-home`）。
 - 关联版本：`@wlisfes/chat-web-base-schema@1.6.4` 与 Account 完整 Git SHA。
 - 变更内容：删除 Account 客户模块、客户 DTO、客户 Feign 契约、旧客户种子和迁移脚本，并移除手动部署的演示客户选项；Account Schema 新增 `tb_account_consumer` 清理增量。
 - 机器侧操作：先确认客户数据已完整导入 CRM 的 `tb_crm_consumer`，再部署 Account，使 Schema 增量删除 Account 旧表；Account Nacos 不再需要 `feign.gateway.*`。

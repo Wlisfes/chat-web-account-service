@@ -25,8 +25,8 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 | Nacos Group          | `DEFAULT_GROUP`                 |
 | Nacos Namespace 名称 | `chat-web-service`              |
 | Nacos 服务名         | `chat-web-account-service`      |
-| 部署主机             | Company / Home                  |
-| Runner 标签          | `chat-server-company` / `chat-server-home` |
+| 部署主机             | Home                            |
+| Runner 标签          | `chat-server-home`              |
 
 `.env.example` 中的值只是示例，不代表机器的运行基线。Namespace ID 是本机 Nacos 的运行参数；恢复机器时先在 Nacos 控制台确认 `chat-web-service` 的实际 ID，再填写服务器 `.env`，不要根据示例猜测。
 
