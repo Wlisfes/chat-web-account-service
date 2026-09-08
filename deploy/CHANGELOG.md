@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-08：取消 Account 部署后的菜单自动修复
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 本次 `developer` 分支改动。
+- 变更内容：Account 部署流程不再自动执行 CRM、职位和系统任务菜单修复；菜单变更只保留手动脚本入口，不再由部署链路覆盖。
+- 机器侧操作：如需修复菜单，手工执行对应 `node dist/cli/repair-*.js --apply`；不要把菜单修复塞回自动部署步骤。
+- 验证命令：执行 `yarn build`、`yarn format:check`、`node --test test/*.test.cjs`。
+- 回滚方法：恢复上一版 Account 工作流；菜单数据本身不回滚。
+
 ## 2026-09-08：修复 Account 部署 Runner 标签
 
 - 影响机器：`chat-home-server`。
@@ -17,6 +26,7 @@
 - 机器侧操作：更新 Nacos `chat-web-account-service.yaml` 后再切换 Account 镜像，确认服务间凭据未变更。
 - 验证命令：`yarn build && yarn test`；部署后检查 `/health` 和 `/feign/account/**`。
 - 回滚方法：恢复上一完整 Git SHA，并按备份恢复已删除的未使用配置节点。
+
 ## 2026-09-07：停用 Company 部署目标
 
 - 影响机器：Home；Company 已废弃。
@@ -105,8 +115,8 @@
 
 - 影响机器：`chat-home-server`。
 - 关联版本：Account 本次完整 Git SHA 镜像；Skyline 系统任务管理页面 `/deploy/datetask/system`。
-- 变更内容：新增系统任务菜单种子（权限码 `skyline:datetask:list`），挂载到综合设置 `/deploy` 下并授权已有综合设置角色及超级管理员；任务数据和执行逻辑仍由 Skyline 负责，Account 不新增业务表。
-- 机器侧操作：发布 Account 镜像后流水线自动执行 `repair-datetask-menus.js --apply`，无需手工 SQL；不得使用 `--remove-orphans`。
+- 变更内容：新增系统任务菜单种子（权限码 `skyline:datetask:list`），挂载到任务管理 `/deploy/datetask` 下并授权已有综合设置角色及超级管理员；任务数据和执行逻辑仍由 Skyline 负责，Account 不新增业务表。
+- 机器侧操作：系统任务菜单不再纳入部署后的自动修复流程；如需变更菜单，手工执行 `node dist/cli/repair-datetask-menus.js --apply`。不得使用 `--remove-orphans`。
 - 验证命令：执行 `yarn format:check`、`yarn build`、`node --test test/*.test.cjs`；部署后检查账号权限接口返回 `/deploy/datetask/system` 菜单，并确认 Skyline `/health/live` 正常。
 - 回滚方法：恢复上一版 Account 镜像并移除本次菜单及角色关系；不影响 Skyline 表结构和任务数据。
 
