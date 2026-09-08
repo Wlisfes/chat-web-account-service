@@ -89,15 +89,15 @@ jobs:
                       github_token=${{ secrets.GITHUB_TOKEN }}
 
     deploy:
-        name: Deploy to home
+        name: Deploy to chat-home-server
         needs: build
         runs-on:
             - self-hosted
             - linux
-            - chat-server-home
+            - chat-home-server
         environment: production-home
         concurrency:
-            group: deploy-home
+            group: deploy-chat-home-server
             cancel-in-progress: false
         permissions:
             contents: read

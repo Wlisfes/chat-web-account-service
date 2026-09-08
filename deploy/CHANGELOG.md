@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-08：修复 Account 部署 Runner 标签
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account `developer` 分支工作流修复。
+- 变更内容：将部署作业从已废弃的 `chat-server-home` 标签切换为现行 `chat-home-server`，并统一部署并发组名称，避免构建完成后因找不到 Runner 长时间排队。
+- 机器侧操作：确认 Account 仓库专用 Runner 在线且包含 `chat-home-server`、`self-hosted`、`linux` 标签；无需修改 `.env`、Nacos、数据库或部署目录。
+- 验证命令：运行 `actionlint .github/workflows/deploy.yml`，确认部署作业能匹配 `chat-home-server` Runner，并验证容器健康检查及 `/health`。
+- 回滚方法：恢复上一完整 Git SHA；不得恢复已废弃的 `chat-server-home` 或 Company 部署目标。
+
 ## 2026-09-07：清理 Account 未使用的 Feign 目标地址
 
 - 影响机器：Home（`chat-server-home`）。
@@ -8,7 +17,6 @@
 - 机器侧操作：更新 Nacos `chat-web-account-service.yaml` 后再切换 Account 镜像，确认服务间凭据未变更。
 - 验证命令：`yarn build && yarn test`；部署后检查 `/health` 和 `/feign/account/**`。
 - 回滚方法：恢复上一完整 Git SHA，并按备份恢复已删除的未使用配置节点。
-
 ## 2026-09-07：停用 Company 部署目标
 
 - 影响机器：Home；Company 已废弃。
