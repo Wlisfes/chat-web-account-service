@@ -89,15 +89,15 @@ jobs:
                       github_token=${{ secrets.GITHUB_TOKEN }}
 
     deploy:
-        name: Deploy to home
+        name: Deploy to chat-home-server
         needs: build
         runs-on:
             - self-hosted
             - linux
-            - chat-server-home
+            - chat-home-server
         environment: production-home
         concurrency:
-            group: deploy-home
+            group: deploy-chat-home-server
             cancel-in-progress: false
         permissions:
             contents: read
@@ -167,24 +167,6 @@ jobs:
               run: |
                   set -eu
                   docker exec chat-web-account-service node -e "require('http').get('http://127.0.0.1:5010/health', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
-
-            - name: Repair CRM menus
-              shell: bash
-              run: |
-                  set -eu
-                  docker exec chat-web-account-service node dist/cli/repair-crm-menus.js --apply
-
-            - name: Repair position menus
-              shell: bash
-              run: |
-                  set -eu
-                  docker exec chat-web-account-service node dist/cli/repair-position-menus.js --apply
-
-            - name: Repair system task menu
-              shell: bash
-              run: |
-                  set -eu
-                  docker exec chat-web-account-service node dist/cli/repair-datetask-menus.js --apply
 
             - name: Log out from GitHub Container Registry
               if: always()

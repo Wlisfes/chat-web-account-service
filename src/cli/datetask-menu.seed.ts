@@ -1,11 +1,11 @@
 import type { Connection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 type DatetaskMenuSeed = {
-    parentPath: string
-    type: 'menu'
+    parentPath: string | null
+    type: 'directory' | 'menu'
     name: string
     path: string
-    routeName: string
+    routeName?: string
     permissionCode: string
     sort: number
 }
@@ -30,6 +30,14 @@ export type DatetaskMenuRepairResult = {
 export const DATETASK_MENU_SEEDS: DatetaskMenuSeed[] = [
     {
         parentPath: '/deploy',
+        type: 'directory',
+        name: '任务管理',
+        path: '/deploy/datetask',
+        permissionCode: 'skyline:datetask',
+        sort: 40
+    },
+    {
+        parentPath: '/deploy/datetask',
         type: 'menu',
         name: '系统任务管理',
         path: '/deploy/datetask/system',
@@ -58,12 +66,15 @@ export async function repairDatetaskMenus(connection: Connection): Promise<Datet
     const menuKeyIdsByPath = new Map<string, number>()
 
     for (const seed of DATETASK_MENU_SEEDS) {
-        const [parentRows] = await connection.execute<MenuRow[]>(
-            'SELECT key_id, path FROM tb_account_menu WHERE path = ? LIMIT 1 FOR UPDATE',
-            [seed.parentPath]
-        )
-        const parentKeyId = parentRows[0]?.key_id
-        if (!parentKeyId) throw new Error(`系统任务菜单父节点缺失：${seed.parentPath}`)
+        let parentKeyId: number | null = null
+        if (seed.parentPath) {
+            const [parentRows] = await connection.execute<MenuRow[]>(
+                'SELECT key_id, path FROM tb_account_menu WHERE path = ? LIMIT 1 FOR UPDATE',
+                [seed.parentPath]
+            )
+            parentKeyId = parentRows[0]?.key_id || menuKeyIdsByPath.get(seed.parentPath) || null
+        }
+        if (seed.parentPath && !parentKeyId) throw new Error(`系统任务菜单父节点缺失：${seed.parentPath}`)
 
         const existing = await findMenu(connection, seed)
         if (existing) {
@@ -71,7 +82,7 @@ export async function repairDatetaskMenus(connection: Connection): Promise<Datet
                 `UPDATE tb_account_menu
                     SET parent_key_id = ?, type = ?, name = ?, route_name = ?, path = ?, permission_code = ?, sort = ?, visible = 1, status = 'enabled'
                   WHERE key_id = ?`,
-                [parentKeyId, seed.type, seed.name, seed.routeName, seed.path, seed.permissionCode, seed.sort, existing.key_id]
+                [parentKeyId, seed.type, seed.name, seed.routeName ?? null, seed.path, seed.permissionCode, seed.sort, existing.key_id]
             )
             menuKeyIdsByPath.set(seed.path, existing.key_id)
             updated += 1
@@ -83,7 +94,7 @@ export async function repairDatetaskMenus(connection: Connection): Promise<Datet
                 (parent_key_id, type, name, route_name, path, component, permission_code, icon, external_url,
                  sort, visible, keep_alive, status)
              VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, ?, 1, 1, 'enabled')`,
-            [parentKeyId, seed.type, seed.name, seed.routeName, seed.path, seed.permissionCode, seed.sort]
+            [parentKeyId, seed.type, seed.name, seed.routeName ?? null, seed.path, seed.permissionCode, seed.sort]
         )
         menuKeyIdsByPath.set(seed.path, result.insertId)
         created += 1

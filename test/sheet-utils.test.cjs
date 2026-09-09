@@ -39,3 +39,26 @@ test('按钮节点不能作为父菜单', async () => {
     await assert.rejects(() => service.findParentRequired(parent.keyId, manager), /按钮节点不能包含下级菜单/)
     assert.equal(queryCount, 1)
 })
+
+test('目录节点必须配置菜单地址', () => {
+    const service = new SheetUtilsService({}, {})
+
+    assert.throws(
+        () =>
+            service.findSheetFieldsRequired({
+                type: TbAccountMenuType.DIRECTORY,
+                permissionCode: null,
+                path: null,
+                externalUrl: null
+            }),
+        /目录节点必须配置菜单地址/
+    )
+    assert.doesNotThrow(() =>
+        service.findSheetFieldsRequired({
+            type: TbAccountMenuType.DIRECTORY,
+            permissionCode: null,
+            path: '/deploy/datetask',
+            externalUrl: null
+        })
+    )
+})

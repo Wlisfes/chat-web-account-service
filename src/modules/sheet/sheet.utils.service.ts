@@ -73,6 +73,9 @@ export class SheetUtilsService {
         if (sheet.type === TbAccountMenuType.BUTTON && !sheet.permissionCode?.trim()) {
             throw new BadRequestException('按钮节点必须配置权限码')
         }
+        if (sheet.type === TbAccountMenuType.DIRECTORY && !sheet.path?.trim()) {
+            throw new BadRequestException('目录节点必须配置菜单地址')
+        }
         if (sheet.type === TbAccountMenuType.MENU && !sheet.path?.trim() && !sheet.externalUrl?.trim()) {
             throw new BadRequestException('菜单节点必须配置路由路径或外部链接')
         }
