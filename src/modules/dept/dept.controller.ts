@@ -20,7 +20,7 @@ export class DeptController {
     }
 
     @RequirePermissions('account:organization:list')
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取组织详情' },
         request: { source: 'query', type: DeptKeyDto },
         response: { type: TbAccountOrganizationDto, description: '组织详情' }

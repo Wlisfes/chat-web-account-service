@@ -27,7 +27,7 @@ export class RoleController {
     }
 
     @RequirePermissions('account:role:list')
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取角色、菜单和数据范围详情' },
         request: { source: 'query', type: RoleKeyDto },
         response: { type: RoleResponseDto, description: '角色权限详情' }

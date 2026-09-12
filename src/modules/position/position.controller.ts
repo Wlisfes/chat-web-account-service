@@ -36,7 +36,7 @@ export class PositionController {
     }
 
     @RequirePermissions('account:position:list')
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取职位详情' },
         request: { source: 'query', type: PositionKeyDto },
         response: { type: PositionResponseDto, description: '职位详情' }

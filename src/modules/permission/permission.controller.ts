@@ -10,7 +10,7 @@ import { EffectiveAccessResponseDto, EffectiveDataScopeResponseDto } from '@/dto
 export class PermissionController {
     constructor(private readonly permissionService: PermissionService) {}
 
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取当前用户的角色、权限码和菜单树' },
         response: { type: EffectiveAccessResponseDto, description: '当前用户有效权限' }
     })

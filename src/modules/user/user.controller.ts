@@ -39,7 +39,7 @@ export class UserController {
     }
 
     @RequirePermissions('account:user:list')
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '按当前用户的数据范围获取账号详情' },
         request: { source: 'query', type: UserUidDto },
         response: { type: UserDetailResponseDto, description: '账号详情' }

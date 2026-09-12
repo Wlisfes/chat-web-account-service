@@ -30,7 +30,7 @@ export class SheetController {
     }
 
     @RequirePermissions('account:menu:list')
-    @ApiServiceDecorator(Get('resolver'), {
+    @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取菜单详情' },
         request: { source: 'query', type: SheetKeyDto },
         response: { type: TbAccountMenuDto, description: '菜单详情' }
