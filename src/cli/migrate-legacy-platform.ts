@@ -503,14 +503,14 @@ async function migrate(connection: Connection, options: MigrationOptions, superA
     const childParentKeys = new Set(menus.map(menu => menu.pid).filter((value): value is string => Boolean(value)))
     const menuKeyMap = new Map<string, number>()
     const menuPermissionMap = new Map<string, number>()
-    const menuVisibleMap = new Map<string, boolean>()
+    const menuVisibleMap = new Map<string, 0 | 1>()
     for (const menu of menus) {
         const parentKeyId = menu.pid ? menuKeyMap.get(menu.pid) : null
         const mappedPath = menu.router ? ROUTE_PATH_MAP.get(menu.router) || menu.router : null
         const type =
             menu.type === 'button' ? 'button' : childParentKeys.has(menu.key_id) || mappedPath === '/finance' ? 'directory' : 'menu'
-        const parentVisible = menu.pid ? menuVisibleMap.get(menu.pid) === true : true
-        const visible = menu.type === 'button' ? parentVisible : Boolean(mappedPath && VISIBLE_ROUTE_PATHS.has(mappedPath))
+        const parentVisible: 0 | 1 = menu.pid ? (menuVisibleMap.get(menu.pid) === 1 ? 1 : 0) : 1
+        const visible: 0 | 1 = menu.type === 'button' ? parentVisible : mappedPath && VISIBLE_ROUTE_PATHS.has(mappedPath) ? 1 : 0
         const permissionCode = PERMISSION_CODE_MAP.get(menu.key) || menu.key
         const menuKeyId = await insertAndGetId(
             connection,
