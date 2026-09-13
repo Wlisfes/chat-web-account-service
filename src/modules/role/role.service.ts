@@ -40,17 +40,19 @@ export class RoleService {
         if (input.code.trim() === 'super_admin') {
             throw new ConflictException('super_admin 是保留角色编码')
         }
-        return this.roleRepository.manager.transaction(async manager => {
+        const role = await this.roleRepository.manager.transaction(async manager => {
             await this.roleUtilsService.findCodeAvailable(manager, input.code)
             const role = manager.create(TbAccountRole, { ...input, builtin: false })
             return manager.save(role)
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [role.keyId] })
+        return role
     }
 
     /**编辑角色*/
     public async httpBaseAccountUpdateRole(principal: AuthPrincipal, input: RoleDto.UpdateRolePayloadDto): Promise<TbAccountRole> {
         const { keyId, ...fields } = input
-        return this.roleRepository.manager.transaction(async manager => {
+        const role = await this.roleRepository.manager.transaction(async manager => {
             const role = await this.roleUtilsService.findRequired(keyId, manager)
             if (role.builtin && isNotEmpty(fields.code) && fields.code !== role.code) {
                 throw new ConflictException('系统内置角色不能修改编码')
@@ -67,6 +69,8 @@ export class RoleService {
             manager.merge(TbAccountRole, role, fields)
             return manager.save(role)
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [role.keyId] })
+        return role
     }
 
     /**删除角色*/
@@ -155,6 +159,7 @@ export class RoleService {
                 }
             }
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [input.keyId] })
         return { success: true }
     }
 }

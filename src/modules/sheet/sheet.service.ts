@@ -63,22 +63,22 @@ export class SheetService {
 
     /**新增菜单**/
     public async httpBaseAccountCreateSheet(body: SheetDto.CreateSheetDto): Promise<TbAccountMenu> {
-        return this.sheetRepository.manager.transaction(async manager => {
+        const saved = await this.sheetRepository.manager.transaction(async manager => {
             await this.sheetUtilsService.lockTree(manager)
             await this.sheetUtilsService.findParentRequired(body.parentKeyId, manager)
             await this.sheetUtilsService.findPermissionCodeAvailable(manager, body.permissionCode)
             await this.sheetUtilsService.findSheetFieldsRequired(body)
             const sheet = manager.create(TbAccountMenu, { ...body, parentKeyId: body.parentKeyId })
-            const saved = await manager.save(sheet)
-            await this.permissionCacheService.invalidate({})
-            return saved
+            return manager.save(sheet)
         })
+        await this.permissionCacheService.invalidate({})
+        return saved
     }
 
     /**编辑菜单**/
     public async httpBaseAccountUpdateSheet(body: SheetDto.UpdateSheetPayloadDto): Promise<TbAccountMenu> {
         const { keyId, ...input } = body
-        return this.sheetRepository.manager.transaction(async manager => {
+        const saved = await this.sheetRepository.manager.transaction(async manager => {
             await this.sheetUtilsService.lockTree(manager)
             const sheet = await this.sheetUtilsService.findRequired(keyId, manager)
 
@@ -97,6 +97,8 @@ export class SheetService {
                 return sheet
             })
         })
+        await this.permissionCacheService.invalidate({})
+        return saved
     }
 
     /**删除菜单**/
