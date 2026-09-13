@@ -15,14 +15,14 @@ import { In, Repository } from 'typeorm'
 import { RoleResponseDto } from '@/dto/api-response.dto'
 import * as RoleDto from '@/modules/role/dto/role.dto'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
-import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
+import { AuthorizationService } from '@/modules/authorization/authorization.service'
 
 @Injectable()
 export class RoleService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
         private readonly roleUtilsService: RoleUtilsService,
-        private readonly permissionCacheService: PermissionCacheService
+        private readonly permissionCacheService: AuthorizationService
     ) {}
 
     /**角色下拉列表*/

@@ -9,7 +9,7 @@ import { isNotEmpty } from 'class-validator'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
-import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
+import { AuthorizationService } from '@/modules/authorization/authorization.service'
 
 @Injectable()
 export class SheetService {
@@ -17,7 +17,7 @@ export class SheetService {
         @InjectRepository(TbAccountMenu) private readonly sheetRepository: Repository<TbAccountMenu>,
         private readonly database: DataBaseService,
         private readonly sheetUtilsService: SheetUtilsService,
-        private readonly permissionCacheService: PermissionCacheService
+        private readonly permissionCacheService: AuthorizationService
     ) {}
 
     /**菜单树结构**/

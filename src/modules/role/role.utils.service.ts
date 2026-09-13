@@ -16,7 +16,7 @@ import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { isNotEmpty } from 'class-validator'
 import { EntityManager, In, Repository } from 'typeorm'
 import { RoleResponseDto } from '@/dto/api-response.dto'
-import { PermissionService } from '@/modules/permission/permission.service'
+import { AuthorizationService } from '@/modules/authorization/authorization.service'
 import { RoleDataScopeRuleDto } from '@/modules/role/dto/role.dto'
 
 @Injectable()
@@ -24,7 +24,7 @@ export class RoleUtilsService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
         private readonly database: DataBaseService,
-        private readonly permissionService: PermissionService
+        private readonly permissionService: AuthorizationService
     ) {}
 
     /**获取角色及数据范围列表*/

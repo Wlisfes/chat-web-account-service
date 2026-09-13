@@ -17,7 +17,7 @@ import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
 import { isEmpty, isNotEmpty } from 'class-validator'
 import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
 import { UserDetailResponseDto, UserOrganizationResponseDto } from '@/dto/api-response.dto'
-import { PermissionService } from '@/modules/permission/permission.service'
+import { AuthorizationService } from '@/modules/authorization/authorization.service'
 import { UserOrganizationMembershipDto } from '@/modules/user/dto/user.dto'
 
 const USER_RESOURCE_CODE = 'account:user'
@@ -29,7 +29,7 @@ export class UserUtilsService {
         @InjectRepository(TbAccountPosition) private readonly positionRepository: Repository<TbAccountPosition>,
         @InjectRepository(TbAccountUserPosition) private readonly userPositionRepository: Repository<TbAccountUserPosition>,
         private readonly database: DataBaseService,
-        private readonly permissionService: PermissionService
+        private readonly permissionService: AuthorizationService
     ) {}
 
     /**将账号数据范围应用到查询构造器*/

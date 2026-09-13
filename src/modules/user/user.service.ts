@@ -17,7 +17,7 @@ import { AccountUserResponseDto, AccountUserSummaryResponseDto, UserDetailRespon
 import { PasswordService } from '@wlisfes/chat-web-base-schema/auth'
 import * as UserDto from '@/modules/user/dto/user.dto'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
-import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
+import { AuthorizationService } from '@/modules/authorization/authorization.service'
 
 @Injectable()
 export class UserService {
@@ -26,7 +26,7 @@ export class UserService {
         private readonly database: DataBaseService,
         private readonly passwordService: PasswordService,
         private readonly userUtilsService: UserUtilsService,
-        private readonly permissionCacheService: PermissionCacheService
+        private readonly permissionCacheService: AuthorizationService
     ) {}
 
     /**新增账号*/

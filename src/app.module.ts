@@ -8,8 +8,8 @@ import { DatabaseModule } from '@/modules/database/database.module'
 import { SheetModule } from '@/modules/sheet/sheet.module'
 import { HealthModule } from '@/modules/health/health.module'
 import { DeptModule } from '@/modules/dept/dept.module'
-import { PermissionGuard } from '@/modules/permission/permission.guard'
-import { PermissionModule } from '@/modules/permission/permission.module'
+import { AuthorizationGuard } from '@/modules/authorization/authorization.guard'
+import { AuthorizationModule } from '@/modules/authorization/authorization.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
 import { PositionModule } from '@/modules/position/position.module'
@@ -26,7 +26,7 @@ import { AppService } from '@/app.service'
         // 用户认证在网关完成一次；账号服务只校验网关签发的身份上下文签名。
         GatewayPrincipalModule,
         HealthModule,
-        PermissionModule,
+        AuthorizationModule,
         DeptModule,
         SheetModule,
         RoleModule,
@@ -38,7 +38,7 @@ import { AppService } from '@/app.service'
     providers: [
         AppService,
         { provide: APP_GUARD, useExisting: GatewayPrincipalGuard },
-        { provide: APP_GUARD, useExisting: PermissionGuard }
+        { provide: APP_GUARD, useExisting: AuthorizationGuard }
     ]
 })
 export class AppModule {}
