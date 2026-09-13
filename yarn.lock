@@ -696,10 +696,10 @@
     "@webassemblyjs/ast" "1.14.1"
     "@xtuc/long" "4.2.2"
 
-"@wlisfes/chat-web-base-schema@1.6.12":
-  version "1.6.12"
-  resolved "https://npm.pkg.github.com/download/@wlisfes/chat-web-base-schema/1.6.12/b51dd12357c7d4e76e521a9f34f8791a40c6c7cb#b51dd12357c7d4e76e521a9f34f8791a40c6c7cb"
-  integrity sha512-ntDvxbMs2QsX6W+hbkatfIeVA8VLMwtgrbIq5Q14YAhvXvMQkO8gabX/wGs8XvfeB5JfMbBgGMps4GXm703EGg==
+"@wlisfes/chat-web-base-schema@1.6.13":
+  version "1.6.13"
+  resolved "https://npm.pkg.github.com/download/@wlisfes/chat-web-base-schema/1.6.13/c1ab097b759870f914c7b22709f7e686aab85ab9#c1ab097b759870f914c7b22709f7e686aab85ab9"
+  integrity sha512-inYx1EAmu5sXaNSeaI0PAe9FakKiG50jeN9jw/M/L2GaHTvNj3wwy7aeqLyXFQPKUHH+MfuI3UIF8tdSGDROQA==
   dependencies:
     "@opentelemetry/api" "^1.9.0"
     "@types/lodash" "^4.17.25"

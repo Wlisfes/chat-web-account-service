@@ -23,7 +23,7 @@ export class SheetService {
         const sheets = await this.database.builder(this.sheetRepository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
-        return buildTree(sheets)
+        return buildTree(sheets) as unknown as SheetTreeNodeResponseDto[]
     }
 
     /**菜单分页数据**/
