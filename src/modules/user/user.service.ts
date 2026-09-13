@@ -17,6 +17,7 @@ import { AccountUserResponseDto, AccountUserSummaryResponseDto, UserDetailRespon
 import { PasswordService } from '@wlisfes/chat-web-base-schema/auth'
 import * as UserDto from '@/modules/user/dto/user.dto'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
+import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
 
 @Injectable()
 export class UserService {
@@ -24,7 +25,8 @@ export class UserService {
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
         private readonly database: DataBaseService,
         private readonly passwordService: PasswordService,
-        private readonly userUtilsService: UserUtilsService
+        private readonly userUtilsService: UserUtilsService,
+        private readonly permissionCacheService: PermissionCacheService
     ) {}
 
     /**新增账号*/
@@ -60,6 +62,7 @@ export class UserService {
             await this.userUtilsService.insertRoles(manager, saved.uid, roleKeyIds)
             await this.userUtilsService.replacePositions(manager, saved.uid, positionKeyIds)
             saved.password = undefined as unknown as string
+            await this.permissionCacheService.invalidate({ uids: [saved.uid] })
             return saved
         })
     }
@@ -220,6 +223,7 @@ export class UserService {
             await manager.delete(TbAccountUserRole, { userUid: targetUid })
             await this.userUtilsService.insertRoles(manager, targetUid, input.roleKeyIds)
         })
+        await this.permissionCacheService.invalidate({ uids: [targetUid] })
         return { success: true }
     }
 }

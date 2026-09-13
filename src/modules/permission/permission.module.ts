@@ -14,6 +14,7 @@ import { PermissionGuard } from '@/modules/permission/permission.guard'
 import { PermissionController } from '@/modules/permission/permission.controller'
 import { PermissionService } from '@/modules/permission/permission.service'
 import { PermissionUtilsService } from '@/modules/permission/permission.utils.service'
+import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
 
 @Global()
 @Module({
@@ -30,7 +31,7 @@ import { PermissionUtilsService } from '@/modules/permission/permission.utils.se
         ])
     ],
     controllers: [PermissionController],
-    providers: [PermissionService, PermissionUtilsService, PermissionGuard],
+    providers: [PermissionService, PermissionUtilsService, PermissionGuard, PermissionCacheService],
     exports: [PermissionService, PermissionGuard]
 })
 export class PermissionModule {}

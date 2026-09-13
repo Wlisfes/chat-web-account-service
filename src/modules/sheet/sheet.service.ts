@@ -9,13 +9,15 @@ import { isNotEmpty } from 'class-validator'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
+import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
 
 @Injectable()
 export class SheetService {
     constructor(
         @InjectRepository(TbAccountMenu) private readonly sheetRepository: Repository<TbAccountMenu>,
         private readonly database: DataBaseService,
-        private readonly sheetUtilsService: SheetUtilsService
+        private readonly sheetUtilsService: SheetUtilsService,
+        private readonly permissionCacheService: PermissionCacheService
     ) {}
 
     /**菜单树结构**/
@@ -67,7 +69,9 @@ export class SheetService {
             await this.sheetUtilsService.findPermissionCodeAvailable(manager, body.permissionCode)
             await this.sheetUtilsService.findSheetFieldsRequired(body)
             const sheet = manager.create(TbAccountMenu, { ...body, parentKeyId: body.parentKeyId })
-            return manager.save(sheet)
+            const saved = await manager.save(sheet)
+            await this.permissionCacheService.invalidate({})
+            return saved
         })
     }
 
@@ -108,6 +112,7 @@ export class SheetService {
             }
             return await manager.delete(TbAccountMenu, { keyId: body.keyId })
         })
+        await this.permissionCacheService.invalidate({})
         return { success: true }
     }
 }

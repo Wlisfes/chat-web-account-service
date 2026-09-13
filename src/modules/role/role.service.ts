@@ -15,12 +15,14 @@ import { In, Repository } from 'typeorm'
 import { RoleResponseDto } from '@/dto/api-response.dto'
 import * as RoleDto from '@/modules/role/dto/role.dto'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
+import { PermissionCacheService } from '@/modules/permission/permission.cache.service'
 
 @Injectable()
 export class RoleService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
-        private readonly roleUtilsService: RoleUtilsService
+        private readonly roleUtilsService: RoleUtilsService,
+        private readonly permissionCacheService: PermissionCacheService
     ) {}
 
     /**角色下拉列表*/
@@ -84,6 +86,7 @@ export class RoleService {
             await manager.delete(TbAccountRoleMenu, { roleKeyId: input.keyId })
             await manager.delete(TbAccountRole, { keyId: input.keyId })
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [input.keyId] })
         return { success: true }
     }
 
@@ -104,6 +107,7 @@ export class RoleService {
                 )
             }
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [input.keyId] })
         return { success: true }
     }
 
