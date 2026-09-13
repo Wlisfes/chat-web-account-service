@@ -6,12 +6,12 @@ import { SheetPageResponseDto, SheetTreeNodeResponseDto } from '@/dto/api-respon
 import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { SheetService } from '@/modules/sheet/sheet.service'
 
-@ApifoxController('系统菜单', 'sheet', { bearerAuth: true })
+@ApifoxController('系统菜单', '/sheet', { bearerAuth: true })
 export class SheetController {
     constructor(private readonly sheetService: SheetService) {}
 
-    @RequirePermissions('account:menu:list')
-    @ApiServiceDecorator(Get('tree/structure'), {
+    @RequirePermissions('chat:deploy:system:sheet')
+    @ApiServiceDecorator(Get('/tree/structure'), {
         operation: { summary: '获取完整菜单树' },
         response: { type: SheetTreeNodeResponseDto, isArray: true, description: '完整菜单树' }
     })
@@ -19,8 +19,8 @@ export class SheetController {
         return this.sheetService.httpBaseAccountSheetTree()
     }
 
-    @RequirePermissions('account:menu:list')
-    @ApiServiceDecorator(Post('column'), {
+    @RequirePermissions('chat:deploy:system:sheet')
+    @ApiServiceDecorator(Post('/column'), {
         operation: { summary: '按父菜单分页查询一级及直接下级节点' },
         request: { source: 'body', type: SheetColumnQueryDto },
         response: { type: SheetPageResponseDto, description: '菜单分页数据' }
@@ -29,7 +29,7 @@ export class SheetController {
         return this.sheetService.httpBaseAccountColumnSheet(body)
     }
 
-    @RequirePermissions('account:menu:list')
+    @RequirePermissions('chat:deploy:system:sheet')
     @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取菜单详情' },
         request: { source: 'query', type: SheetKeyDto },
@@ -39,7 +39,7 @@ export class SheetController {
         return this.sheetService.httpBaseAccountSheetResolver(query)
     }
 
-    @RequirePermissions('account:menu:create')
+    @RequirePermissions('chat:deploy:system:sheet:create')
     @ApiServiceDecorator(Post('create'), {
         operation: { summary: '创建目录、菜单或按钮节点' },
         request: { source: 'body', type: CreateSheetDto },
@@ -49,7 +49,7 @@ export class SheetController {
         return this.sheetService.httpBaseAccountCreateSheet(input)
     }
 
-    @RequirePermissions('account:menu:update')
+    @RequirePermissions('chat:deploy:system:sheet:update')
     @ApiServiceDecorator(Post('update'), {
         operation: { summary: '更新或移动菜单节点' },
         request: { source: 'body', type: UpdateSheetPayloadDto },
@@ -59,7 +59,7 @@ export class SheetController {
         return this.sheetService.httpBaseAccountUpdateSheet(input)
     }
 
-    @RequirePermissions('account:menu:delete')
+    @RequirePermissions('chat:deploy:system:sheet:delete')
     @ApiServiceDecorator(Post('delete'), {
         operation: { summary: '删除没有下级和角色引用的菜单节点' },
         request: { source: 'body', type: SheetKeyDto },
