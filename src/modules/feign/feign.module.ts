@@ -9,6 +9,6 @@ import { UserModule } from '@/modules/user/user.module'
     imports: [UserModule, SharedFeignModule.register([FeignClientAuthManager])],
     controllers: [FeignController],
     providers: [FeignService],
-    exports: [FeignClientAuthManager]
+    exports: [SharedFeignModule]
 })
 export class FeignModule {}
