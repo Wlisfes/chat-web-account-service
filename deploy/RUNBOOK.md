@@ -34,6 +34,8 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 仓库根目录和服务器 `deploy/.env.example` 均只保留进程启动及 Nacos 建连/注册字段；数据库、服务间凭据和网关身份上下文配置统一读取云端 `chat-web-account-service.yaml`。部署目录不通过环境变量覆盖业务配置。
 
+本地 Account 通过 WireGuard 提供给云端 Gateway 时，隧道仅分流 `10.66.0.0/24`，不要使用 `AllowedIPs=0.0.0.0/0`。WireGuard 接口建立后，在本地 `.env` 设置 `NACOS_REGISTER_IP=10.66.0.2`，重启 Account；确认 Nacos 显示 `10.66.0.2:5010`，并从 ECS 执行 `nc -vz 10.66.0.2 5010`。Clash TUN 将 `10.66.0.0/24` 和 WireGuard Endpoint 加入直连，Whistle 与 ZeroOmega 无需修改。
+
 只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库与业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
 `/health/live` 只表示进程存活；Docker 使用的 `/health` 会检查数据库连接、账号服务全部必需表和 `gateway.feign.service_token`。返回 503 时，根据 `missingTables` 与 `security.authConfigured` 检查数据库、增量 SQL 和服务间凭据，不要绕过健康检查。
