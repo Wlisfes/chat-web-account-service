@@ -11,7 +11,6 @@ const controllers = [
     require('../dist/modules/feign/feign.controller').FeignController,
     require('../dist/modules/sheet/sheet.controller').SheetController,
     require('../dist/modules/dept/dept.controller').DeptController,
-    require('../dist/modules/permission/permission.controller').PermissionController,
     require('../dist/modules/position/position.controller').PositionController,
     require('../dist/modules/role/role.controller').RoleController,
     require('../dist/modules/user/user.controller').UserController
@@ -81,7 +80,7 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 38)
+    assert.equal(operations.length, 36)
     assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 23)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 7)
 

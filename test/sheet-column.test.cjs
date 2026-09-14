@@ -79,7 +79,7 @@ function fakeDatabaseService() {
 
 test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async () => {
     const repository = fakeRepository(menus)
-    const service = new SheetService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50 })
 
@@ -94,7 +94,7 @@ test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async ()
 
 test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', async () => {
     const repository = fakeRepository(menus)
-    const service = new SheetService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50, parentKeyId: 1 })
 
@@ -110,7 +110,7 @@ test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', as
 test('菜单 column 使用共享数据库查询构造器', async () => {
     const repository = fakeRepository(menus)
     const database = fakeDatabaseService()
-    const service = new SheetService(repository, database)
+    const service = new SheetService(repository, database, {}, { invalidate: async () => undefined })
 
     await service.httpBaseAccountColumnSheet({ page: 1, size: 10 })
 
@@ -119,7 +119,7 @@ test('菜单 column 使用共享数据库查询构造器', async () => {
 
 test('菜单 column 保留名称、权限码和路由筛选条件', async () => {
     const repository = fakeRepository(menus)
-    const service = new SheetService(repository, fakeDatabaseService())
+    const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     await service.httpBaseAccountColumnSheet({
         page: 1,
@@ -164,7 +164,7 @@ test('菜单删除返回与接口文档一致的成功结果', async () => {
             return { keyId }
         }
     }
-    const service = new SheetService(repository, {}, sheetUtilsService)
+    const service = new SheetService(repository, {}, sheetUtilsService, { invalidate: async () => undefined })
 
     assert.deepEqual(await service.httpBaseAccountDeleteSheet({ keyId: 1 }), { success: true })
 })

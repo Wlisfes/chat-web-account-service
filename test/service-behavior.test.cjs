@@ -31,7 +31,7 @@ test('角色新增在同一事务内完成编码校验与写入', async () => {
             calls.push(['findCodeAvailable', code])
         }
     }
-    const service = new RoleService(repository, roleUtilsService)
+    const service = new RoleService(repository, roleUtilsService, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountCreateRole({ name: '审计员', code: 'auditor', sort: 10, status: 'enabled' })
 
@@ -73,7 +73,7 @@ test('角色编辑在事务内重新锁定角色并完成编码校验与写入',
             calls.push(['findCodeAvailable', code, excludedKeyId])
         }
     }
-    const service = new RoleService(repository, roleUtilsService)
+    const service = new RoleService(repository, roleUtilsService, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountUpdateRole({ uid: '2281665656346656771' }, { keyId: 102, name: '新角色', code: 'new_code' })
 
@@ -103,7 +103,7 @@ test('编辑内置角色时优先返回禁止修改编码错误', async () => {
             calls.push('findSuperAdminRequired')
         }
     }
-    const service = new RoleService(repository, roleUtilsService)
+    const service = new RoleService(repository, roleUtilsService, { invalidate: async () => undefined })
 
     await assert.rejects(
         () => service.httpBaseAccountUpdateRole({ uid: 'ordinary-user' }, { keyId: 103, code: 'changed_role' }),

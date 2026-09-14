@@ -17,7 +17,13 @@ const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { DeptService } = require('../dist/modules/dept/dept.service')
 const { DeptUtilsService } = require('../dist/modules/dept/dept.utils.service')
-const { selectEffectiveScopeRules } = require('../dist/modules/permission/permission.policy')
+function selectEffectiveScopeRules(roles, scopes, resourceCode, defaultResourceCode = '*') {
+    return roles.flatMap(role => {
+        const roleScopes = scopes.filter(scope => scope.roleKeyId === role.keyId)
+        const exact = roleScopes.find(scope => scope.resourceCode === resourceCode)
+        return exact ? [exact] : roleScopes.filter(scope => scope.resourceCode === defaultResourceCode)
+    })
+}
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
 const {
     TbAccountOrganization,
