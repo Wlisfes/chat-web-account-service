@@ -37,37 +37,28 @@ export class SheetColumnQueryDto extends PageDto {
     path?: string
 }
 
-export class CreateSheetDto extends PickType(TbAccountMenuDto, [
-    'parentKeyId',
-    'type',
-    'name',
-    'routeName',
-    'path',
-    'component',
-    'permissionCode',
-    'icon',
-    'externalUrl',
-    'sort',
-    'visible',
-    'keepAlive',
-    'status'
-] as const) {}
+export class CreateSheetDto extends IntersectionType(
+    PickType(TbAccountMenuDto, ['parentKeyId', 'type', 'name', 'routeName', 'path', 'component']),
+    PickType(TbAccountMenuDto, ['permissionCode', 'icon', 'externalUrl', 'sort', 'visible', 'keepAlive', 'status'])
+) {}
+
+export class SheetTreeNodeDto extends TbAccountMenuDto {
+    @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeDto, isArray: true, example: [] })
+    children: SheetTreeNodeDto[]
+}
 
 export class UpdateSheetDto extends PartialType(CreateSheetDto) {}
 
-export class SheetKeyDto {
-    @ApiProperty({ description: '菜单主键', example: 1 })
-    @Type(() => Number)
-    @IsInt({ message: '菜单主键必须是整数' })
-    @Min(1, { message: '菜单主键必须大于0' })
-    keyId: number
-}
+export class SheetKeyDto extends PickType(TbAccountMenuDto, ['keyId']) {}
 
 export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}
 
-export class SheetTreeNodeResponseDto extends TbAccountMenuDto {
-    @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeResponseDto, isArray: true, example: [] })
-    children: SheetTreeNodeResponseDto[]
+export class SheetTreeNodeResponseDto {
+    @ApiProperty({
+        description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点',
+        type: [SheetTreeNodeDto]
+    })
+    list: SheetTreeNodeDto[]
 }
 
 export class SheetPageResponseDto extends PageResponseDataDto {

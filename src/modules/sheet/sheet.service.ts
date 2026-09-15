@@ -1,12 +1,11 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
 import { TbAccountMenu, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { PageResult, buildTree, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
+import { PageResult, buildTree, isNotEmpty, fetchResolver } from '@wlisfes/chat-web-base-schema/utils'
 import { Repository, InjectRepository, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { AuthorizationService } from '@/modules/authorization/authorization.service'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { SheetUtilsService } from '@/modules/sheet/sheet.utils.service'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
-import { SheetTreeNodeResponseDto } from '@/modules/sheet/dto/sheet.dto'
 
 @Injectable()
 export class SheetService {
@@ -18,11 +17,14 @@ export class SheetService {
     ) {}
 
     /**菜单树结构**/
-    public async httpBaseAccountSheetTree(): Promise<SheetTreeNodeResponseDto[]> {
-        const sheets = await this.database.builder(this.sheetRepository, qb =>
-            qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
-        )
-        return buildTree(sheets) as unknown as SheetTreeNodeResponseDto[]
+    public async httpBaseAccountSheetTree(): Promise<PageResult<TbAccountMenu>> {
+        return await this.database.builder(this.sheetRepository, async qb => {
+            qb.orderBy('t.sort', 'ASC')
+            qb.addOrderBy('t.keyId', 'ASC')
+            return await qb.getMany().then(nodes => {
+                return fetchResolver({ list: buildTree(nodes) })
+            })
+        })
     }
 
     /**菜单分页数据**/
@@ -48,7 +50,7 @@ export class SheetService {
             qb.addOrderBy('t.keyId', 'ASC')
             qb.skip((body.page - 1) * body.size).take(body.size)
             return await qb.getManyAndCount().then(([list, total]) => {
-                return { page: body.page, size: body.size, list, total }
+                return fetchResolver({ page: body.page, size: body.size, list, total })
             })
         })
     }
