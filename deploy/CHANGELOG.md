@@ -1,5 +1,12 @@
 # 部署变更记录
 
+## 2026-09-15：本地 Account 通过 WireGuard 接入云端 Gateway
+
+- 影响机器：本地开发机与云端 ECS。
+- 变更内容：云端 `wg0` 新增本地开发机 peer；本机 WireGuard 隧道仅路由业务隧道网段，并将 Account 服务端口通过 portproxy 暴露给云端 Gateway。
+- Account 配置：`.env` 设置隧道注册地址，服务以 `chat-web-account-service` 注册到云端 Nacos。
+- 验证：ECS 通过隧道地址访问 Account `/health` 返回 HTTP 200，健康状态为 `UP`。
+
 ## 2026-09-09：生产 Nacos 切换为云端域名
 
 - 影响机器：`chat-home-server`。
