@@ -8,7 +8,7 @@ import { isNotEmpty } from 'class-validator'
 import { Repository } from 'typeorm'
 import { PositionUtilsService } from '@/modules/position/position.utils.service'
 import * as PositionDto from '@/modules/position/dto/position.dto'
-import { PositionResponseDto } from '@/dto/api-response.dto'
+import { PositionResponseDto } from '@/modules/position/dto/position.dto'
 
 @Injectable()
 export class PositionService {

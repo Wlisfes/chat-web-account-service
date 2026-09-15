@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import {
+    TbAccountRoleDataScopeDto,
+    TbAccountRoleDataScopeOrganizationDto,
     TbAccountRoleDataScopeStatus,
     TbAccountRoleDataScopeType,
     TbAccountRoleDto
@@ -118,3 +120,18 @@ export class UpdateRolePayloadDto extends IntersectionType(RoleKeyDto, UpdateRol
 export class ReplaceRoleMenusPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleMenusDto) {}
 
 export class ReplaceRoleDataScopesPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleDataScopesDto) {}
+
+export class RoleDataScopeOrganizationResponseDto extends TbAccountRoleDataScopeOrganizationDto {}
+
+export class RoleDataScopeResponseDto extends TbAccountRoleDataScopeDto {
+    @ApiProperty({ description: '自定义数据范围组织', type: [RoleDataScopeOrganizationResponseDto] })
+    organizations: RoleDataScopeOrganizationResponseDto[]
+}
+
+export class RoleResponseDto extends TbAccountRoleDto {
+    @ApiProperty({ description: '角色拥有的菜单主键', type: [Number], required: false, example: [1, 2, 3] })
+    menuKeyIds?: number[]
+
+    @ApiProperty({ description: '角色数据范围规则', type: [RoleDataScopeResponseDto] })
+    dataScopes: RoleDataScopeResponseDto[]
+}

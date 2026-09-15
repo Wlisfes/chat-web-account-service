@@ -9,10 +9,12 @@ import {
     ResetUserPasswordPayloadDto,
     UpdateUserPayloadDto,
     UserUidDto,
-    UserQueryDto
+    UserQueryDto,
+    AccountUserResponseDto,
+    UserDetailResponseDto,
+    UserPageResponseDto
 } from '@/modules/user/dto/user.dto'
 import { UserService } from '@/modules/user/user.service'
-import { AccountUserResponseDto, UserDetailResponseDto, UserPageResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('账号与授权', 'user', { bearerAuth: true })
 export class UserController {

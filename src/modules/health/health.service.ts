@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { isNotEmpty } from 'class-validator'
 import { DataSource } from 'typeorm'
-import { ServiceDependencyResponseDto, ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/dto/api-response.dto'
+import { ServiceDependencyResponseDto, ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/modules/health/dto/health.dto'
 
 type TableRow = {
     tableName: string

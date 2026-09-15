@@ -4,8 +4,8 @@ import { TbAccountOrganization } from '@wlisfes/chat-web-base-schema/chat-web-ac
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { isNotEmpty } from 'class-validator'
 import { Repository } from 'typeorm'
-import { DeptTreeNodeResponseDto } from '@/dto/api-response.dto'
 import * as DeptDto from '@/modules/dept/dto/dept.dto'
+import { DeptTreeNodeResponseDto } from '@/modules/dept/dto/dept.dto'
 import { DeptUtilsService } from '@/modules/dept/dept.utils.service'
 
 @Injectable()

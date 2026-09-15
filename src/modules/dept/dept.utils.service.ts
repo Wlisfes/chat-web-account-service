@@ -17,7 +17,7 @@ import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
 import { EntityManager, In, Repository } from 'typeorm'
-import { DeptTreeNodeResponseDto } from '@/dto/api-response.dto'
+import { DeptTreeNodeResponseDto } from '@/modules/dept/dto/dept.dto'
 
 @Injectable()
 export class DeptUtilsService {

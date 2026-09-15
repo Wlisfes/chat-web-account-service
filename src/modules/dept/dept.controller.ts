@@ -2,9 +2,8 @@ import { Body, Get, Post, Query } from '@nestjs/common'
 import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { TbAccountOrganizationDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { CreateDeptDto, DeptKeyDto, UpdateDeptPayloadDto } from '@/modules/dept/dto/dept.dto'
+import { CreateDeptDto, DeptKeyDto, DeptTreeNodeResponseDto, UpdateDeptPayloadDto } from '@/modules/dept/dto/dept.dto'
 import { DeptService } from '@/modules/dept/dept.service'
-import { DeptTreeNodeResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('组织架构', 'dept', { bearerAuth: true })
 export class DeptController {

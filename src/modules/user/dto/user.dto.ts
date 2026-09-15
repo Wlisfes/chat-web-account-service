@@ -1,10 +1,15 @@
 import { Type } from 'class-transformer'
-import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional, IntersectionType, OmitType, PartialType, PickType } from '@nestjs/swagger'
 import {
     TbAccountUserDto,
+    TbAccountUserOrganizationDto,
     TbAccountUserOrganizationStatus,
-    TbAccountUserStatus
+    TbAccountUserStatus,
+    TbAccountRoleDto,
+    TbAccountOrganizationDto
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
 import {
     ArrayMaxSize,
     ArrayUnique,
@@ -195,3 +200,47 @@ export class ResetUserPasswordPayloadDto extends IntersectionType(UserUidDto, Re
 export class ReplaceUserOrganizationsPayloadDto extends IntersectionType(UserUidDto, ReplaceUserOrganizationsDto) {}
 
 export class ReplaceUserRolesPayloadDto extends IntersectionType(UserUidDto, ReplaceUserRolesDto) {}
+
+export class AccountUserResponseDto extends OmitType(TbAccountUserDto, ['password'] as const) {}
+
+export class AccountUserSummaryResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
+
+export class UserOrganizationResponseDto extends TbAccountOrganizationDto {
+    @ApiProperty({ description: '是否为主组织', example: true })
+    isPrimary: boolean
+
+    @ApiProperty({ description: '岗位名称', required: false, example: '客户经理' })
+    positionName?: string
+
+    @ApiProperty({
+        description: '用户组织关系状态',
+        enum: TbAccountUserOrganizationStatus,
+        example: TbAccountUserOrganizationStatus.ENABLED
+    })
+    membershipStatus: TbAccountUserOrganizationStatus
+}
+
+export class UserDetailResponseDto extends AccountUserResponseDto {
+    @ApiProperty({ description: '账号组织关系', type: [TbAccountUserOrganizationDto] })
+    memberships: TbAccountUserOrganizationDto[]
+
+    @ApiProperty({ description: '账号所属组织', type: [UserOrganizationResponseDto] })
+    organizations: UserOrganizationResponseDto[]
+
+    @ApiProperty({ description: '账号角色主键', type: [Number], example: [1, 2] })
+    roleKeyIds: number[]
+
+    @ApiProperty({ description: '账号角色', type: [TbAccountRoleDto] })
+    roles: TbAccountRoleDto[]
+
+    @ApiProperty({ description: '账号职位主键', type: [Number], example: [1, 2] })
+    positionKeyIds: number[]
+
+    @ApiProperty({ description: '账号职位', type: [PositionSelectResponseDto] })
+    positions: PositionSelectResponseDto[]
+}
+
+export class UserPageResponseDto extends PageResponseDataDto {
+    @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
+    list: UserDetailResponseDto[]
+}

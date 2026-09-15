@@ -12,8 +12,8 @@ import {
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { isNotEmpty } from 'class-validator'
 import { In, Repository } from 'typeorm'
-import { RoleResponseDto } from '@/dto/api-response.dto'
 import * as RoleDto from '@/modules/role/dto/role.dto'
+import { RoleResponseDto } from '@/modules/role/dto/role.dto'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
 import { AuthorizationService } from '@/modules/authorization/authorization.service'
 

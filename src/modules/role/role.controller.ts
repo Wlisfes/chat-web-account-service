@@ -11,7 +11,7 @@ import {
     UpdateRolePayloadDto
 } from '@/modules/role/dto/role.dto'
 import { RoleService } from '@/modules/role/role.service'
-import { RoleResponseDto } from '@/dto/api-response.dto'
+import { RoleResponseDto } from '@/modules/role/dto/role.dto'
 
 @ApifoxController('角色权限', 'role', { bearerAuth: true })
 export class RoleController {

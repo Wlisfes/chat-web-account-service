@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
@@ -63,3 +64,16 @@ export class SheetKeyDto {
 }
 
 export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}
+
+export class SheetTreeNodeResponseDto extends TbAccountMenuDto {
+    @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeResponseDto, isArray: true, example: [] })
+    children: SheetTreeNodeResponseDto[]
+}
+
+export class SheetPageResponseDto extends PageResponseDataDto {
+    @ApiProperty({
+        description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点',
+        type: [TbAccountMenuDto]
+    })
+    list: TbAccountMenuDto[]
+}

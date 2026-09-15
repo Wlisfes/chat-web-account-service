@@ -7,9 +7,11 @@ import {
     ListPositionDto,
     PositionKeyDto,
     SelectPositionDto,
-    UpdatePositionDto
+    UpdatePositionDto,
+    PositionPageResponseDto,
+    PositionResponseDto,
+    PositionSelectResponseDto
 } from '@/modules/position/dto/position.dto'
-import { PositionPageResponseDto, PositionResponseDto, PositionSelectResponseDto } from '@/dto/api-response.dto'
 
 @ApifoxController('系统职位', 'position', { bearerAuth: true })
 export class PositionController {

@@ -1,5 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common'
-import { ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/dto/api-response.dto'
+import { ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/modules/health/dto/health.dto'
 import { HealthService } from '@/modules/health/health.service'
 
 @Injectable()

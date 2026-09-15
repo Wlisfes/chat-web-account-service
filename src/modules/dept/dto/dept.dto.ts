@@ -2,6 +2,7 @@ import { ApiProperty, IntersectionType, PartialType, PickType } from '@nestjs/sw
 import { TbAccountOrganizationDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Type } from 'class-transformer'
 import { IsInt, Min } from 'class-validator'
+import { AccountUserSummaryResponseDto } from '@/modules/user/dto/user.dto'
 
 export class CreateDeptDto extends PickType(TbAccountOrganizationDto, [
     'parentKeyId',
@@ -24,3 +25,14 @@ export class DeptKeyDto {
 }
 
 export class UpdateDeptPayloadDto extends IntersectionType(DeptKeyDto, UpdateDeptDto) {}
+
+export class DeptTreeNodeResponseDto extends TbAccountOrganizationDto {
+    @ApiProperty({ description: '组织成员数量', example: 12 })
+    memberCount: number
+
+    @ApiProperty({ description: '组织负责人', type: AccountUserSummaryResponseDto, nullable: true, required: false })
+    leader?: AccountUserSummaryResponseDto | null
+
+    @ApiProperty({ description: '下级组织节点', type: () => DeptTreeNodeResponseDto, isArray: true, example: [] })
+    children: DeptTreeNodeResponseDto[]
+}

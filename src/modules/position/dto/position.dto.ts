@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickTy
 import { Type } from 'class-transformer'
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
 import { TbAccountPositionDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 
 export class PositionKeyDto {
@@ -31,3 +32,15 @@ export class SelectPositionDto {
     @MaxLength(64, { message: '职位名称关键字长度不能超过64位' })
     name?: string
 }
+
+export class PositionResponseDto extends TbAccountPositionDto {
+    @ApiProperty({ description: '关联员工数量', example: 12 })
+    accountCount: number
+}
+
+export class PositionPageResponseDto extends PageResponseDataDto {
+    @ApiProperty({ description: '职位列表', type: [PositionResponseDto] })
+    list: PositionResponseDto[]
+}
+
+export class PositionSelectResponseDto extends PickType(TbAccountPositionDto, ['keyId', 'name'] as const) {}
