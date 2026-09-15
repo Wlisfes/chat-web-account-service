@@ -49,7 +49,13 @@ export class SheetTreeNodeDto extends TbAccountMenuDto {
 
 export class UpdateSheetDto extends PartialType(CreateSheetDto) {}
 
-export class SheetKeyDto extends PickType(TbAccountMenuDto, ['keyId']) {}
+export class SheetKeyDto {
+    @ApiProperty({ description: '菜单主键', example: 1 })
+    @Type(() => Number)
+    @IsInt({ message: '菜单主键必须是整数' })
+    @Min(1, { message: '菜单主键必须大于0' })
+    keyId: number
+}
 
 export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}
 
