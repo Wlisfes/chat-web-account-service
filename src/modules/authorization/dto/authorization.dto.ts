@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { SheetTreeNodeResponseDto } from '@/modules/sheet/dto/sheet.dto'
+import { SheetTreeNodeDto } from '@/modules/sheet/dto/sheet.dto'
 
 export class EffectiveAccessResponseDto {
     @ApiProperty({ description: '是否为超级管理员', example: false })
@@ -11,8 +11,8 @@ export class EffectiveAccessResponseDto {
     @ApiProperty({ description: '有效权限编码', type: [String], example: ['account:user:list'] })
     permissionCodes: string[]
 
-    @ApiProperty({ description: '当前账号可访问的菜单树', type: [SheetTreeNodeResponseDto] })
-    menuTree: SheetTreeNodeResponseDto[]
+    @ApiProperty({ description: '当前账号可访问的菜单树', type: [SheetTreeNodeDto] })
+    menuTree: SheetTreeNodeDto[]
 }
 
 export class EffectiveDataScopeResponseDto {

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { ListResponseDto, PageListResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
@@ -53,18 +53,9 @@ export class SheetKeyDto extends PickType(TbAccountMenuDto, ['keyId']) {}
 
 export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}
 
-export class SheetTreeNodeResponseDto {
-    @ApiProperty({
-        description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点',
-        type: [SheetTreeNodeDto]
-    })
-    list: SheetTreeNodeDto[]
-}
+export class SheetTreeNodeResponseDto extends ListResponseDto(SheetTreeNodeDto, '完整菜单树节点列表') {}
 
-export class SheetPageResponseDto extends PageResponseDataDto {
-    @ApiProperty({
-        description: '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点',
-        type: [TbAccountMenuDto]
-    })
-    list: TbAccountMenuDto[]
-}
+export class SheetPageResponseDto extends PageListResponseDto(
+    TbAccountMenuDto,
+    '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点'
+) {}
