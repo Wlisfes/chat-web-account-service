@@ -10,6 +10,15 @@ export class SheetController {
     constructor(private readonly sheetService: SheetService) {}
 
     @RequirePermissions('chat:deploy:system:sheet')
+    @ApiServiceDecorator(Get('enums'), {
+        operation: { summary: '获取菜单类型、状态和显示状态枚举' },
+        response: { type: SheetDto.SheetEnumsResponseDto, description: '菜单静态枚举' }
+    })
+    public async httpBaseAccountSheetEnums() {
+        return this.sheetService.httpBaseAccountSheetEnums()
+    }
+
+    @RequirePermissions('chat:deploy:system:sheet')
     @ApiServiceDecorator(Get('/tree/structure'), {
         operation: { summary: '获取完整菜单树' },
         response: { type: SheetDto.SheetTreeNodeResponseDto, description: '完整菜单树' }
