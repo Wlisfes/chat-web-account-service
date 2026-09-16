@@ -15,7 +15,7 @@ import {
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { isNotEmpty } from 'class-validator'
 import { EntityManager, In, Repository } from 'typeorm'
-import { AuthorizationService } from '@/modules/authorization/authorization.service'
+import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
 import { RoleDataScopeRuleDto, RoleResponseDto } from '@/modules/role/dto/role.dto'
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { AuthorizationService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import {
     TbAccountRole,
     TbAccountRoleDataScope,
@@ -15,7 +15,6 @@ import { In, Repository } from 'typeorm'
 import * as RoleDto from '@/modules/role/dto/role.dto'
 import { RoleResponseDto } from '@/modules/role/dto/role.dto'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
-import { AuthorizationService } from '@/modules/authorization/authorization.service'
 
 @Injectable()
 export class RoleService {

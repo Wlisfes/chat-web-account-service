@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
 import { PageResult, buildTree, isNotEmpty, fetchResolver } from '@wlisfes/chat-web-base-schema/utils'
 import { Repository, InjectRepository, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
-import { AuthorizationService } from '@/modules/authorization/authorization.service'
+import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { SheetUtilsService } from '@/modules/sheet/sheet.utils.service'
 import * as Schema from '@wlisfes/chat-web-base-schema'

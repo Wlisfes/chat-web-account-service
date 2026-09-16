@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import {
     TbAccountUser,
     TbAccountUserOrganization,
@@ -13,11 +13,9 @@ import { AccountUserBatchDto } from '@wlisfes/chat-web-base-schema/feign'
 import { assertUid, generateUid, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
 import { Brackets, Repository } from 'typeorm'
-import { PasswordService } from '@wlisfes/chat-web-base-schema/auth'
 import * as UserDto from '@/modules/user/dto/user.dto'
 import { AccountUserResponseDto, AccountUserSummaryResponseDto, UserDetailResponseDto } from '@/modules/user/dto/user.dto'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
-import { AuthorizationService } from '@/modules/authorization/authorization.service'
 
 @Injectable()
 export class UserService {

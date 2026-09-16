@@ -16,7 +16,7 @@ import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
 import { isEmpty, isNotEmpty } from 'class-validator'
 import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
-import { AuthorizationService } from '@/modules/authorization/authorization.service'
+import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
 import { UserDetailResponseDto, UserOrganizationMembershipDto, UserOrganizationResponseDto } from '@/modules/user/dto/user.dto'
 
 const USER_RESOURCE_CODE = 'account:user'

@@ -188,7 +188,7 @@
     - 运行与 Schema 升级账号只能访问 `chat_web_account.*`，不得拥有全局权限、其他业务库权限或跨库角色；数据库必须由外部基础设施预创建。
 - 本服务不再使用 Redis。登录会话和图形验证码归鉴权服务，index `0` 已移交，不得重新引入 Redis 依赖或连接任何 index。
 - 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
-- 授权（权限码校验）仍归本服务：`RequirePermissions`、`PermissionGuard` 和权限数据查询留在这里，不得迁往鉴权服务。
+- 授权（权限码校验）通过共享包 `AuthorizationModule`、`AuthorizationGuard` 和 `AuthorizationService` 完成；本服务不得再维护本地授权模块。权限计算统一由 Auth 服务负责，业务服务只通过 Feign 调用。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
