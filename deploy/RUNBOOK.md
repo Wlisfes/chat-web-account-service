@@ -34,7 +34,16 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 仓库根目录和服务器 `deploy/.env.example` 均只保留进程启动及 Nacos 建连/注册字段；数据库、服务间凭据和网关身份上下文配置统一读取云端 `chat-web-account-service.yaml`。部署目录不通过环境变量覆盖业务配置。
 
-本地 Account 通过 WireGuard 提供给云端 Gateway 时，隧道仅分流 `10.66.0.0/24`，不要使用 `AllowedIPs=0.0.0.0/0`。WireGuard 接口建立后，在本地 `.env` 设置 `NACOS_REGISTER_IP=10.66.0.2`，重启 Account；确认 Nacos 显示 `10.66.0.2:5010`，并从 ECS 执行 `nc -vz 10.66.0.2 5010`。Clash TUN 将 `10.66.0.0/24` 和 WireGuard Endpoint 加入直连，Whistle 与 ZeroOmega 无需修改。
+本地开发机要把 Account 提供给**远端** Gateway 时，隧道仅分流 `10.66.0.0/24`，不要使用 `AllowedIPs=0.0.0.0/0`。Clash TUN 将 `10.66.0.0/24` 和 WireGuard Endpoint 加入直连，Whistle 与 ZeroOmega 无需修改。只有对端 Gateway 已经证实能访问该 `IP:port` 之后，才允许设置 `NACOS_REGISTER_IP`。**禁止**在 `chat-home-server` 生产环境（与 Gateway 同机）写入 `NACOS_REGISTER_IP=10.66.0.2`：Docker Desktop 不会把容器端口映射到 WireGuard 网卡，同机 Gateway 访问该地址会超时并导致业务 503。同机服务必须注册容器网卡 IP，详见「同机 Nacos 注册地址」。
+
+## 同机 Nacos 注册地址
+
+`chat-home-server` 生产 Account 与 Gateway 同机同网络。生产 **禁止** 设置 `NACOS_REGISTER_IP=10.66.0.2`。
+
+2026-09-17 P0：强制注册 WireGuard 地址后，`10.66.0.2:5010` 超时，同机 Gateway `/api/account/health` 业务 503。Docker Desktop 不会把 `0.0.0.0:5010` 映射到 WG 网卡。正确做法是不设 `NACOS_REGISTER_IP`，注册容器网卡 IP。公网走 Nginx `80/443` → Gateway。跨服务事故主记录见 Gateway `deploy/RUNBOOK.md`。
+
+只有把 **本机开发进程** 提供给远端 Gateway，并且已经从那台 Gateway 证实 `IP:port` 可达时，才允许设置 `NACOS_REGISTER_IP`。同机生产环境不要套用这条。
+
 
 只有 `NODE_ENV`、`PORT` 和 Nacos 连接/注册参数来自环境；数据库与业务参数全部由 Nacos 远端配置提供。启动日志只记录已应用和被环境覆盖的键名，不记录值。
 
