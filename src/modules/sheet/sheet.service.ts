@@ -120,10 +120,9 @@ export class SheetService {
             if (await manager.existsBy(Schema.TbAccountRoleMenu, { menuKeyId: body.keyId })) {
                 throw new ConflictException('菜单仍被角色引用，不能删除')
             }
-            return await manager.delete(Schema.TbAccountMenu, { keyId: body.keyId }).then(async node => {
-                await this.permissionCacheService.invalidate({})
-                return { ...node, success: true }
-            })
+            await manager.delete(Schema.TbAccountMenu, { keyId: body.keyId })
+            await this.permissionCacheService.invalidate({})
+            return { success: true }
         })
     }
 }

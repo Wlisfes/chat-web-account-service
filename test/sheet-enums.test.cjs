@@ -13,8 +13,8 @@ test('菜单枚举接口直接返回 schema 定义的选项', async () => {
     const result = await service.httpBaseAccountSheetEnums()
 
     assert.deepEqual(result, {
-        type: TbAccountMenuTypeDefinition.options,
-        status: TbAccountMenuStatusDefinition.options,
-        visible: TbAccountMenuVisibleDefinition.options
+        typeOptions: TbAccountMenuTypeDefinition.options,
+        statusOptions: TbAccountMenuStatusDefinition.options,
+        visibleOptions: TbAccountMenuVisibleDefinition.options
     })
 })

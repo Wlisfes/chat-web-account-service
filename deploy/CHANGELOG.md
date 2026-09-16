@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-16：发布 v1.0.0，改用共享授权适配层
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account `v1.0.0`；`@wlisfes/chat-web-base-schema@1.6.30`。
+- 变更内容：Account 权限校验改用共享包 `AuthorizationModule` / `AuthorizationGuard`，本地 `authorization` 模块移除；权限计算仍通过 Feign 调用 Auth。同步升级共享包到 `1.6.30`，并新增菜单静态枚举接口 `GET /sheet/enums`。菜单删除接口只返回 `{ success: true }`，不再透出 TypeORM `affected`。无需修改 `.env`、Nacos、端口或健康检查。
+- 机器侧操作：按现有流水线切换 SHA 镜像即可；确认 Auth 服务在 Nacos 可发现，Account 仍使用现有 `gateway.feign.service_token`。
+- 验证命令：`yarn format:check`、`yarn test`；部署后检查容器健康、`/health`，以及带网关身份访问需权限接口与 `GET /sheet/enums`。
+- 回滚方法：恢复上一完整 Git SHA；共享包契约无需回滚。
+
 ## 2026-09-15：本地 Account 通过 WireGuard 接入云端 Gateway
 
 - 影响机器：本地开发机与云端 ECS。
