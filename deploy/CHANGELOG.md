@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-16：发布 v1.0.1，表格接口注入网关身份主体
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account `v1.0.1`；`@wlisfes/chat-web-base-schema@1.6.31`。
+- 变更内容：升级共享包到 `1.6.31`，`CurrentPrincipal` 可读取网关签发的 `uid/number/name/sessionId`。菜单表格接口注入身份主体。
+- 机器侧操作：确认 Auth、Gateway 已部署本批次后再切换 Account 镜像。
+- 验证命令：`yarn test`；部署后检查容器健康，以及带网关身份访问 `/sheet/column`。
+- 回滚方法：恢复上一完整 Git SHA。
+
 ## 2026-09-16：发布 v1.0.0，改用共享授权适配层
 
 - 影响机器：`chat-home-server`。
