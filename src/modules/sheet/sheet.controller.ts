@@ -1,7 +1,8 @@
 import { Body, Get, Post, Query } from '@nestjs/common'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { RequirePermissions, CurrentPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { RequirePermissions } from '@wlisfes/chat-web-base-schema/auth'
 import { SheetService } from '@/modules/sheet/sheet.service'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
 
@@ -33,7 +34,7 @@ export class SheetController {
         request: { source: 'body', type: SheetDto.SheetColumnQueryDto },
         response: { type: SheetDto.SheetPageResponseDto, description: '菜单分页数据' }
     })
-    public async httpBaseAccountColumnSheet(@Body() body: SheetDto.SheetColumnQueryDto) {
+    public async httpBaseAccountColumnSheet(@CurrentPrincipal() principal: AuthPrincipal, @Body() body: SheetDto.SheetColumnQueryDto) {
         return this.sheetService.httpBaseAccountColumnSheet(body)
     }
 
