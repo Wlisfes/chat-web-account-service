@@ -21,7 +21,7 @@ export class SheetController {
     @RequirePermissions('chat:deploy:system:sheet')
     @ApiServiceDecorator(Get('/tree/structure'), {
         operation: { summary: '获取完整菜单树' },
-        response: { type: SheetDto.SheetTreeNodeResponseDto, description: '完整菜单树' }
+        response: { type: SheetDto.SheetTreeNodeDto, isArray: true, description: '完整菜单树' }
     })
     public async httpBaseAccountSheetTree() {
         return this.sheetService.httpBaseAccountSheetTree()
