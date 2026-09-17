@@ -170,4 +170,58 @@ export class RoleUtilsService {
             }
         }
     }
+
+    /**清除角色数据范围关系**/
+    public async clearRoleDataScopes(manager: EntityManager, roleKeyId: number): Promise<void> {
+        const scopes = await manager.find(TbAccountRoleDataScope, {
+            where: { roleKeyId },
+            select: { keyId: true }
+        })
+        const scopeKeyIds = scopes.map(scope => scope.keyId)
+        if (scopeKeyIds.length > 0) {
+            await manager.delete(TbAccountRoleDataScopeOrganization, { dataScopeKeyId: In(scopeKeyIds) })
+        }
+        await manager.delete(TbAccountRoleDataScope, { roleKeyId })
+    }
+
+    /**清除角色菜单和数据范围关系**/
+    public async clearRoleRelations(manager: EntityManager, roleKeyId: number): Promise<void> {
+        await this.clearRoleDataScopes(manager, roleKeyId)
+        await manager.delete(TbAccountRoleMenu, { roleKeyId })
+    }
+
+    /**替换角色菜单权限**/
+    public async replaceRoleMenus(manager: EntityManager, roleKeyId: number, menuKeyIds: number[]): Promise<void> {
+        await manager.delete(TbAccountRoleMenu, { roleKeyId })
+        if (menuKeyIds.length > 0) {
+            await manager.insert(
+                TbAccountRoleMenu,
+                menuKeyIds.map(menuKeyId => ({ roleKeyId, menuKeyId }))
+            )
+        }
+    }
+
+    /**替换角色数据范围**/
+    public async replaceRoleDataScopes(manager: EntityManager, roleKeyId: number, rules: RoleDataScopeRuleDto[]): Promise<void> {
+        await this.clearRoleDataScopes(manager, roleKeyId)
+        for (const rule of rules) {
+            const scope = manager.create(TbAccountRoleDataScope, {
+                roleKeyId,
+                resourceCode: rule.resourceCode.trim(),
+                scopeType: rule.scopeType,
+                status: rule.status
+            })
+            await manager.save(scope)
+            if (rule.scopeType === TbAccountRoleDataScopeType.CUSTOM && (rule.organizations?.length ?? 0) > 0) {
+                await manager.insert(
+                    TbAccountRoleDataScopeOrganization,
+                    rule.organizations?.map(item => ({
+                        dataScopeKeyId: scope.keyId,
+                        organizationKeyId: item.organizationKeyId,
+                        includeChildren: item.includeChildren
+                    })) ?? []
+                )
+            }
+        }
+    }
 }
