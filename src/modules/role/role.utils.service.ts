@@ -15,15 +15,14 @@ import {
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { isNotEmpty } from 'class-validator'
 import { EntityManager, In, Repository } from 'typeorm'
-import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
+import { type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { RoleDataScopeRuleDto, RoleResponseDto } from '@/modules/role/dto/role.dto'
 
 @Injectable()
 export class RoleUtilsService {
     constructor(
         @InjectRepository(TbAccountRole) private readonly roleRepository: Repository<TbAccountRole>,
-        private readonly database: DataBaseService,
-        private readonly permissionService: AuthorizationService
+        private readonly database: DataBaseService
     ) {}
 
     /**获取角色及数据范围列表*/
@@ -109,8 +108,8 @@ export class RoleUtilsService {
     }
 
     /**校验操作者为超级管理员*/
-    public async findSuperAdminRequired(actorUid: string, message: string): Promise<void> {
-        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
+    public findSuperAdminRequired(principal: AuthPrincipal, message: string): void {
+        if (!principal.superAdmin) {
             throw new ConflictException(message)
         }
     }

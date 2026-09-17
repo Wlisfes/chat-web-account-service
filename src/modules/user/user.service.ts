@@ -34,11 +34,11 @@ export class UserService {
         const positionKeyIds = input.positionKeyIds ?? []
         this.userUtilsService.findMembershipsRequired(memberships)
         await this.userUtilsService.findCanAssignOrganizations(
-            principal.uid,
+            principal,
             memberships.map(item => item.organizationKeyId)
         )
         if (roleKeyIds.length > 0) {
-            await this.userUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以在创建账号时分配角色')
+            this.userUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以在创建账号时分配角色')
         }
 
         return this.userRepository.manager.transaction(async manager => {
@@ -71,7 +71,7 @@ export class UserService {
         input: UserDto.UserQueryDto
     ): Promise<PageResult<UserDetailResponseDto>> {
         return this.database.builder(this.userRepository, async qb => {
-            await this.userUtilsService.applyDataScope(qb, principal.uid)
+            this.userUtilsService.applyDataScope(qb, principal)
             if (isNotEmpty(input.vague?.trim())) {
                 const vague = `%${this.userUtilsService.escapeLike(input.vague?.trim() ?? '')}%`
                 qb.andWhere(
@@ -134,7 +134,7 @@ export class UserService {
 
     /**账号详情*/
     public async httpBaseAccountUserResolver(principal: AuthPrincipal, query: UserDto.UserUidDto): Promise<UserDetailResponseDto> {
-        return this.userUtilsService.findDetail(principal.uid, query.uid)
+        return this.userUtilsService.findDetail(principal, query.uid)
     }
 
     /**
@@ -155,7 +155,7 @@ export class UserService {
     public async httpBaseAccountUpdateUser(principal: AuthPrincipal, input: UserDto.UpdateUserPayloadDto): Promise<AccountUserResponseDto> {
         const { uid, ...fields } = input
         const targetUid = assertUid(uid, '账号UID')
-        await this.userUtilsService.findCanAccessUser(principal.uid, targetUid)
+        await this.userUtilsService.findCanAccessUser(principal, targetUid)
         return this.userRepository.manager.transaction(async manager => {
             const user = await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findUserUnique(manager, fields, targetUid)
@@ -177,7 +177,7 @@ export class UserService {
         principal: AuthPrincipal,
         input: UserDto.ResetUserPasswordPayloadDto
     ): Promise<SuccessResponseDataDto> {
-        await this.userUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以重置其他账号密码')
+        this.userUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以重置其他账号密码')
         const targetUid = assertUid(input.uid, '账号UID')
         const password = await this.passwordService.hash(input.password)
         await this.userRepository.manager.transaction(async manager => {
@@ -193,12 +193,12 @@ export class UserService {
         input: UserDto.ReplaceUserOrganizationsPayloadDto
     ): Promise<SuccessResponseDataDto> {
         const targetUid = assertUid(input.uid, '账号UID')
-        await this.userUtilsService.findCanAccessUser(principal.uid, targetUid)
+        await this.userUtilsService.findCanAccessUser(principal, targetUid)
         this.userUtilsService.findMembershipsRequired(input.memberships)
         await this.userRepository.manager.transaction(async manager => {
             await this.userUtilsService.lockUser(manager, targetUid)
             const organizationKeyIds = input.memberships.map(item => item.organizationKeyId)
-            await this.userUtilsService.findCanAssignOrganizations(principal.uid, organizationKeyIds)
+            await this.userUtilsService.findCanAssignOrganizations(principal, organizationKeyIds)
             await this.userUtilsService.findOrganizationsRequired(manager, organizationKeyIds)
             await manager.delete(TbAccountUserOrganization, { userUid: targetUid })
             await this.userUtilsService.insertMemberships(manager, targetUid, input.memberships)
@@ -211,9 +211,9 @@ export class UserService {
         principal: AuthPrincipal,
         input: UserDto.ReplaceUserRolesPayloadDto
     ): Promise<SuccessResponseDataDto> {
-        await this.userUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以分配用户角色')
+        this.userUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以分配用户角色')
         const targetUid = assertUid(input.uid, '账号UID')
-        await this.userUtilsService.findCanAccessUser(principal.uid, targetUid)
+        await this.userUtilsService.findCanAccessUser(principal, targetUid)
         await this.userRepository.manager.transaction(async manager => {
             await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findLastSuperAdminRemovalAvailable(manager, targetUid, input.roleKeyIds)

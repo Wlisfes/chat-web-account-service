@@ -57,7 +57,7 @@ export class RoleService {
                 throw new ConflictException('系统内置角色不能修改编码')
             }
             if (role.builtin) {
-                await this.roleUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以修改系统内置角色')
+                this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以修改系统内置角色')
             }
             if (role.code === 'super_admin' && fields.status === TbAccountRoleStatus.DISABLED) {
                 throw new ConflictException('超级管理员角色不能禁用')
@@ -98,7 +98,7 @@ export class RoleService {
         principal: AuthPrincipal,
         input: RoleDto.ReplaceRoleMenusPayloadDto
     ): Promise<SuccessResponseDataDto> {
-        await this.roleUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以配置角色权限')
+        this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以配置角色权限')
         await this.roleRepository.manager.transaction(async manager => {
             await this.roleUtilsService.findRequired(input.keyId, manager)
             await this.roleUtilsService.findMenusRequired(manager, input.menuKeyIds)
@@ -119,7 +119,7 @@ export class RoleService {
         principal: AuthPrincipal,
         input: RoleDto.ReplaceRoleDataScopesPayloadDto
     ): Promise<SuccessResponseDataDto> {
-        await this.roleUtilsService.findSuperAdminRequired(principal.uid, '只有超级管理员可以配置角色权限')
+        this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以配置角色权限')
         this.roleUtilsService.findDataScopeRulesRequired(input.rules)
         await this.roleRepository.manager.transaction(async manager => {
             await this.roleUtilsService.findRequired(input.keyId, manager)
