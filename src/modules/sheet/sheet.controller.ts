@@ -1,7 +1,6 @@
 import { Body, Get, Post, Query } from '@nestjs/common'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { RequirePermissions, CurrentPrincipal } from '@wlisfes/chat-web-base-schema/auth'
-import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { RequirePermissions, CurrentPrincipal, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { SheetService } from '@/modules/sheet/sheet.service'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
