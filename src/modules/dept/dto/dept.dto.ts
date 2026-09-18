@@ -1,10 +1,10 @@
 import { ApiProperty, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
-import { TbAccountOrganizationDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { Type } from 'class-transformer'
 import { IsInt, Min } from 'class-validator'
 import { AccountUserSummaryResponseDto } from '@/modules/user/dto/user.dto'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 
-export class CreateDeptDto extends PickType(TbAccountOrganizationDto, [
+export class CreateDeptDto extends PickType(Schema.TbAccountOrganizationDto, [
     'parentKeyId',
     'code',
     'name',
@@ -26,7 +26,7 @@ export class DeptKeyDto {
 
 export class UpdateDeptPayloadDto extends IntersectionType(DeptKeyDto, UpdateDeptDto) {}
 
-export class DeptTreeNodeResponseDto extends TbAccountOrganizationDto {
+export class DeptTreeNodeResponseDto extends Schema.TbAccountOrganizationDto {
     @ApiProperty({ description: '组织成员数量', example: 12 })
     memberCount: number
 

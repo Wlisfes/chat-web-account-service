@@ -1,15 +1,5 @@
-import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional, IntersectionType, OmitType, PartialType, PickType } from '@nestjs/swagger'
-import {
-    TbAccountUserDto,
-    TbAccountUserOrganizationDto,
-    TbAccountUserOrganizationStatus,
-    TbAccountUserStatus,
-    TbAccountRoleDto,
-    TbAccountOrganizationDto
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
+import { Type } from 'class-transformer'
 import {
     ArrayMaxSize,
     ArrayUnique,
@@ -26,7 +16,10 @@ import {
     Min,
     ValidateNested
 } from 'class-validator'
+import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
+import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 
 class PositionKeyIdsDto {
     @ApiPropertyOptional({ description: '职位主键数组', type: [Number], example: [1, 2] })
@@ -48,13 +41,13 @@ export class UserQueryDto extends IntersectionType(PageDto, PositionKeyIdsDto) {
 
     @ApiPropertyOptional({
         description: '账号状态',
-        enum: TbAccountUserStatus,
+        enum: Schema.TbAccountUserStatus,
         enumName: 'TbAccountUserStatus',
-        example: TbAccountUserStatus.ENABLED
+        example: Schema.TbAccountUserStatus.ENABLED
     })
     @IsOptional()
-    @IsEnum(TbAccountUserStatus, { message: '账号状态格式错误' })
-    status?: TbAccountUserStatus
+    @IsEnum(Schema.TbAccountUserStatus, { message: '账号状态格式错误' })
+    status?: Schema.TbAccountUserStatus
 
     @ApiPropertyOptional({ description: '按组织主键数组筛选', type: [Number], example: [1, 2] })
     @IsOptional()
@@ -91,14 +84,14 @@ export class UserOrganizationMembershipDto {
 
     @ApiPropertyOptional({
         description: '用户组织关系状态',
-        enum: TbAccountUserOrganizationStatus,
+        enum: Schema.TbAccountUserOrganizationStatus,
         enumName: 'TbAccountUserOrganizationStatus',
-        default: TbAccountUserOrganizationStatus.ENABLED,
-        example: TbAccountUserOrganizationStatus.ENABLED
+        default: Schema.TbAccountUserOrganizationStatus.ENABLED,
+        example: Schema.TbAccountUserOrganizationStatus.ENABLED
     })
     @IsOptional()
-    @IsEnum(TbAccountUserOrganizationStatus, { message: '用户组织关系状态格式错误' })
-    status: TbAccountUserOrganizationStatus = TbAccountUserOrganizationStatus.ENABLED
+    @IsEnum(Schema.TbAccountUserOrganizationStatus, { message: '用户组织关系状态格式错误' })
+    status: Schema.TbAccountUserOrganizationStatus = Schema.TbAccountUserOrganizationStatus.ENABLED
 }
 
 export class ReplaceUserOrganizationsDto {
@@ -125,7 +118,7 @@ export class ReplaceUserRolesDto {
 }
 
 export class CreateUserDto extends IntersectionType(
-    PickType(TbAccountUserDto, [
+    PickType(Schema.TbAccountUserDto, [
         'number',
         'phone',
         'email',
@@ -163,7 +156,7 @@ export class CreateUserDto extends IntersectionType(
 
 export class UpdateUserDto extends IntersectionType(
     PartialType(
-        PickType(TbAccountUserDto, [
+        PickType(Schema.TbAccountUserDto, [
             'number',
             'phone',
             'email',
@@ -201,11 +194,11 @@ export class ReplaceUserOrganizationsPayloadDto extends IntersectionType(UserUid
 
 export class ReplaceUserRolesPayloadDto extends IntersectionType(UserUidDto, ReplaceUserRolesDto) {}
 
-export class AccountUserResponseDto extends OmitType(TbAccountUserDto, ['password'] as const) {}
+export class AccountUserResponseDto extends OmitType(Schema.TbAccountUserDto, ['password'] as const) {}
 
 export class AccountUserSummaryResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
 
-export class UserOrganizationResponseDto extends TbAccountOrganizationDto {
+export class UserOrganizationResponseDto extends Schema.TbAccountOrganizationDto {
     @ApiProperty({ description: '是否为主组织', example: true })
     isPrimary: boolean
 
@@ -214,15 +207,15 @@ export class UserOrganizationResponseDto extends TbAccountOrganizationDto {
 
     @ApiProperty({
         description: '用户组织关系状态',
-        enum: TbAccountUserOrganizationStatus,
-        example: TbAccountUserOrganizationStatus.ENABLED
+        enum: Schema.TbAccountUserOrganizationStatus,
+        example: Schema.TbAccountUserOrganizationStatus.ENABLED
     })
-    membershipStatus: TbAccountUserOrganizationStatus
+    membershipStatus: Schema.TbAccountUserOrganizationStatus
 }
 
 export class UserDetailResponseDto extends AccountUserResponseDto {
-    @ApiProperty({ description: '账号组织关系', type: [TbAccountUserOrganizationDto] })
-    memberships: TbAccountUserOrganizationDto[]
+    @ApiProperty({ description: '账号组织关系', type: [Schema.TbAccountUserOrganizationDto] })
+    memberships: Schema.TbAccountUserOrganizationDto[]
 
     @ApiProperty({ description: '账号所属组织', type: [UserOrganizationResponseDto] })
     organizations: UserOrganizationResponseDto[]
@@ -230,8 +223,8 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号角色主键', type: [Number], example: [1, 2] })
     roleKeyIds: number[]
 
-    @ApiProperty({ description: '账号角色', type: [TbAccountRoleDto] })
-    roles: TbAccountRoleDto[]
+    @ApiProperty({ description: '账号角色', type: [Schema.TbAccountRoleDto] })
+    roles: Schema.TbAccountRoleDto[]
 
     @ApiProperty({ description: '账号职位主键', type: [Number], example: [1, 2] })
     positionKeyIds: number[]

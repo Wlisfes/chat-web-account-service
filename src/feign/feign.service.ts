@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import {
-    AccountUserSummary,
     AccountUserBatchDto,
     FeignClientAccountManager,
-    FeignClientAccountImplementation
+    type AccountUserSummary,
+    type FeignClientAccountImplementation
 } from '@wlisfes/chat-web-base-schema/feign'
 import { UserService } from '@/modules/user/user.service'
 

@@ -8,7 +8,7 @@ const { DocumentBuilder, SwaggerModule } = require('@nestjs/swagger')
 
 const controllers = [
     require('../dist/app.controller').AppController,
-    require('../dist/modules/feign/feign.controller').FeignController,
+    require('../dist/feign/feign.controller').FeignController,
     require('../dist/modules/sheet/sheet.controller').SheetController,
     require('../dist/modules/dept/dept.controller').DeptController,
     require('../dist/modules/position/position.controller').PositionController,

@@ -1,36 +1,32 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { TbAccountPosition, TbAccountUserPosition } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { PageResult } from '@wlisfes/chat-web-base-schema/utils'
-import { isNotEmpty } from 'class-validator'
-import { Repository } from 'typeorm'
+import { DataBaseService, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
+import { isNotEmpty, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { PositionUtilsService } from '@/modules/position/position.utils.service'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 import * as PositionDto from '@/modules/position/dto/position.dto'
-import { PositionResponseDto } from '@/modules/position/dto/position.dto'
 
 @Injectable()
 export class PositionService {
     constructor(
-        @InjectRepository(TbAccountPosition) private readonly repository: Repository<TbAccountPosition>,
+        @InjectRepository(Schema.TbAccountPosition) private readonly repository: Repository<Schema.TbAccountPosition>,
         private readonly database: DataBaseService,
         private readonly positionUtilsService: PositionUtilsService
     ) {}
 
     /**新增职位。*/
-    public async httpBaseAccountCreatePosition(input: PositionDto.CreatePositionDto): Promise<PositionResponseDto> {
+    public async httpBaseAccountCreatePosition(input: PositionDto.CreatePositionDto): Promise<PositionDto.PositionResponseDto> {
         const name = input.name?.trim()
         if (!isNotEmpty(name)) throw new BadRequestException('职位名称必填')
         return this.repository.manager.transaction(async manager => {
             await this.positionUtilsService.ensureNameAvailable(name, undefined, manager)
-            const position = manager.create(TbAccountPosition, { name, sort: input.sort ?? 0 })
+            const position = manager.create(Schema.TbAccountPosition, { name, sort: input.sort ?? 0 })
             return this.toResponse(await manager.save(position), manager)
         })
     }
 
     /**更新职位。*/
-    public async httpBaseAccountUpdatePosition(input: PositionDto.UpdatePositionDto): Promise<PositionResponseDto> {
+    public async httpBaseAccountUpdatePosition(input: PositionDto.UpdatePositionDto): Promise<PositionDto.PositionResponseDto> {
         return this.repository.manager.transaction(async manager => {
             const position = await this.positionUtilsService.findRequired(input.keyId, manager, true)
             const name = input.name?.trim()
@@ -44,12 +40,12 @@ export class PositionService {
     }
 
     /**职位详情。*/
-    public async httpBaseAccountPositionResolver(query: PositionDto.PositionKeyDto): Promise<PositionResponseDto> {
+    public async httpBaseAccountPositionResolver(query: PositionDto.PositionKeyDto): Promise<PositionDto.PositionResponseDto> {
         return this.toResponse(await this.positionUtilsService.findRequired(query.keyId))
     }
 
     /**职位分页列表。*/
-    public async httpBaseAccountColumnPosition(input: PositionDto.ListPositionDto): Promise<PageResult<PositionResponseDto>> {
+    public async httpBaseAccountColumnPosition(input: PositionDto.ListPositionDto): Promise<PageResult<PositionDto.PositionResponseDto>> {
         return this.database.builder(this.repository, async qb => {
             if (isNotEmpty(input.name?.trim())) qb.andWhere('t.name LIKE :name', { name: `%${input.name.trim()}%` })
             qb.orderBy('t.sort', 'ASC')
@@ -68,8 +64,8 @@ export class PositionService {
             if ((await this.positionUtilsService.countAssignedAccounts(manager, position)) > 0) {
                 throw new BadRequestException('职位已关联员工，无法删除')
             }
-            await manager.delete(TbAccountUserPosition, { positionKeyId: position.keyId })
-            await manager.delete(TbAccountPosition, { keyId: position.keyId })
+            await manager.delete(Schema.TbAccountUserPosition, { positionKeyId: position.keyId })
+            await manager.delete(Schema.TbAccountPosition, { keyId: position.keyId })
         })
         return { success: true }
     }
@@ -77,7 +73,7 @@ export class PositionService {
     /**职位下拉选项。*/
     public async httpBaseAccountSelectPosition(
         query: PositionDto.SelectPositionDto
-    ): Promise<Array<Pick<PositionResponseDto, 'keyId' | 'name'>>> {
+    ): Promise<Array<Pick<PositionDto.PositionResponseDto, 'keyId' | 'name'>>> {
         return this.database.builder(this.repository, async qb => {
             if (isNotEmpty(query.name?.trim())) qb.andWhere('t.name LIKE :name', { name: `%${query.name.trim()}%` })
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').take(200)
@@ -85,7 +81,10 @@ export class PositionService {
         })
     }
 
-    private async toResponse(position: TbAccountPosition, manager = this.repository.manager): Promise<PositionResponseDto> {
+    private async toResponse(
+        position: Schema.TbAccountPosition,
+        manager = this.repository.manager
+    ): Promise<PositionDto.PositionResponseDto> {
         const accountCount = await this.positionUtilsService.countAssignedAccounts(manager, position)
         return {
             keyId: position.keyId,

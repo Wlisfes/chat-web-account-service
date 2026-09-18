@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { TbAccountPosition, TbAccountUserOrganization, TbAccountUserPosition } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
 import { PositionController } from '@/modules/position/position.controller'
-import { PositionService } from '@/modules/position/position.service'
 import { PositionUtilsService } from '@/modules/position/position.utils.service'
+import { PositionService } from '@/modules/position/position.service'
 
 @Module({
-    imports: [TypeOrmModule.forFeature([TbAccountPosition, TbAccountUserOrganization, TbAccountUserPosition])],
+    imports: [TypeOrmModule.forFeature(ACCOUNT_MYSQL_ENTITIES)],
     controllers: [PositionController],
     providers: [PositionService, PositionUtilsService],
     exports: [PositionService]

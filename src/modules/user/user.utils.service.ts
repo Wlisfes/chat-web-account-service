@@ -1,23 +1,29 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
+import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
 import {
     TbAccountOrganization,
     TbAccountOrganizationStatus,
+    TbAccountPosition,
     TbAccountRole,
     TbAccountRoleStatus,
     TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserOrganizationStatus,
-    TbAccountUserRole,
-    TbAccountPosition,
-    TbAccountUserPosition
+    TbAccountUserPosition,
+    TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import {
+    Brackets,
+    DataBaseService,
+    EntityManager,
+    In,
+    InjectRepository,
+    Repository,
+    SelectQueryBuilder
+} from '@wlisfes/chat-web-base-schema/database'
 import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
 import { isEmpty, isNotEmpty } from 'class-validator'
-import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
-import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
-import { UserDetailResponseDto, UserOrganizationMembershipDto, UserOrganizationResponseDto } from '@/modules/user/dto/user.dto'
+import * as UserDto from '@/modules/user/dto/user.dto'
 
 const USER_RESOURCE_CODE = 'account:user'
 
@@ -78,7 +84,7 @@ export class UserUtilsService {
     }
 
     /**获取账号完整详情*/
-    public async findDetail(actorUid: string, targetUid: string): Promise<UserDetailResponseDto> {
+    public async findDetail(actorUid: string, targetUid: string): Promise<UserDto.UserDetailResponseDto> {
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
         await this.findCanAccessUser(actorUid, normalizedTargetUid)
         const user = await this.database.builder(this.userRepository, qb => qb.where('t.uid = :uid', { uid: normalizedTargetUid }).getOne())
@@ -118,7 +124,7 @@ export class UserUtilsService {
     }
 
     /**校验账号组织关系规则*/
-    public findMembershipsRequired(memberships: UserOrganizationMembershipDto[]): void {
+    public findMembershipsRequired(memberships: UserDto.UserOrganizationMembershipDto[]): void {
         const organizationKeyIds = memberships.map(item => item.organizationKeyId)
         if (new Set(organizationKeyIds).size !== organizationKeyIds.length) {
             throw new BadRequestException('同一个组织不能重复关联')
@@ -175,7 +181,11 @@ export class UserUtilsService {
     }
 
     /**批量写入账号组织关系*/
-    public async insertMemberships(manager: EntityManager, userUid: string, memberships: UserOrganizationMembershipDto[]): Promise<void> {
+    public async insertMemberships(
+        manager: EntityManager,
+        userUid: string,
+        memberships: UserDto.UserOrganizationMembershipDto[]
+    ): Promise<void> {
         if (memberships.length === 0) {
             return
         }
@@ -214,7 +224,7 @@ export class UserUtilsService {
     }
 
     /**批量补充账号组织和角色信息*/
-    public async enrichUsers(users: TbAccountUser[]): Promise<UserDetailResponseDto[]> {
+    public async enrichUsers(users: TbAccountUser[]): Promise<UserDto.UserDetailResponseDto[]> {
         const userUids = users.map(user => user.uid)
         if (userUids.length === 0) {
             return []
@@ -245,7 +255,7 @@ export class UserUtilsService {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
             const userPositionRelations = positionRelations.filter(item => item.userUid === user.uid)
-            const userOrganizations: UserOrganizationResponseDto[] = []
+            const userOrganizations: UserDto.UserOrganizationResponseDto[] = []
             for (const membership of userMemberships) {
                 const organization = organizationByKeyId.get(membership.organizationKeyId)
                 if (!organization) continue

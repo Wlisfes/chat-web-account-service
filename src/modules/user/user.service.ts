@@ -1,26 +1,17 @@
 import { Injectable } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
-import {
-    TbAccountUser,
-    TbAccountUserOrganization,
-    TbAccountUserOrganizationStatus,
-    TbAccountUserRole
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { Brackets, DataBaseService, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { AccountUserBatchDto } from '@wlisfes/chat-web-base-schema/feign'
-import { assertUid, generateUid, PageResult } from '@wlisfes/chat-web-base-schema/utils'
-import { isNotEmpty } from 'class-validator'
-import { Brackets, Repository } from 'typeorm'
-import * as UserDto from '@/modules/user/dto/user.dto'
-import { AccountUserResponseDto, AccountUserSummaryResponseDto, UserDetailResponseDto } from '@/modules/user/dto/user.dto'
+import { assertUid, generateUid, isNotEmpty, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
+import * as Schema from '@wlisfes/chat-web-base-schema'
+import * as UserDto from '@/modules/user/dto/user.dto'
 
 @Injectable()
 export class UserService {
     constructor(
-        @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
+        @InjectRepository(Schema.TbAccountUser) private readonly userRepository: Repository<Schema.TbAccountUser>,
         private readonly database: DataBaseService,
         private readonly passwordService: PasswordService,
         private readonly userUtilsService: UserUtilsService,
@@ -28,7 +19,10 @@ export class UserService {
     ) {}
 
     /**新增账号*/
-    public async httpBaseAccountCreateUser(principal: AuthPrincipal, input: UserDto.CreateUserDto): Promise<AccountUserResponseDto> {
+    public async httpBaseAccountCreateUser(
+        principal: AuthPrincipal,
+        input: UserDto.CreateUserDto
+    ): Promise<UserDto.AccountUserResponseDto> {
         const memberships = input.memberships ?? []
         const roleKeyIds = input.roleKeyIds ?? []
         const positionKeyIds = input.positionKeyIds ?? []
@@ -50,7 +44,7 @@ export class UserService {
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
             await this.userUtilsService.findPositionsRequired(manager, positionKeyIds)
             const { memberships: _memberships, roleKeyIds: _roleKeyIds, positionKeyIds: _positionKeyIds, password, ...fields } = input
-            const user = manager.create(TbAccountUser, {
+            const user = manager.create(Schema.TbAccountUser, {
                 ...fields,
                 uid: generateUid(),
                 password: await this.passwordService.hash(password)
@@ -69,7 +63,7 @@ export class UserService {
     public async httpBaseAccountColumnUser(
         principal: AuthPrincipal,
         input: UserDto.UserQueryDto
-    ): Promise<PageResult<UserDetailResponseDto>> {
+    ): Promise<PageResult<UserDto.UserDetailResponseDto>> {
         return this.database.builder(this.userRepository, async qb => {
             await this.userUtilsService.applyDataScope(qb, principal.uid)
             if (isNotEmpty(input.vague?.trim())) {
@@ -98,7 +92,7 @@ export class UserService {
                     )`,
                     {
                         filterOrganizationKeyIds: input.organizationKeyIds,
-                        filterMembershipStatus: TbAccountUserOrganizationStatus.ENABLED
+                        filterMembershipStatus: Schema.TbAccountUserOrganizationStatus.ENABLED
                     }
                 )
             }
@@ -133,7 +127,7 @@ export class UserService {
     }
 
     /**账号详情*/
-    public async httpBaseAccountUserResolver(principal: AuthPrincipal, query: UserDto.UserUidDto): Promise<UserDetailResponseDto> {
+    public async httpBaseAccountUserResolver(principal: AuthPrincipal, query: UserDto.UserUidDto): Promise<UserDto.UserDetailResponseDto> {
         return this.userUtilsService.findDetail(principal.uid, query.uid)
     }
 
@@ -143,7 +137,7 @@ export class UserService {
      * 供其他服务把 createBy、modifyBy 等操作人字段渲染为姓名工号；只返回展示所需的
      * 最小字段，不校验权限码也不做数据范围过滤，因此仅通过服务凭据保护的 Feign 暴露。
      */
-    public async httpBaseAccountBatchResolverUser(input: AccountUserBatchDto): Promise<AccountUserSummaryResponseDto[]> {
+    public async httpBaseAccountBatchResolverUser(input: AccountUserBatchDto): Promise<UserDto.AccountUserSummaryResponseDto[]> {
         const uids = [...new Set(input.uids)]
         if (uids.length === 0) return []
         return this.database.builder(this.userRepository, qb =>
@@ -152,7 +146,10 @@ export class UserService {
     }
 
     /**编辑账号*/
-    public async httpBaseAccountUpdateUser(principal: AuthPrincipal, input: UserDto.UpdateUserPayloadDto): Promise<AccountUserResponseDto> {
+    public async httpBaseAccountUpdateUser(
+        principal: AuthPrincipal,
+        input: UserDto.UpdateUserPayloadDto
+    ): Promise<UserDto.AccountUserResponseDto> {
         const { uid, ...fields } = input
         const targetUid = assertUid(uid, '账号UID')
         await this.userUtilsService.findCanAccessUser(principal.uid, targetUid)
@@ -160,7 +157,7 @@ export class UserService {
             const user = await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findUserUnique(manager, fields, targetUid)
             const { positionKeyIds, ...userFields } = fields
-            manager.merge(TbAccountUser, user, userFields)
+            manager.merge(Schema.TbAccountUser, user, userFields)
             const saved = await manager.save(user)
             // positionKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
             if (positionKeyIds !== undefined) {
@@ -182,7 +179,7 @@ export class UserService {
         const password = await this.passwordService.hash(input.password)
         await this.userRepository.manager.transaction(async manager => {
             await this.userUtilsService.lockUser(manager, targetUid)
-            await manager.update(TbAccountUser, { uid: targetUid }, { password })
+            await manager.update(Schema.TbAccountUser, { uid: targetUid }, { password })
         })
         return { success: true }
     }
@@ -200,7 +197,7 @@ export class UserService {
             const organizationKeyIds = input.memberships.map(item => item.organizationKeyId)
             await this.userUtilsService.findCanAssignOrganizations(principal.uid, organizationKeyIds)
             await this.userUtilsService.findOrganizationsRequired(manager, organizationKeyIds)
-            await manager.delete(TbAccountUserOrganization, { userUid: targetUid })
+            await manager.delete(Schema.TbAccountUserOrganization, { userUid: targetUid })
             await this.userUtilsService.insertMemberships(manager, targetUid, input.memberships)
         })
         return { success: true }
@@ -218,7 +215,7 @@ export class UserService {
             await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findLastSuperAdminRemovalAvailable(manager, targetUid, input.roleKeyIds)
             await this.userUtilsService.findRolesRequired(manager, input.roleKeyIds)
-            await manager.delete(TbAccountUserRole, { userUid: targetUid })
+            await manager.delete(Schema.TbAccountUserRole, { userUid: targetUid })
             await this.userUtilsService.insertRoles(manager, targetUid, input.roleKeyIds)
         })
         await this.permissionCacheService.invalidate({ uids: [targetUid] })

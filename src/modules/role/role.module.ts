@@ -1,30 +1,12 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import {
-    TbAccountMenu,
-    TbAccountOrganization,
-    TbAccountRole,
-    TbAccountRoleDataScope,
-    TbAccountRoleDataScopeOrganization,
-    TbAccountRoleMenu,
-    TbAccountUserRole
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
 import { RoleController } from '@/modules/role/role.controller'
-import { RoleService } from '@/modules/role/role.service'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
+import { RoleService } from '@/modules/role/role.service'
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            TbAccountRole,
-            TbAccountMenu,
-            TbAccountRoleMenu,
-            TbAccountUserRole,
-            TbAccountRoleDataScope,
-            TbAccountRoleDataScopeOrganization,
-            TbAccountOrganization
-        ])
-    ],
+    imports: [TypeOrmModule.forFeature(ACCOUNT_MYSQL_ENTITIES)],
     controllers: [RoleController],
     providers: [RoleService, RoleUtilsService],
     exports: [RoleService]

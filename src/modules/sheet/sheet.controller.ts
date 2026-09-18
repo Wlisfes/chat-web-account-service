@@ -38,7 +38,7 @@ export class SheetController {
     }
 
     @RequirePermissions('chat:deploy:system:sheet')
-    @ApiServiceDecorator(Get('resolve'), {
+    @ApiServiceDecorator(Get('/resolve'), {
         operation: { summary: '获取菜单详情' },
         request: { source: 'query', type: SheetDto.SheetKeyDto },
         response: { type: TbAccountMenuDto, description: '菜单详情' }
@@ -48,7 +48,7 @@ export class SheetController {
     }
 
     @RequirePermissions('chat:deploy:system:sheet:create')
-    @ApiServiceDecorator(Post('create'), {
+    @ApiServiceDecorator(Post('/create'), {
         operation: { summary: '创建目录、菜单或按钮节点' },
         request: { source: 'body', type: SheetDto.CreateSheetDto },
         response: { type: TbAccountMenuDto, description: '新增后的菜单节点' }
@@ -58,7 +58,7 @@ export class SheetController {
     }
 
     @RequirePermissions('chat:deploy:system:sheet:update')
-    @ApiServiceDecorator(Post('update'), {
+    @ApiServiceDecorator(Post('/update'), {
         operation: { summary: '更新或移动菜单节点' },
         request: { source: 'body', type: SheetDto.UpdateSheetPayloadDto },
         response: { type: TbAccountMenuDto, description: '更新后的菜单节点' }
@@ -68,7 +68,7 @@ export class SheetController {
     }
 
     @RequirePermissions('chat:deploy:system:sheet:delete')
-    @ApiServiceDecorator(Post('delete'), {
+    @ApiServiceDecorator(Post('/delete'), {
         operation: { summary: '删除没有下级和角色引用的菜单节点' },
         request: { source: 'body', type: SheetDto.SheetKeyDto },
         response: { type: SuccessResponseDataDto, description: '菜单删除结果' }
