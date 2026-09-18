@@ -139,3 +139,72 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
         }
     }
 })
+
+const { BadRequestException } = require('@nestjs/common')
+const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
+const { HttpExceptionFilter } = require('@wlisfes/chat-web-base-schema/filters')
+
+test('Nacos 远端配置会写入 ConfigService', () => {
+    const values = new Map()
+    const configService = {
+        set(key, value) {
+            values.set(key, value)
+        }
+    }
+
+    const service = new NacosService(configService, {
+        serverAddr: 'nacos.internal:8848',
+        namespace: 'test',
+        serviceName: 'chat-web-account-service',
+        registerPort: 5010
+    })
+    service.applyRemoteConfig(
+        'REDIS_HOST: remote-redis\nREDIS_URL: redis://remote-redis:6379/0\nremoteOnly: enabled',
+        '已加载',
+        'test.yaml',
+        'DEFAULT_GROUP',
+        'test'
+    )
+    assert.equal(values.get('REDIS_HOST'), 'remote-redis')
+    assert.equal(values.get('REDIS_URL'), 'redis://remote-redis:6379/0')
+    assert.equal(values.get('remoteOnly'), 'enabled')
+})
+
+test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
+    const response = {
+        statusCode: undefined,
+        body: undefined,
+        headers: {},
+        setHeader(name, value) {
+            this.headers[name] = value
+        },
+        status(code) {
+            this.statusCode = code
+            return this
+        },
+        json(body) {
+            this.body = body
+        }
+    }
+    const host = {
+        switchToHttp() {
+            return {
+                getRequest() {
+                    return { originalUrl: '/auth/token/login' }
+                },
+                getResponse() {
+                    return response
+                }
+            }
+        }
+    }
+
+    new HttpExceptionFilter().catch(new BadRequestException(['验证码错误']), host)
+
+    assert.equal(response.statusCode, 200)
+    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'logId', 'timestamp'])
+    assert.equal(response.body.code, 400)
+    assert.equal(response.body.message, '验证码错误')
+    assert.equal(response.headers['x-request-id'], response.body.logId)
+    assert.match(response.body.timestamp, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+})

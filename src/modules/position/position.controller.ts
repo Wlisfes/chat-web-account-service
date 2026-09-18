@@ -8,7 +8,7 @@ import * as PositionDto from '@/modules/position/dto/position.dto'
 export class PositionController {
     constructor(private readonly positionService: PositionService) {}
 
-    @RequirePermissions('account:position:create')
+    @RequirePermissions('chat:deploy:system:position:create')
     @ApiServiceDecorator(Post('create'), {
         operation: { summary: '新增职位' },
         request: { source: 'body', type: PositionDto.CreatePositionDto },
@@ -18,7 +18,7 @@ export class PositionController {
         return this.positionService.httpBaseAccountCreatePosition(input)
     }
 
-    @RequirePermissions('account:position:update')
+    @RequirePermissions('chat:deploy:system:position:update')
     @ApiServiceDecorator(Post('update'), {
         operation: { summary: '编辑职位' },
         request: { source: 'body', type: PositionDto.UpdatePositionDto },
@@ -28,7 +28,7 @@ export class PositionController {
         return this.positionService.httpBaseAccountUpdatePosition(input)
     }
 
-    @RequirePermissions('account:position:list')
+    @RequirePermissions('chat:deploy:system:position')
     @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取职位详情' },
         request: { source: 'query', type: PositionDto.PositionKeyDto },
@@ -38,7 +38,7 @@ export class PositionController {
         return this.positionService.httpBaseAccountPositionResolver(query)
     }
 
-    @RequirePermissions('account:position:list')
+    @RequirePermissions('chat:deploy:system:position')
     @ApiServiceDecorator(Post('column'), {
         operation: { summary: '分页查询职位' },
         request: { source: 'body', type: PositionDto.ListPositionDto },
@@ -48,7 +48,7 @@ export class PositionController {
         return this.positionService.httpBaseAccountColumnPosition(input)
     }
 
-    @RequirePermissions('account:position:delete')
+    @RequirePermissions('chat:deploy:system:position:delete')
     @ApiServiceDecorator(Post('delete'), {
         operation: { summary: '删除未关联员工的职位' },
         request: { source: 'body', type: PositionDto.PositionKeyDto },
@@ -58,7 +58,7 @@ export class PositionController {
         return this.positionService.httpBaseAccountDeletePosition(input)
     }
 
-    @RequirePermissions('account:position:list')
+    @RequirePermissions('chat:deploy:system:position')
     @ApiServiceDecorator(Get('select'), {
         operation: { summary: '获取职位下拉选项' },
         request: { source: 'query', type: PositionDto.SelectPositionDto },

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { DataSource, InjectDataSource } from '@wlisfes/chat-web-base-schema/database'
 import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
-import * as HealthDto from '@/modules/health/dto/health.dto'
+import * as HealthDto from '@/health/dto/health.dto'
 
 type TableRow = {
     tableName: string

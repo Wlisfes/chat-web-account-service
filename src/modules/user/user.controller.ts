@@ -61,7 +61,7 @@ export class UserController {
         return this.userService.httpBaseAccountResetUserPassword(principal, input)
     }
 
-    @RequirePermissions('chat:deploy:system:user:organization:assign')
+    @RequirePermissions('chat:deploy:system:user:organization:measure')
     @ApiServiceDecorator(Post('update/organization'), {
         operation: { summary: '替换账号的主组织和兼任组织' },
         request: { source: 'body', type: UserDto.ReplaceUserOrganizationsPayloadDto },
@@ -74,7 +74,7 @@ export class UserController {
         return this.userService.httpBaseAccountUpdateUserOrganization(principal, input)
     }
 
-    @RequirePermissions('chat:deploy:system:user:role:assign')
+    @RequirePermissions('chat:deploy:system:user:role:measure')
     @ApiServiceDecorator(Post('update/role'), {
         operation: { summary: '替换账号的全部角色' },
         request: { source: 'body', type: UserDto.ReplaceUserRolesPayloadDto },

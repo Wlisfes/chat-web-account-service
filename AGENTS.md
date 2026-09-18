@@ -20,7 +20,7 @@
 ## 目录与文件命名
 
 - 通用入口固定为 `src/main.ts` 和 `src/app.module.ts`。
-- 业务或基础设施模块放在 `src/modules/<module-name>/`。
+- 业务模块放在 `src/modules/<module-name>/`。`health`、`feign`、`database` 三个基础设施模块必须提取到 `src/` 一级目录（`src/health/`、`src/feign/`、`src/database/`），不要放进 `src/modules/`。后续改造其他 NestJS 服务时必须与 Account 保持同一目录级别。
 - 文件名使用小写 kebab-case，并使用职责后缀：
   - `*.module.ts`
   - `*.controller.ts`
@@ -30,7 +30,7 @@
   - `*.constants.ts`
   - `*.options.ts`
 - 一个模块的接口、常量和配置构造分别放入对应后缀文件，不与实现类混放。
-- 测试文件与被测文件同名并使用 `*.spec.ts`；禁止提交生成目录、依赖目录和真实 `.env`。
+- 自动化测试放在仓库根目录 `test/`，文件名与模块目录一致并使用 `<module>.test.cjs`，例如 `sheet.test.cjs`、`user.test.cjs`。禁止引入 Jest 或 `*.spec.ts`。禁止提交生成目录、依赖目录和真实 `.env`。
 
 ## TypeScript 与 NestJS 命名
 
@@ -74,9 +74,53 @@
 - 分页查询统一返回 `PageResult<Entity>`，使用 `DataBaseService.builder` 构造 QueryBuilder，别名统一为 `t`；筛选、排序、分页和 `getManyAndCount` 应在同一 builder 回调内清晰完成。禁止在业务模块重复封装 QueryBuilder 或创建无意义 Repository Adapter。
 - 可复用的实体查找、存在性校验、唯一性校验、树校验、锁表等工具逻辑放入同模块 `<module>.utils.service.ts`，使用 `@Injectable()` 并由 Module 注册注入；主 Service 只保留用例编排。不得把仅调用一次且没有复用价值的简单业务步骤机械拆成工具类。
 - 多步写操作、唯一性检查、层级结构调整和关联关系替换必须由 Service 明确建立事务；需要并发保护时通过 Utils Service 锁定相关数据，再执行校验和写入。
-- 普通业务入参中可选字段的空值判断统一使用 `class-validator` 的 `isEmpty`、`isNotEmpty`；禁止编写 `input.xxx !== undefined && ...` 或用隐式 truthy/falsy 代替该类入参判空。只有必须区分“字段未传”和“显式传入 null”的三态更新字段可以直接判断 `undefined`，且必须保留该语义说明；实体查询结果、基础设施配置解析、布尔值判断、枚举比较和两个已确认非空值之间的相等性比较不受此限制。
+- 普通业务入参中可选字段的空值判断统一使用 `@wlisfes/chat-web-base-schema/utils` 导出的 `isEmpty`、`isNotEmpty`，禁止从 `class-validator` 直接导入这两个函数；DTO 字段校验装饰器仍使用 `class-validator`。禁止编写 `input.xxx !== undefined && ...` 或用隐式 truthy/falsy 代替该类入参判空。只有必须区分“字段未传”和“显式传入 null”的三态更新字段可以直接判断 `undefined`，且必须保留该语义说明；实体查询结果、基础设施配置解析、布尔值判断、枚举比较和两个已确认非空值之间的相等性比较不受此限制。
 - DTO 必须放在模块 `dto/` 目录，优先通过 `PickType`、`PartialType`、`IntersectionType` 复用 `chat-web-base-schema` DTO；分页 DTO 继承公共 `PageDto`。字段必须具备 Swagger 示例/说明、必要的类型转换和中文校验消息。
 - Module 按 `imports`、`controllers`、`providers`、`exports` 组织；新增 Utils Service 必须注册到 `providers`。不得改变既有公开路由、权限、响应结构和业务语义来迎合代码格式。
+
+## 源码导入、目录与测试落地规则
+
+改造其他 NestJS 服务时必须按本节和上一节执行；基准代码为 `chat-web-account-service` 的 `src/modules/sheet/`、`src/modules/user/`、`src/health/`、`src/feign/`、`src/database/` 和 `test/*.test.cjs`。
+
+### 目录分层
+
+- 业务模块只放 `src/modules/<module-name>/`，每个模块包含：`<name>.module.ts`、`<name>.controller.ts`、`<name>.service.ts`、按需 `<name>.utils.service.ts`、`dto/<name>.dto.ts`。
+- `health`、`feign`、`database` 必须放在 `src/` 一级目录：`src/health/`、`src/feign/`、`src/database/`。不要放进 `src/modules/`。其他服务改造时按 Account 同样提取。
+- 禁止保留一次性迁移脚本、菜单种子和 `repair-*`。部署需要的 CLI 仅允许 `src/cli/nacos-auth.ts`、`src/cli/isolate-service-databases.ts`、`src/cli/apply-schema.ts`。
+- 隔离脚本只读取本服务 Nacos Data ID、只连接本服务数据库；禁止在 Account 中读取或连接 `chat-web-finance-service.yaml` 等其他服务配置。
+
+### 导入顺序与来源
+
+每个文件顶部导入按以下顺序。禁止 `from 'typeorm'`；禁止从 `@nestjs/typeorm` 导入 `InjectRepository`、`Repository`、`EntityManager`（`TypeOrmModule` 除外）。
+
+1. `@nestjs/common`、`@nestjs/config`、`@nestjs/swagger` 等 Nest 官方包。
+2. `@wlisfes/chat-web-base-schema/decorator`
+3. `@wlisfes/chat-web-base-schema/auth`
+4. `@wlisfes/chat-web-base-schema/database`
+5. `@wlisfes/chat-web-base-schema/utils`
+6. 其他 schema 子路径（`feign`、`nacos`、`filters`、`interceptor` 等）。
+7. 本仓库 `@/modules/...`、`@/health/...`、`@/feign/...`、`@/database/...`。
+8. `import * as Schema from '@wlisfes/chat-web-base-schema'`。Service 和实体较多的 Utils 用此归组引用实体；Utils 只有极少实体时允许从 `chat-web-account-mysql` 具名导入。
+9. `import * as <Module>Dto from '@/modules/<module>/dto/<module>.dto'`。
+
+补充约定：
+
+- Controller：共享响应实体 DTO 可具名导入 `TbXxxDto`；本模块请求与响应 DTO 一律 `import * as XxxDto`，通过 `XxxDto.Xxx` 引用。
+- Service：`InjectRepository`、`Repository`、`DataBaseService`、`Brackets`、`In`、`EntityManager` 从 `@wlisfes/chat-web-base-schema/database` 导入；`isEmpty` / `isNotEmpty` 从 `@wlisfes/chat-web-base-schema/utils` 导入。
+- DTO 文件：`@nestjs/swagger` → `class-transformer` / `class-validator` → schema `decorator` / `utils` → `import * as Schema`，字段用 `PickType(Schema.TbXxxDto, ...)`。
+- Module：`TypeOrmModule` 从 `@nestjs/typeorm` 导入，`TypeOrmModule.forFeature(ACCOUNT_MYSQL_ENTITIES)`，不要在业务 Module 里逐个罗列实体。
+
+### 测试文件
+
+- 使用 Node 内置测试运行器。文件放在 `test/<module>.test.cjs`，名称与模块目录一致，例如 `app.test.cjs`、`sheet.test.cjs`、`dept.test.cjs`、`role.test.cjs`、`user.test.cjs`、`feign.test.cjs`、`health.test.cjs`。
+- `yarn test` 固定为 `yarn build && node --test test/*.test.cjs`。测试引用 `dist/` 编译产物。
+- 禁止引入 Jest，禁止 `*.spec.ts`，禁止 `security-and-tree`、`service-behavior`、`api-documentation` 这类与模块无关的文件名。同一模块的用例合并到一个测试文件，不要按 column/enums/utils 拆多个文件。
+
+### 数据范围资源编码
+
+- 功能权限码与数据范围资源编码分离。权限码用于 `@RequirePermissions`，例如 `chat:deploy:system:user`。
+- 数据范围 `resourceCode` 格式固定为 `chat:{服务}:{资源}`，全小写。账号模块使用 `chat:account:user`；`*` 表示默认规则。其他服务按同样规则，例如 `chat:crm:consumer`、`chat:finance:voucher`。
+- 查询数据范围必须调用 `AuthorizationService.resolveDataScope(uid, resourceCode)`，禁止把数据范围挂到 `AuthPrincipal`。
 
 ## Git 提交规范
 
@@ -148,6 +192,10 @@
 ### HTTP 模块实现基准
 
 - `src/modules/sheet/` 中的 Controller、Service、Utils Service、Module 和 DTO 是本仓库 HTTP 业务模块的唯一结构基准；菜单管理模块使用 `sheet` 命名，数据库实体仍保留 `TbAccountMenu` 等持久化名称。重构其他模块时保持该基准目录稳定，不得复制出另一套分层或命名规则。
+- `src/health/`、`src/feign/`、`src/database/` 是基础设施模块的唯一位置，不得再放回 `src/modules/`。`AppModule` 使用 `import { HealthModule } from '@/health/health.module'`、`import { FeignModule } from '@/feign/feign.module'`、`import { DatabaseModule } from '@/database/database.module'`。其他服务必须按同样方式提取这 3 个模块。
+- 本仓库 `src/cli` 只保留 `nacos-auth.ts`、`isolate-service-databases.ts`、`apply-schema.ts`。隔离脚本只校验 `chat-web-account-service.yaml` 与 `chat_web_account`。
+- 本仓库测试文件为 `test/app.test.cjs`、`test/sheet.test.cjs`、`test/dept.test.cjs`、`test/role.test.cjs`、`test/user.test.cjs`、`test/feign.test.cjs`、`test/health.test.cjs`、`test/isolate-service-databases.test.cjs`。
+- 账号数据范围资源编码为 `chat:account:user`。
 - Controller 必须保持为薄协议层：除装饰器、`query`/`body` DTO、当前身份参数和调用同名 Service 方法外，不得进行 DTO 拆包、字段转换、默认值注入、数据库访问、业务校验或响应结构拼装。
 - 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountSheetTree`、`httpBaseAccountSheetResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
 - Cookie 读写、Header 解析、流或文件响应、SVG 输出等依赖 Express 的纯 HTTP 协议适配允许保留在 Controller。禁止把 `Request`、`Response`、Cookie、Header 或响应发送逻辑传入业务 Service；协议例外必须写中文职责注释。

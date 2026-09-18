@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { createMysqlOptions, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { NacosService } from '@wlisfes/chat-web-base-schema/nacos'
-import { ACCOUNT_MYSQL_CONFIG_KEY, ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
+import { ACCOUNT_MYSQL_CONFIG_KEY, ACCOUNT_MYSQL_ENTITIES } from '@/database/database.constants'
 
 @Global()
 @Module({
