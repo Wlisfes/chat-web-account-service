@@ -3,7 +3,7 @@ import { ApiServiceDecorator, ApifoxController } from '@wlisfes/chat-web-base-sc
 import { Public } from '@wlisfes/chat-web-base-schema/auth'
 import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import { AppService } from '@/app.service'
-import * as HealthDto from '@/modules/health/dto/health.dto'
+import * as HealthDto from '@/health/dto/health.dto'
 
 @ApifoxController('账号服务-运行状态')
 export class AppController {
