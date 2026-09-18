@@ -13,7 +13,7 @@ export class SheetService {
         @InjectRepository(Schema.TbAccountMenu) private readonly sheetRepository: Repository<Schema.TbAccountMenu>,
         private readonly database: DataBaseService,
         private readonly sheetUtilsService: SheetUtilsService,
-        private readonly permissionCacheService: AuthorizationService
+        private readonly authorizationService: AuthorizationService
     ) {}
 
     /**菜单静态枚举**/
@@ -103,7 +103,7 @@ export class SheetService {
             await this.sheetUtilsService.findSheetFieldsRequired(sheet)
             await manager.save(sheet)
             return await this.sheetUtilsService.findAssertTree(manager).then(async () => {
-                await this.permissionCacheService.invalidate({})
+                await this.authorizationService.invalidate({})
                 return sheet
             })
         })
@@ -120,9 +120,10 @@ export class SheetService {
             if (await manager.existsBy(Schema.TbAccountRoleMenu, { menuKeyId: body.keyId })) {
                 throw new ConflictException('菜单仍被角色引用，不能删除')
             }
-            await manager.delete(Schema.TbAccountMenu, { keyId: body.keyId })
-            await this.permissionCacheService.invalidate({})
-            return { success: true }
+            return await manager.delete(Schema.TbAccountMenu, { keyId: body.keyId }).then(async () => {
+                await this.authorizationService.invalidate({})
+                return { success: true }
+            })
         })
     }
 }

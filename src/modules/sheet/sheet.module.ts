@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { TbAccountMenu, TbAccountRoleMenu } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
 import { SheetController } from '@/modules/sheet/sheet.controller'
-import { SheetService } from '@/modules/sheet/sheet.service'
 import { SheetUtilsService } from '@/modules/sheet/sheet.utils.service'
+import { SheetService } from '@/modules/sheet/sheet.service'
 
 @Module({
-    imports: [TypeOrmModule.forFeature([TbAccountMenu, TbAccountRoleMenu])],
+    imports: [TypeOrmModule.forFeature(ACCOUNT_MYSQL_ENTITIES)],
     controllers: [SheetController],
     providers: [SheetService, SheetUtilsService],
     exports: [SheetService]
