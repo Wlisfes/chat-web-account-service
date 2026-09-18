@@ -1,45 +1,26 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { InjectRepository, Repository, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { Brackets, EntityManager, In, SelectQueryBuilder } from '@wlisfes/chat-web-base-schema/database'
+import { assertUid, isEmpty, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
-import {
-    TbAccountOrganization,
-    TbAccountOrganizationStatus,
-    TbAccountPosition,
-    TbAccountRole,
-    TbAccountRoleStatus,
-    TbAccountUser,
-    TbAccountUserOrganization,
-    TbAccountUserOrganizationStatus,
-    TbAccountUserPosition,
-    TbAccountUserRole
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import {
-    Brackets,
-    DataBaseService,
-    EntityManager,
-    In,
-    InjectRepository,
-    Repository,
-    SelectQueryBuilder
-} from '@wlisfes/chat-web-base-schema/database'
-import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
-import { isEmpty, isNotEmpty } from 'class-validator'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 import * as UserDto from '@/modules/user/dto/user.dto'
 
-const USER_RESOURCE_CODE = 'account:user'
+const USER_RESOURCE_CODE = 'chat:account:user'
 
 @Injectable()
 export class UserUtilsService {
     constructor(
-        @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
-        @InjectRepository(TbAccountPosition) private readonly positionRepository: Repository<TbAccountPosition>,
-        @InjectRepository(TbAccountUserPosition) private readonly userPositionRepository: Repository<TbAccountUserPosition>,
+        @InjectRepository(Schema.TbAccountUser) private readonly userRepository: Repository<Schema.TbAccountUser>,
+        @InjectRepository(Schema.TbAccountPosition) private readonly positionRepository: Repository<Schema.TbAccountPosition>,
+        @InjectRepository(Schema.TbAccountUserPosition) private readonly userPositionRepository: Repository<Schema.TbAccountUserPosition>,
         private readonly database: DataBaseService,
-        private readonly permissionService: AuthorizationService
+        private readonly authorizationService: AuthorizationService
     ) {}
 
     /**将账号数据范围应用到查询构造器*/
-    public async applyDataScope(builder: SelectQueryBuilder<TbAccountUser>, actorUid: string): Promise<void> {
-        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+    public async applyDataScope(builder: SelectQueryBuilder<Schema.TbAccountUser>, actorUid: string): Promise<void> {
+        const scope = await this.authorizationService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
         if (scope.all) {
             return
         }
@@ -63,7 +44,7 @@ export class UserUtilsService {
                         )`,
                         {
                             scopeOrganizationKeyIds: scope.organizationKeyIds,
-                            scopeMembershipStatus: TbAccountUserOrganizationStatus.ENABLED
+                            scopeMembershipStatus: Schema.TbAccountUserOrganizationStatus.ENABLED
                         }
                     )
                 }
@@ -92,8 +73,8 @@ export class UserUtilsService {
             throw new NotFoundException('账号不存在')
         }
         const [memberships, roleRelations, positionRelations] = await Promise.all([
-            this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
-            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: normalizedTargetUid } }),
+            this.userRepository.manager.find(Schema.TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
+            this.userRepository.manager.find(Schema.TbAccountUserRole, { where: { userUid: normalizedTargetUid } }),
             this.userPositionRepository.find({ where: { userUid: normalizedTargetUid } })
         ])
         const organizationKeyIds = memberships.map(item => item.organizationKeyId)
@@ -101,9 +82,9 @@ export class UserUtilsService {
         const positionKeyIds = positionRelations.map(item => item.positionKeyId)
         const [organizations, roles, positions] = await Promise.all([
             organizationKeyIds.length > 0
-                ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
+                ? this.userRepository.manager.find(Schema.TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
                 : [],
-            roleKeyIds.length > 0 ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : [],
+            roleKeyIds.length > 0 ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : [],
             positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : []
         ])
         const membershipByOrganization = new Map(memberships.map(item => [item.organizationKeyId, item]))
@@ -114,7 +95,8 @@ export class UserUtilsService {
                 ...organization,
                 isPrimary: membershipByOrganization.get(organization.keyId)?.isPrimary ?? false,
                 positionName: membershipByOrganization.get(organization.keyId)?.positionName,
-                membershipStatus: membershipByOrganization.get(organization.keyId)?.status ?? TbAccountUserOrganizationStatus.DISABLED
+                membershipStatus:
+                    membershipByOrganization.get(organization.keyId)?.status ?? Schema.TbAccountUserOrganizationStatus.DISABLED
             })),
             roleKeyIds,
             roles,
@@ -133,14 +115,14 @@ export class UserUtilsService {
         if (memberships.length > 0 && primaryCount !== 1) {
             throw new BadRequestException('存在组织关系时必须且只能设置一个主组织')
         }
-        if (memberships.some(item => item.isPrimary && item.status !== TbAccountUserOrganizationStatus.ENABLED)) {
+        if (memberships.some(item => item.isPrimary && item.status !== Schema.TbAccountUserOrganizationStatus.ENABLED)) {
             throw new BadRequestException('主组织关系必须启用')
         }
     }
 
     /**锁定并获取目标账号*/
-    public async lockUser(manager: EntityManager, userUid: string): Promise<TbAccountUser> {
-        const user = await manager.findOne(TbAccountUser, { where: { uid: userUid }, lock: { mode: 'pessimistic_write' } })
+    public async lockUser(manager: EntityManager, userUid: string): Promise<Schema.TbAccountUser> {
+        const user = await manager.findOne(Schema.TbAccountUser, { where: { uid: userUid }, lock: { mode: 'pessimistic_write' } })
         if (!user) {
             throw new NotFoundException('账号不存在')
         }
@@ -152,8 +134,8 @@ export class UserUtilsService {
         if (organizationKeyIds.length === 0) {
             return
         }
-        const organizations = await manager.find(TbAccountOrganization, {
-            where: { keyId: In(organizationKeyIds), status: TbAccountOrganizationStatus.ENABLED }
+        const organizations = await manager.find(Schema.TbAccountOrganization, {
+            where: { keyId: In(organizationKeyIds), status: Schema.TbAccountOrganizationStatus.ENABLED }
         })
         if (organizations.length !== organizationKeyIds.length) {
             throw new BadRequestException('组织关系列表包含不存在或已禁用的组织')
@@ -165,8 +147,8 @@ export class UserUtilsService {
         if (roleKeyIds.length === 0) {
             return
         }
-        const roles = await manager.find(TbAccountRole, {
-            where: { keyId: In(roleKeyIds), status: TbAccountRoleStatus.ENABLED }
+        const roles = await manager.find(Schema.TbAccountRole, {
+            where: { keyId: In(roleKeyIds), status: Schema.TbAccountRoleStatus.ENABLED }
         })
         if (roles.length !== roleKeyIds.length) {
             throw new BadRequestException('角色列表包含不存在或已禁用的角色')
@@ -176,7 +158,7 @@ export class UserUtilsService {
     /**校验职位列表存在。*/
     public async findPositionsRequired(manager: EntityManager, positionKeyIds: number[]): Promise<void> {
         if (positionKeyIds.length === 0) return
-        const positions = await manager.find(TbAccountPosition, { where: { keyId: In(positionKeyIds) } })
+        const positions = await manager.find(Schema.TbAccountPosition, { where: { keyId: In(positionKeyIds) } })
         if (positions.length !== positionKeyIds.length) throw new BadRequestException('职位列表包含不存在的职位')
     }
 
@@ -190,7 +172,7 @@ export class UserUtilsService {
             return
         }
         await manager.insert(
-            TbAccountUserOrganization,
+            Schema.TbAccountUserOrganization,
             memberships.map(item => ({
                 userUid,
                 organizationKeyId: item.organizationKeyId,
@@ -207,50 +189,50 @@ export class UserUtilsService {
             return
         }
         await manager.insert(
-            TbAccountUserRole,
+            Schema.TbAccountUserRole,
             roleKeyIds.map(roleKeyId => ({ userUid, roleKeyId }))
         )
     }
 
     /**替换账号职位关系。*/
     public async replacePositions(manager: EntityManager, userUid: string, positionKeyIds: number[]): Promise<void> {
-        await manager.delete(TbAccountUserPosition, { userUid })
+        await manager.delete(Schema.TbAccountUserPosition, { userUid })
         if (positionKeyIds.length > 0) {
             await manager.insert(
-                TbAccountUserPosition,
+                Schema.TbAccountUserPosition,
                 positionKeyIds.map(positionKeyId => ({ userUid, positionKeyId }))
             )
         }
     }
 
     /**批量补充账号组织和角色信息*/
-    public async enrichUsers(users: TbAccountUser[]): Promise<UserDto.UserDetailResponseDto[]> {
+    public async enrichUsers(users: Schema.TbAccountUser[]): Promise<UserDto.UserDetailResponseDto[]> {
         const userUids = users.map(user => user.uid)
         if (userUids.length === 0) {
             return []
         }
         const [memberships, roleRelations, positionRelations] = await Promise.all([
-            this.userRepository.manager.find(TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
-            this.userRepository.manager.find(TbAccountUserRole, { where: { userUid: In(userUids) } }),
+            this.userRepository.manager.find(Schema.TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
+            this.userRepository.manager.find(Schema.TbAccountUserRole, { where: { userUid: In(userUids) } }),
             this.userPositionRepository.find({ where: { userUid: In(userUids) } })
         ])
         const organizationKeyIds = [...new Set(memberships.map(item => item.organizationKeyId))]
         const roleKeyIds = [...new Set(roleRelations.map(item => item.roleKeyId))]
         const positionKeyIds = [...new Set(positionRelations.map(item => item.positionKeyId))]
-        const organizationsPromise: Promise<TbAccountOrganization[]> =
+        const organizationsPromise: Promise<Schema.TbAccountOrganization[]> =
             organizationKeyIds.length > 0
-                ? this.userRepository.manager.find(TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
+                ? this.userRepository.manager.find(Schema.TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
                 : Promise.resolve([])
-        const rolesPromise: Promise<TbAccountRole[]> =
+        const rolesPromise: Promise<Schema.TbAccountRole[]> =
             roleKeyIds.length > 0
-                ? this.userRepository.manager.find(TbAccountRole, { where: { keyId: In(roleKeyIds) } })
+                ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } })
                 : Promise.resolve([])
-        const positionsPromise: Promise<TbAccountPosition[]> =
+        const positionsPromise: Promise<Schema.TbAccountPosition[]> =
             positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : Promise.resolve([])
         const [organizations, roles, positions] = await Promise.all([organizationsPromise, rolesPromise, positionsPromise])
-        const organizationByKeyId = new Map<number, TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
-        const roleByKeyId = new Map<number, TbAccountRole>(roles.map(item => [item.keyId, item]))
-        const positionByKeyId = new Map<number, TbAccountPosition>(positions.map(item => [item.keyId, item]))
+        const organizationByKeyId = new Map<number, Schema.TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
+        const roleByKeyId = new Map<number, Schema.TbAccountRole>(roles.map(item => [item.keyId, item]))
+        const positionByKeyId = new Map<number, Schema.TbAccountPosition>(positions.map(item => [item.keyId, item]))
         return users.map(user => {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
@@ -266,7 +248,7 @@ export class UserUtilsService {
                     membershipStatus: membership.status
                 })
             }
-            const userRoles: TbAccountRole[] = []
+            const userRoles: Schema.TbAccountRole[] = []
             for (const relation of userRoleRelations) {
                 const role = roleByKeyId.get(relation.roleKeyId)
                 if (role) userRoles.push(role)
@@ -288,7 +270,7 @@ export class UserUtilsService {
 
     /**校验组织列表位于操作者数据范围内*/
     public async findCanAssignOrganizations(actorUid: string, organizationKeyIds: number[]): Promise<void> {
-        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+        const scope = await this.authorizationService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
         if (scope.all) {
             return
         }
@@ -299,18 +281,18 @@ export class UserUtilsService {
 
     /**校验操作者为超级管理员*/
     public async findSuperAdminRequired(actorUid: string, message: string): Promise<void> {
-        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
+        if (!(await this.authorizationService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException(message)
         }
     }
 
     /**校验不能移除系统中最后一个超级管理员*/
     public async findLastSuperAdminRemovalAvailable(manager: EntityManager, targetUid: string, roleKeyIds: number[]): Promise<void> {
-        const superAdminRole = await manager.findOneBy(TbAccountRole, { code: 'super_admin' })
+        const superAdminRole = await manager.findOneBy(Schema.TbAccountRole, { code: 'super_admin' })
         if (!superAdminRole || roleKeyIds.includes(superAdminRole.keyId)) {
             return
         }
-        const assignments = await this.database.builder(manager.getRepository(TbAccountUserRole), qb =>
+        const assignments = await this.database.builder(manager.getRepository(Schema.TbAccountUserRole), qb =>
             qb.where('t.roleKeyId = :roleKeyId', { roleKeyId: superAdminRole.keyId }).setLock('pessimistic_write').getMany()
         )
         if (assignments.some(item => item.userUid === targetUid) && assignments.length <= 1) {
@@ -321,7 +303,7 @@ export class UserUtilsService {
     /**校验账号工号、手机号和邮箱唯一*/
     public async findUserUnique(
         manager: EntityManager,
-        input: Pick<Partial<TbAccountUser>, 'number' | 'phone' | 'email'>,
+        input: Pick<Partial<Schema.TbAccountUser>, 'number' | 'phone' | 'email'>,
         excludedUid?: string
     ): Promise<void> {
         const checks = [
@@ -333,7 +315,7 @@ export class UserUtilsService {
             if (isEmpty(value)) {
                 continue
             }
-            const exists = await this.database.builder(manager.getRepository(TbAccountUser), qb => {
+            const exists = await this.database.builder(manager.getRepository(Schema.TbAccountUser), qb => {
                 qb.where(`t.${field} = :value`, { value: value ?? '' })
                 if (isNotEmpty(excludedUid)) {
                     qb.andWhere('t.uid <> :excludedUid', { excludedUid })

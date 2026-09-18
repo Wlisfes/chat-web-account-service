@@ -42,7 +42,7 @@ export class DataScopeOrganizationGrantDto {
 }
 
 export class RoleDataScopeRuleDto {
-    @ApiProperty({ description: '业务资源编码；星号表示默认规则', example: 'account:user' })
+    @ApiProperty({ description: '业务资源编码；星号表示默认规则', example: 'chat:account:user' })
     @IsString({ message: '业务资源编码必须是字符串' })
     @IsNotEmpty({ message: '业务资源编码必填' })
     @MaxLength(128, { message: '业务资源编码长度不能超过128位' })
@@ -87,7 +87,7 @@ export class ReplaceRoleDataScopesDto {
         type: [RoleDataScopeRuleDto],
         example: [
             {
-                resourceCode: 'account:user',
+                resourceCode: 'chat:account:user',
                 scopeType: 'custom',
                 status: 'enabled',
                 organizations: [{ organizationKeyId: 1, includeChildren: true }]

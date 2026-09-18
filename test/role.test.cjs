@@ -124,11 +124,11 @@ test('资源专属数据范围覆盖同角色的默认规则，不影响其他�
     const roles = [{ keyId: 1 }, { keyId: 2 }]
     const rules = [
         { id: 'a-default', roleKeyId: 1, resourceCode: '*' },
-        { id: 'a-user', roleKeyId: 1, resourceCode: 'account:user' },
+        { id: 'a-user', roleKeyId: 1, resourceCode: 'chat:account:user' },
         { id: 'b-default', roleKeyId: 2, resourceCode: '*' }
     ]
     assert.deepEqual(
-        selectEffectiveScopeRules(roles, rules, 'account:user').map(rule => rule.id),
+        selectEffectiveScopeRules(roles, rules, 'chat:account:user').map(rule => rule.id),
         ['a-user', 'b-default']
     )
 })
