@@ -31,12 +31,12 @@ export class SheetService {
     }
 
     /**菜单树结构**/
-    public async httpBaseAccountSheetTree(): Promise<PageResult<Schema.TbAccountMenu>> {
+    public async httpBaseAccountSheetTree(): Promise<Array<Schema.TbAccountMenu>> {
         return await this.database.builder(this.sheetRepository, async qb => {
             qb.orderBy('t.sort', 'ASC')
             qb.addOrderBy('t.keyId', 'ASC')
             return await qb.getMany().then(nodes => {
-                return fetchResolver({ list: buildTree(nodes) })
+                return buildTree(nodes)
             })
         })
     }

@@ -1,7 +1,6 @@
 import { Body, Get, Post, Query } from '@nestjs/common'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { RequirePermissions, CurrentPrincipal } from '@wlisfes/chat-web-base-schema/auth'
-import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { RequirePermissions, CurrentPrincipal, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { SheetService } from '@/modules/sheet/sheet.service'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
@@ -22,7 +21,7 @@ export class SheetController {
     @RequirePermissions('chat:deploy:system:sheet')
     @ApiServiceDecorator(Get('/tree/structure'), {
         operation: { summary: '获取完整菜单树' },
-        response: { type: SheetDto.SheetTreeNodeResponseDto, description: '完整菜单树' }
+        response: { type: SheetDto.SheetTreeNodeDto, isArray: true, description: '完整菜单树' }
     })
     public async httpBaseAccountSheetTree() {
         return this.sheetService.httpBaseAccountSheetTree()

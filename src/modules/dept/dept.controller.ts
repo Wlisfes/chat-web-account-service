@@ -9,7 +9,7 @@ import { DeptService } from '@/modules/dept/dept.service'
 export class DeptController {
     constructor(private readonly deptService: DeptService) {}
 
-    @RequirePermissions('account:organization:list')
+    @RequirePermissions('chat:deploy:system:organization')
     @ApiServiceDecorator(Get('tree/structure'), {
         operation: { summary: '获取完整组织树' },
         response: { type: DeptTreeNodeResponseDto, isArray: true, description: '完整组织树' }
@@ -18,7 +18,7 @@ export class DeptController {
         return this.deptService.httpBaseAccountDeptTree()
     }
 
-    @RequirePermissions('account:organization:list')
+    @RequirePermissions('chat:deploy:system:organization')
     @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '获取组织详情' },
         request: { source: 'query', type: DeptKeyDto },
@@ -28,7 +28,7 @@ export class DeptController {
         return this.deptService.httpBaseAccountDeptResolver(query)
     }
 
-    @RequirePermissions('account:organization:create')
+    @RequirePermissions('chat:deploy:system:organization:create')
     @ApiServiceDecorator(Post('create'), {
         operation: { summary: '创建组织节点' },
         request: { source: 'body', type: CreateDeptDto },
@@ -38,7 +38,7 @@ export class DeptController {
         return this.deptService.httpBaseAccountCreateDept(input)
     }
 
-    @RequirePermissions('account:organization:update')
+    @RequirePermissions('chat:deploy:system:organization:update')
     @ApiServiceDecorator(Post('update'), {
         operation: { summary: '更新或移动组织节点' },
         request: { source: 'body', type: UpdateDeptPayloadDto },
@@ -48,7 +48,7 @@ export class DeptController {
         return this.deptService.httpBaseAccountUpdateDept(input)
     }
 
-    @RequirePermissions('account:organization:delete')
+    @RequirePermissions('chat:deploy:system:organization:delete')
     @ApiServiceDecorator(Post('delete'), {
         operation: { summary: '删除没有下级、成员和权限引用的组织节点' },
         request: { source: 'body', type: DeptKeyDto },
