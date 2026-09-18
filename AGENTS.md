@@ -106,7 +106,8 @@
 - 日常开发使用 `developer` 分支；新服务合并到 `main` 后触发构建部署流水线。
 - 远程仓库只保留 `main`、`developer` 两个长期分支；需求开发使用的临时分支必须先合并到 `developer`，发布时同步合并到 `main`，两边合并并验证通过后立即删除临时分支（远程和本地），不得保留其他长期或已完成分支。
 - 单个小功能、样式调整或普通缺陷修复完成后，只提交并推送到 `developer`，不得立即合并 `main` 或触发构建部署流水线；应累计一批已完成且验证通过的改动后统一发布。只有用户明确要求发布/部署，或确属需要立即上线的紧急修复时，才允许单独合并 `main` 并触发流水线。
-- 至少执行格式检查、TypeScript 类型检查和 Nest 构建。
+- 合并 `main` 前必须在本仓库执行 `yarn format:check` 和 `yarn test`。GitHub Actions 的 `Verify service` 会先跑这两项，失败则 Build/Deploy 整条跳过，生产不会发布。
+- 至少执行格式检查、TypeScript 类型检查和 Nest 构建；`yarn test` 已包含 Nest 构建。不要在未跑通这两项时合并 PR。
 - 涉及代理、数据库、服务发现或部署时，必须增加对应的运行级验证。
 - 修改公共工程规约时，同步检查所有现有微服务，避免只修新项目而留下配置分叉。
 
@@ -189,6 +190,7 @@
 - 本服务不再使用 Redis。登录会话和图形验证码归鉴权服务，index `0` 已移交，不得重新引入 Redis 依赖或连接任何 index。
 - 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
 - 授权（权限码校验）通过共享包 `AuthorizationModule`、`AuthorizationGuard` 和 `AuthorizationService` 完成；本服务不得再维护本地授权模块。权限计算统一由 Auth 服务负责，业务服务只通过 Feign 调用。
+- `AuthPrincipal` 只承载网关签发的身份：`uid`、`number`、`name`、`sessionId`。禁止把 `superAdmin`、`all`、`items` 当成 Principal 字段；超级管理员判断必须调用 `AuthorizationService.isSuperAdmin(uid)`，数据范围必须调用 `AuthorizationService.resolveDataScope(uid, resourceCode)`。2026-09-18 P0：误把授权数据挂到 Principal 后，`yarn test` 会在 `nest build` 因 TS2339 失败，即便格式检查先拦住也不会发布。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。

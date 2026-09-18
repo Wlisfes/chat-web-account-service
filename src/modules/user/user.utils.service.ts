@@ -15,9 +15,11 @@ import {
 import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid } from '@wlisfes/chat-web-base-schema/utils'
 import { isEmpty, isNotEmpty } from 'class-validator'
-import { EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
-import { type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
+import { Brackets, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm'
+import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
 import { UserDetailResponseDto, UserOrganizationMembershipDto, UserOrganizationResponseDto } from '@/modules/user/dto/user.dto'
+
+const USER_RESOURCE_CODE = 'account:user'
 
 @Injectable()
 export class UserUtilsService {
@@ -25,27 +27,49 @@ export class UserUtilsService {
         @InjectRepository(TbAccountUser) private readonly userRepository: Repository<TbAccountUser>,
         @InjectRepository(TbAccountPosition) private readonly positionRepository: Repository<TbAccountPosition>,
         @InjectRepository(TbAccountUserPosition) private readonly userPositionRepository: Repository<TbAccountUserPosition>,
-        private readonly database: DataBaseService
+        private readonly database: DataBaseService,
+        private readonly permissionService: AuthorizationService
     ) {}
 
     /**将账号数据范围应用到查询构造器*/
-    public applyDataScope(builder: SelectQueryBuilder<TbAccountUser>, principal: AuthPrincipal): void {
-        if (principal.all) {
+    public async applyDataScope(builder: SelectQueryBuilder<TbAccountUser>, actorUid: string): Promise<void> {
+        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+        if (scope.all) {
             return
         }
-        const items = principal.items ?? []
-        if (items.length === 0) {
+        if (!scope.includeSelf && scope.organizationKeyIds.length === 0) {
             builder.andWhere('1 = 0')
             return
         }
-        builder.andWhere('t.uid IN (:...scopeUids)', { scopeUids: items })
+        builder.andWhere(
+            new Brackets(where => {
+                if (scope.includeSelf) {
+                    where.orWhere('t.uid = :scopeActorUid', { scopeActorUid: actorUid })
+                }
+                if (scope.organizationKeyIds.length > 0) {
+                    where.orWhere(
+                        `EXISTS (
+                            SELECT 1
+                            FROM tb_account_user_organization scope_user_org
+                            WHERE scope_user_org.user_uid = t.uid
+                              AND scope_user_org.organization_key_id IN (:...scopeOrganizationKeyIds)
+                              AND scope_user_org.status = :scopeMembershipStatus
+                        )`,
+                        {
+                            scopeOrganizationKeyIds: scope.organizationKeyIds,
+                            scopeMembershipStatus: TbAccountUserOrganizationStatus.ENABLED
+                        }
+                    )
+                }
+            })
+        )
     }
 
     /**校验操作者可以访问目标账号*/
-    public async findCanAccessUser(principal: AuthPrincipal, targetUid: string): Promise<void> {
-        const exists = await this.database.builder(this.userRepository, qb => {
+    public async findCanAccessUser(actorUid: string, targetUid: string): Promise<void> {
+        const exists = await this.database.builder(this.userRepository, async qb => {
             qb.where('t.uid = :targetUid', { targetUid })
-            this.applyDataScope(qb, principal)
+            await this.applyDataScope(qb, actorUid)
             return qb.getExists()
         })
         if (!exists) {
@@ -54,9 +78,9 @@ export class UserUtilsService {
     }
 
     /**获取账号完整详情*/
-    public async findDetail(principal: AuthPrincipal, targetUid: string): Promise<UserDetailResponseDto> {
+    public async findDetail(actorUid: string, targetUid: string): Promise<UserDetailResponseDto> {
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
-        await this.findCanAccessUser(principal, normalizedTargetUid)
+        await this.findCanAccessUser(actorUid, normalizedTargetUid)
         const user = await this.database.builder(this.userRepository, qb => qb.where('t.uid = :uid', { uid: normalizedTargetUid }).getOne())
         if (!user) {
             throw new NotFoundException('账号不存在')
@@ -253,25 +277,19 @@ export class UserUtilsService {
     }
 
     /**校验组织列表位于操作者数据范围内*/
-    public async findCanAssignOrganizations(principal: AuthPrincipal, organizationKeyIds: number[]): Promise<void> {
-        if (principal.all) {
+    public async findCanAssignOrganizations(actorUid: string, organizationKeyIds: number[]): Promise<void> {
+        const scope = await this.permissionService.resolveDataScope(assertUid(actorUid, '当前账号UID'), USER_RESOURCE_CODE)
+        if (scope.all) {
             return
         }
-        if (organizationKeyIds.length === 0 || !(principal.items?.length)) {
-            throw new ForbiddenException('不能把账号分配到当前用户数据范围之外的组织')
-        }
-        const memberships = await this.userRepository.manager.find(TbAccountUserOrganization, {
-            where: { userUid: In(principal.items), status: TbAccountUserOrganizationStatus.ENABLED }
-        })
-        const allowed = new Set(memberships.map(item => item.organizationKeyId))
-        if (organizationKeyIds.some(keyId => !allowed.has(keyId))) {
+        if (organizationKeyIds.length === 0 || organizationKeyIds.some(keyId => !scope.organizationKeyIds.includes(keyId))) {
             throw new ForbiddenException('不能把账号分配到当前用户数据范围之外的组织')
         }
     }
 
     /**校验操作者为超级管理员*/
-    public findSuperAdminRequired(principal: AuthPrincipal, message: string): void {
-        if (!principal.superAdmin) {
+    public async findSuperAdminRequired(actorUid: string, message: string): Promise<void> {
+        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
             throw new ForbiddenException(message)
         }
     }
