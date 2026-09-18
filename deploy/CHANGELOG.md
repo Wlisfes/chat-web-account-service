@@ -1,5 +1,18 @@
 # 部署变更记录
 
+## 2026-09-18：P0 事故记录，Verify service 被 Prettier 拦住导致 Account 未发布
+
+- 影响机器：`chat-home-server`。
+- 事故级别：P0。PR #46 合并 `main` 后 workflow run #123（SHA `53ecf8c`）在 `Verify service` 的 `Check formatting` 失败，Build/Deploy 被跳过。
+- 根因：
+  1. `src/modules/user/user.utils.service.ts` 有一处多余括号，Linux CI 的 `yarn format:check` 失败。Windows 工作区 CRLF 会让本地 `format:check` 误报更多文件，不能拿它代替 CI。
+  2. 同期错误地把 `AuthPrincipal` 当成带 `superAdmin` / `all` / `items` 的授权对象。网关身份上下文只有 `uid` / `number` / `name` / `sessionId`；格式修好后 `yarn test` 仍会在 `nest build` 因 TS2339 失败。
+- 正确处置：合并 `main` 前必须本地跑通 `yarn format:check` 和 `yarn test`。超级管理员走 `AuthorizationService.isSuperAdmin(uid)`，数据范围走 `AuthorizationService.resolveDataScope(uid, resourceCode)`。
+- 禁止项：不要把授权数据挂到 `AuthPrincipal`；不要跳过 Verify 直接部署。
+- 验证命令：`yarn format:check`、`yarn test`。发布后确认 Actions Build/Deploy 成功，Gateway `GET /api/account/health` 返回业务 `status=UP`。
+- 规约：`AGENTS.md` 代码验证与授权规则；排障见 `deploy/RUNBOOK.md`。
+
+
 ## 2026-09-17：P0 事故记录，同机禁止注册 WireGuard 地址
 
 - 影响机器：`chat-home-server`。

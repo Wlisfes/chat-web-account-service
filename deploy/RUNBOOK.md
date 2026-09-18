@@ -192,6 +192,7 @@ Actions 应满足：Build 成功、`Deploy to chat-home-server` 成功。容器�
 | Nacos 配置不存在              | Namespace ID、Data ID 或 Group 不一致     | 核对服务器 `.env` 和 Nacos 控制台                                                            |
 | 新镜像不健康                  | 数据库、Nacos或启动代码失败               | 查看容器日志；部署脚本会自动回滚                                                             |
 | `/health` 返回缺表列表        | 共享 Schema 增量 SQL 尚未执行             | 按文件名顺序应用本次版本 SQL，再重新部署                                                     |
+| Verify service 失败（约 40s） | 未跑 `yarn format:check` / `yarn test` | 本地先跑这两项再合并 `main`；不要把授权字段挂到 `AuthPrincipal`。2026-09-18 P0 见 CHANGELOG |
 | 网关无法访问 Account          | 容器未健康、网络未接入或 Nacos 无健康实例 | 检查容器健康状态、`chat-web-infrastructure` 网络和 Nacos 服务发现                            |
 
 ## 恢复顺序
