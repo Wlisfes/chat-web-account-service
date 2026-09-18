@@ -53,9 +53,9 @@ docker inspect chat-web-account-service --format '{{json .HostConfig.LogConfig}}
 
 自动部署会在启动新容器前运行 `dist/cli/apply-schema.js`。执行记录保存在账号库 `tb_account_schema_migration`；若日志提示校验和变化，说明已发布的历史 SQL 被修改，必须恢复原文件并重新构建，不能直接改数据库记录绕过检查。
 
-部署会在 Schema 升级前运行只读隔离校验器，分别检查 Account 与 Finance 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。校验器不会生成随机凭据、修改数据库授权或回写 Nacos，用户填写的字段名、顺序和注释保持不变；如权限不符合要求，请由数据库管理员人工创建专用账号并在 Nacos 中维护连接配置后重新部署。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
+部署会在 Schema 升级前运行只读隔离校验器，只检查 Account 当前 Nacos 数据库账号。除 MySQL 固定的 `USAGE ON *.*` 外，只允许账号拥有本服务数据库权限；全局权限、其他业务库权限和角色授权都会让部署在切换容器前失败。校验器不会生成随机凭据、修改数据库授权或回写 Nacos，用户填写的字段名、顺序和注释保持不变；如权限不符合要求，请由数据库管理员人工创建专用账号并在 Nacos 中维护连接配置后重新部署。数据库必须由基础设施预创建，升级器不会执行 `CREATE DATABASE`。
 
-新环境数据库名统一使用下划线形式。为兼容 `chat-home-server` 的历史数据卷，校验器也接受现有 `chat-web-account` / `chat-web-finance`，并按 Nacos 中的实际数据库名检查授权；部署不会在线重命名数据库。
+新环境数据库名统一使用下划线形式。为兼容 `chat-home-server` 的历史数据卷，校验器也接受现有 `chat-web-account`，并按 Nacos 中的实际数据库名检查授权；部署不会在线重命名数据库。
 
 核对命令在使用本服务连接参数进入 MySQL 后执行：
 
@@ -93,43 +93,6 @@ gateway:
 - `feign.chat-web-*`（Account 当前不调用其他业务服务）
 
 `gateway.feign.service_token` 缺失时 Account 的服务间账号摘要接口不可用；Account 不需要配置任何出站 Feign 地址。
-
-## 旧平台数据迁移
-
-`dist/cli/migrate-legacy-platform.js` 用于把 staging 库中的 `tb_system_*` 数据转换到当前 `tb_account_*` Schema。命令默认执行完整事务后回滚；只有显式传入 `--apply` 才会提交。
-
-安全约束：
-
-- 目标用户、组织、菜单和关联表必须为空，角色表只能包含内置 `super_admin`；不满足时迁移器会拒绝执行。
-- 旧表必须先导入独立 staging 库，禁止把旧转储直接导入 `chat_web_account`。
-- 正式迁移前必须备份当前账号库，并验证备份可以读取。
-- 旧 bcrypt 密码不会迁移。普通账号写入不可登录的随机重置标记，之后由超级管理员逐个重置。
-- 初始管理员密码使用 `scripts/hash-password.cjs` 在可信机器离线生成；明文和哈希都不能写入 Git、文档或命令日志。
-
-推荐顺序：
-
-```bash
-# 1. 备份目标库；连接参数从机器侧安全配置读取，不写进命令历史。
-mysqldump --single-transaction --routines --triggers chat_web_account > account-before-legacy-migration.sql
-
-# 2. 创建 staging 库并导入旧转储。
-mysql -e "CREATE DATABASE legacy_platform_20260818 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-unzip -p platform_2026-08-18_09-16-50_mysql_data_HLeCZ.sql.zip | mysql legacy_platform_20260818
-
-# 3. 构建后先干跑。未提供管理员时会使用占位账号完成回滚验证。
-yarn build
-LEGACY_MYSQL_DATABASE=legacy_platform_20260818 yarn legacy:migrate
-
-# 4. 通过安全输入生成初始管理员哈希，再显式提交。
-INITIAL_ADMIN_ACCOUNT='<旧工号>' \
-INITIAL_ADMIN_PASSWORD_HASH='<离线生成的 scrypt-v1 哈希>' \
-LEGACY_MYSQL_DATABASE=legacy_platform_20260818 \
-yarn legacy:migrate --apply
-```
-
-迁移完成后的预期基线以本次旧库为准：491 个用户、53 个组织、178 条组织闭包、53 个角色（含内置超级管理员）、52 条部门角色数据范围、3 条用户组织关系、4 条用户角色关系、29 个菜单/权限节点。一个重复邮箱会保留较早记录，另一条置空。
-
-验证完成后删除 staging 库。若迁移提交后验证失败，停止账号服务写入，恢复迁移前备份；不要尝试反向执行旧转储中的 `DROP TABLE`。
 
 ## 客户演示数据
 

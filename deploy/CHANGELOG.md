@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-18：隔离校验只检查 Account 数据库
+
+- 影响机器：`chat-home-server`。
+- 关联版本：Account 本次完整 Git SHA。
+- 变更内容：部署前隔离脚本不再读取 `chat-web-finance-service.yaml`，也不再连接 Finance 数据库；只校验本服务 `chat-web-account-service.yaml` 中的账号库授权。
+- 机器侧操作：下次部署自动生效，无需改 `.env` 或 Nacos。
+- 验证命令：部署日志出现 `Database account verified: chat_web_account`，且不再出现 Finance 库校验。
+- 回滚方法：回退本次镜像；Finance 库授权仍由 Finance 服务自己的部署流程负责。
+
 ## 2026-09-18：P0 事故记录，Verify service 被 Prettier 拦住导致 Account 未发布
 
 - 影响机器：`chat-home-server`。

@@ -27,12 +27,6 @@ const SERVICES: readonly ServiceBoundary[] = [
         configKey: 'chat-web-account',
         databases: ['chat_web_account', 'chat-web-account'],
         username: 'chat_web_account_service'
-    },
-    {
-        dataId: 'chat-web-finance-service.yaml',
-        configKey: 'chat-web-finance',
-        databases: ['chat_web_finance', 'chat-web-finance'],
-        username: 'chat_web_finance_service'
     }
 ]
 

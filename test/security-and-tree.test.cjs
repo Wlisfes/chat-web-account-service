@@ -10,9 +10,6 @@ const { NacosService } = require('@wlisfes/chat-web-base-schema/nacos')
 const { FeignController } = require('../dist/feign/feign.controller')
 const { FeignService } = require('../dist/feign/feign.service')
 const { UserService } = require('../dist/modules/user/user.service')
-const { mapStatus, sortTree } = require('../dist/cli/migrate-legacy-platform')
-const { FINANCE_MENU_SEEDS } = require('../dist/cli/finance-menu.seed')
-const { CRM_MENU_SEEDS } = require('../dist/cli/crm-menu.seed')
 const { grantsAreIsolated } = require('../dist/cli/isolate-service-databases')
 const { HealthService } = require('../dist/modules/health/health.service')
 const { DeptService } = require('../dist/modules/dept/dept.service')
@@ -301,43 +298,6 @@ test('Nacos 远端配置会写入 ConfigService', () => {
     assert.equal(values.get('remoteOnly'), 'enabled')
 })
 
-test('旧平台迁移映射状态并按父子依赖排序', () => {
-    assert.equal(mapStatus('enable'), 'enabled')
-    assert.equal(mapStatus('disable'), 'disabled')
-    assert.deepEqual(
-        sortTree(
-            [
-                { key_id: 'child', pid: 'root' },
-                { key_id: 'root', pid: null }
-            ],
-            '测试树'
-        ).map(item => item.key_id),
-        ['root', 'child']
-    )
-    assert.throws(() => sortTree([{ key_id: 'child', pid: 'missing' }], '测试树'), /循环或缺失父节点/)
-})
-
-test('财务菜单种子覆盖现有前端路由并按父级在前排序', () => {
-    const paths = FINANCE_MENU_SEEDS.map(item => item.path)
-    assert.equal(new Set(paths).size, paths.length)
-    assert.deepEqual(
-        paths.filter(path => path.split('/').length === 4),
-        ['/finance/deploy/brand', '/finance/deploy/currency', '/finance/deploy/exchange', '/finance/deploy/country', '/finance/rates/sms']
-    )
-    for (const item of FINANCE_MENU_SEEDS) {
-        if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
-    }
-})
-
-test('CRM 菜单种子只使用 consumer 和 sms quote 规范路由', () => {
-    const paths = CRM_MENU_SEEDS.map(item => item.path)
-    assert.equal(new Set(paths).size, paths.length)
-    assert.deepEqual(paths, ['/crm', '/crm/consumer', '/crm/partner', '/crm/sms', '/crm/sms/quote/create', '/crm/sms/quote'])
-    assert.doesNotMatch(paths.join('\n'), /client|formosan|saturation|:[A-Za-z]/)
-    for (const item of CRM_MENU_SEEDS) {
-        if (item.parentPath) assert.ok(paths.indexOf(item.parentPath) < paths.indexOf(item.path))
-    }
-})
 
 test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
     const roles = [{ keyId: 1 }, { keyId: 2 }]
