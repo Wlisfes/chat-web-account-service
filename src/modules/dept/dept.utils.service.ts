@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
 import {
     TbAccountOrganization,
     TbAccountOrganizationClosure,
@@ -13,11 +12,10 @@ import {
     TbAccountUserOrganizationStatus,
     TbAccountUserRole
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { DataBaseService, EntityManager, In, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
-import { EntityManager, In, Repository } from 'typeorm'
-import { DeptTreeNodeResponseDto } from '@/modules/dept/dto/dept.dto'
+import * as DeptDto from '@/modules/dept/dto/dept.dto'
 
 @Injectable()
 export class DeptUtilsService {
@@ -27,7 +25,7 @@ export class DeptUtilsService {
     ) {}
 
     /**查询并组装完整组织树*/
-    public async findTree(): Promise<DeptTreeNodeResponseDto[]> {
+    public async findTree(): Promise<DeptDto.DeptTreeNodeResponseDto[]> {
         const organizations = await this.database.builder(this.deptRepository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
@@ -48,7 +46,7 @@ export class DeptUtilsService {
                 memberCount: memberCounts.get(organization.keyId) ?? 0,
                 leader: isNotEmpty(organization.leaderUserUid) ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
             }))
-        ) as DeptTreeNodeResponseDto[]
+        ) as DeptDto.DeptTreeNodeResponseDto[]
     }
 
     /**获取必需的组织详情*/

@@ -1,38 +1,36 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { TbAccountOrganization } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
-import { isNotEmpty } from 'class-validator'
-import { Repository } from 'typeorm'
-import * as DeptDto from '@/modules/dept/dto/dept.dto'
-import { DeptTreeNodeResponseDto } from '@/modules/dept/dto/dept.dto'
+import { InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
+import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import { DeptUtilsService } from '@/modules/dept/dept.utils.service'
+import * as Schema from '@wlisfes/chat-web-base-schema'
+import * as DeptDto from '@/modules/dept/dto/dept.dto'
 
 @Injectable()
 export class DeptService {
     constructor(
-        @InjectRepository(TbAccountOrganization) private readonly deptRepository: Repository<TbAccountOrganization>,
+        @InjectRepository(Schema.TbAccountOrganization) private readonly deptRepository: Repository<Schema.TbAccountOrganization>,
         private readonly deptUtilsService: DeptUtilsService
     ) {}
 
     /**组织树结构*/
-    public async httpBaseAccountDeptTree(): Promise<DeptTreeNodeResponseDto[]> {
+    public async httpBaseAccountDeptTree(): Promise<DeptDto.DeptTreeNodeResponseDto[]> {
         return this.deptUtilsService.findTree()
     }
 
     /**组织详情*/
-    public async httpBaseAccountDeptResolver(query: DeptDto.DeptKeyDto): Promise<TbAccountOrganization> {
+    public async httpBaseAccountDeptResolver(query: DeptDto.DeptKeyDto): Promise<Schema.TbAccountOrganization> {
         return this.deptUtilsService.findRequired(query.keyId)
     }
 
     /**新增组织*/
-    public async httpBaseAccountCreateDept(input: DeptDto.CreateDeptDto): Promise<TbAccountOrganization> {
+    public async httpBaseAccountCreateDept(input: DeptDto.CreateDeptDto): Promise<Schema.TbAccountOrganization> {
         return this.deptRepository.manager.transaction(async manager => {
             await this.deptUtilsService.lockTree(manager)
             const parentKeyId = input.parentKeyId ?? null
             await this.deptUtilsService.findReferencesRequired(manager, parentKeyId, input.leaderUserUid)
             await this.deptUtilsService.findCodeAvailable(manager, input.code)
-            const dept = manager.create(TbAccountOrganization, {
+            const dept = manager.create(Schema.TbAccountOrganization, {
                 ...input,
                 parentKeyId: parentKeyId as unknown as number
             })
@@ -43,7 +41,7 @@ export class DeptService {
     }
 
     /**编辑组织*/
-    public async httpBaseAccountUpdateDept(input: DeptDto.UpdateDeptPayloadDto): Promise<TbAccountOrganization> {
+    public async httpBaseAccountUpdateDept(input: DeptDto.UpdateDeptPayloadDto): Promise<Schema.TbAccountOrganization> {
         const { keyId, ...fields } = input
         return this.deptRepository.manager.transaction(async manager => {
             await this.deptUtilsService.lockTree(manager)
@@ -59,7 +57,7 @@ export class DeptService {
                 await this.deptUtilsService.findCodeAvailable(manager, fields.code, keyId)
             }
 
-            manager.merge(TbAccountOrganization, dept, fields, { parentKeyId: nextParentKeyId as unknown as number })
+            manager.merge(Schema.TbAccountOrganization, dept, fields, { parentKeyId: nextParentKeyId as unknown as number })
             await manager.save(dept)
             await this.deptUtilsService.rebuildClosure(manager)
             return dept

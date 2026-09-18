@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { InjectDataSource } from '@nestjs/typeorm'
-import { isNotEmpty } from 'class-validator'
-import { DataSource } from 'typeorm'
-import { ServiceDependencyResponseDto, ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/modules/health/dto/health.dto'
+import { DataSource, InjectDataSource } from '@wlisfes/chat-web-base-schema/database'
+import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
+import * as HealthDto from '@/modules/health/dto/health.dto'
 
 type TableRow = {
     tableName: string
@@ -16,16 +15,16 @@ export class HealthService {
         private readonly configService: ConfigService
     ) {}
 
-    public async getLiveness(): Promise<ServiceLivenessResponseDto> {
+    public async getLiveness(): Promise<HealthDto.ServiceLivenessResponseDto> {
         return { status: 'UP', timestamp: new Date().toISOString() }
     }
 
-    public async getReadiness(): Promise<ServiceReadinessResponseDto> {
+    public async getReadiness(): Promise<HealthDto.ServiceReadinessResponseDto> {
         const requiredTables = [...new Set(this.dataSource.entityMetadatas.map(metadata => metadata.tableName))].sort()
         // 账号服务的业务 Feign 入口只需要校验共享服务凭据；用户 Token 由 Gateway 交给 Auth 校验。
         const serviceToken = this.configService.get<string>('gateway.feign.service_token')
         const authConfigured = isNotEmpty(serviceToken)
-        let database: ServiceDependencyResponseDto
+        let database: HealthDto.ServiceDependencyResponseDto
         let databaseReady = false
         try {
             const placeholders = requiredTables.map(() => '?').join(', ')

@@ -1,9 +1,9 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator'
-import { TbAccountPositionDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 
 export class PositionKeyDto {
     @ApiProperty({ description: '职位主键', example: 1 })
@@ -14,16 +14,16 @@ export class PositionKeyDto {
 }
 
 export class CreatePositionDto extends IntersectionType(
-    PickType(TbAccountPositionDto, ['name'] as const),
-    PartialType(PickType(TbAccountPositionDto, ['sort'] as const))
+    PickType(Schema.TbAccountPositionDto, ['name'] as const),
+    PartialType(PickType(Schema.TbAccountPositionDto, ['sort'] as const))
 ) {}
 
 export class UpdatePositionDto extends IntersectionType(
     PositionKeyDto,
-    PartialType(PickType(TbAccountPositionDto, ['name', 'sort'] as const))
+    PartialType(PickType(Schema.TbAccountPositionDto, ['name', 'sort'] as const))
 ) {}
 
-export class ListPositionDto extends IntersectionType(PageDto, PartialType(PickType(TbAccountPositionDto, ['name'] as const))) {}
+export class ListPositionDto extends IntersectionType(PageDto, PartialType(PickType(Schema.TbAccountPositionDto, ['name'] as const))) {}
 
 export class SelectPositionDto {
     @ApiPropertyOptional({ description: '职位名称关键字', example: '客户' })
@@ -33,7 +33,7 @@ export class SelectPositionDto {
     name?: string
 }
 
-export class PositionResponseDto extends TbAccountPositionDto {
+export class PositionResponseDto extends Schema.TbAccountPositionDto {
     @ApiProperty({ description: '关联员工数量', example: 12 })
     accountCount: number
 }
@@ -43,4 +43,4 @@ export class PositionPageResponseDto extends PageResponseDataDto {
     list: PositionResponseDto[]
 }
 
-export class PositionSelectResponseDto extends PickType(TbAccountPositionDto, ['keyId', 'name'] as const) {}
+export class PositionSelectResponseDto extends PickType(Schema.TbAccountPositionDto, ['keyId', 'name'] as const) {}

@@ -1,9 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
 import { TbAccountPosition, TbAccountUserOrganization, TbAccountUserPosition } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
-import { DataBaseService } from '@wlisfes/chat-web-base-schema/database'
+import { DataBaseService, EntityManager, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { isEmpty, isNotEmpty } from 'class-validator'
-import { EntityManager, Repository } from 'typeorm'
 
 @Injectable()
 export class PositionUtilsService {

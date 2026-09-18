@@ -1,12 +1,5 @@
-import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
-import {
-    TbAccountRoleDataScopeDto,
-    TbAccountRoleDataScopeOrganizationDto,
-    TbAccountRoleDataScopeStatus,
-    TbAccountRoleDataScopeType,
-    TbAccountRoleDto
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { Type } from 'class-transformer'
 import {
     ArrayMaxSize,
     ArrayUnique,
@@ -21,8 +14,9 @@ import {
     Min,
     ValidateNested
 } from 'class-validator'
+import * as Schema from '@wlisfes/chat-web-base-schema'
 
-export class CreateRoleDto extends PickType(TbAccountRoleDto, ['code', 'name', 'description', 'sort', 'status'] as const) {}
+export class CreateRoleDto extends PickType(Schema.TbAccountRoleDto, ['code', 'name', 'description', 'sort', 'status'] as const) {}
 
 export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
 
@@ -56,23 +50,23 @@ export class RoleDataScopeRuleDto {
 
     @ApiProperty({
         description: '数据范围类型',
-        enum: TbAccountRoleDataScopeType,
+        enum: Schema.TbAccountRoleDataScopeType,
         enumName: 'TbAccountRoleDataScopeType',
-        example: TbAccountRoleDataScopeType.CUSTOM
+        example: Schema.TbAccountRoleDataScopeType.CUSTOM
     })
-    @IsEnum(TbAccountRoleDataScopeType, { message: '数据范围类型格式错误' })
-    scopeType: TbAccountRoleDataScopeType
+    @IsEnum(Schema.TbAccountRoleDataScopeType, { message: '数据范围类型格式错误' })
+    scopeType: Schema.TbAccountRoleDataScopeType
 
     @ApiPropertyOptional({
         description: '数据范围规则状态',
-        enum: TbAccountRoleDataScopeStatus,
+        enum: Schema.TbAccountRoleDataScopeStatus,
         enumName: 'TbAccountRoleDataScopeStatus',
-        default: TbAccountRoleDataScopeStatus.ENABLED,
-        example: TbAccountRoleDataScopeStatus.ENABLED
+        default: Schema.TbAccountRoleDataScopeStatus.ENABLED,
+        example: Schema.TbAccountRoleDataScopeStatus.ENABLED
     })
     @IsOptional()
-    @IsEnum(TbAccountRoleDataScopeStatus, { message: '数据范围规则状态格式错误' })
-    status: TbAccountRoleDataScopeStatus = TbAccountRoleDataScopeStatus.ENABLED
+    @IsEnum(Schema.TbAccountRoleDataScopeStatus, { message: '数据范围规则状态格式错误' })
+    status: Schema.TbAccountRoleDataScopeStatus = Schema.TbAccountRoleDataScopeStatus.ENABLED
 
     @ApiPropertyOptional({
         description: 'scopeType=custom 时的自定义组织授权',
@@ -121,14 +115,14 @@ export class ReplaceRoleMenusPayloadDto extends IntersectionType(RoleKeyDto, Rep
 
 export class ReplaceRoleDataScopesPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleDataScopesDto) {}
 
-export class RoleDataScopeOrganizationResponseDto extends TbAccountRoleDataScopeOrganizationDto {}
+export class RoleDataScopeOrganizationResponseDto extends Schema.TbAccountRoleDataScopeOrganizationDto {}
 
-export class RoleDataScopeResponseDto extends TbAccountRoleDataScopeDto {
+export class RoleDataScopeResponseDto extends Schema.TbAccountRoleDataScopeDto {
     @ApiProperty({ description: '自定义数据范围组织', type: [RoleDataScopeOrganizationResponseDto] })
     organizations: RoleDataScopeOrganizationResponseDto[]
 }
 
-export class RoleResponseDto extends TbAccountRoleDto {
+export class RoleResponseDto extends Schema.TbAccountRoleDto {
     @ApiProperty({ description: '角色拥有的菜单主键', type: [Number], required: false, example: [1, 2, 3] })
     menuKeyIds?: number[]
 

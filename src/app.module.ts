@@ -11,7 +11,7 @@ import { DeptModule } from '@/modules/dept/dept.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
 import { PositionModule } from '@/modules/position/position.module'
-import { FeignModule } from '@/modules/feign/feign.module'
+import { FeignModule } from '@/feign/feign.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
 
@@ -21,7 +21,6 @@ import { AppService } from '@/app.service'
         NacosModule.forRoot(forRootNacosRuntimeOptions(process.env)),
         HttpResponseModule,
         DatabaseModule,
-        // 用户认证在网关完成一次；账号服务只校验网关签发的身份上下文签名。
         GatewayPrincipalModule,
         HealthModule,
         AuthorizationModule,

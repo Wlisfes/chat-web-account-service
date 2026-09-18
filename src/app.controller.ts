@@ -1,9 +1,9 @@
 import { Get } from '@nestjs/common'
-import { Public } from '@wlisfes/chat-web-base-schema/auth'
 import { ApiServiceDecorator, ApifoxController } from '@wlisfes/chat-web-base-schema/decorator'
+import { Public } from '@wlisfes/chat-web-base-schema/auth'
 import { PreserveHttpStatus } from '@wlisfes/chat-web-base-schema/filters'
 import { AppService } from '@/app.service'
-import { ServiceLivenessResponseDto, ServiceReadinessResponseDto } from '@/modules/health/dto/health.dto'
+import * as HealthDto from '@/modules/health/dto/health.dto'
 
 @ApifoxController('账号服务-运行状态')
 export class AppController {
@@ -21,7 +21,7 @@ export class AppController {
     @Public()
     @ApiServiceDecorator(Get('health'), {
         operation: { summary: '账号服务健康检查' },
-        response: { type: ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
+        response: { type: HealthDto.ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
     })
     @PreserveHttpStatus()
     public async httpBaseAccountHealthService() {
@@ -31,7 +31,7 @@ export class AppController {
     @Public()
     @ApiServiceDecorator(Get('health/live'), {
         operation: { summary: '账号服务存活检查' },
-        response: { type: ServiceLivenessResponseDto, description: '进程正常时返回 UP' }
+        response: { type: HealthDto.ServiceLivenessResponseDto, description: '进程正常时返回 UP' }
     })
     public async httpBaseAccountLivenessService() {
         return this.appService.httpBaseAccountLivenessService()
@@ -40,7 +40,7 @@ export class AppController {
     @Public()
     @ApiServiceDecorator(Get('health/ready'), {
         operation: { summary: '账号服务就绪检查' },
-        response: { type: ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
+        response: { type: HealthDto.ServiceReadinessResponseDto, description: '数据库与鉴权服务连接配置状态' }
     })
     @PreserveHttpStatus()
     public async httpBaseAccountReadinessService() {
