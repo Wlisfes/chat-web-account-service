@@ -2,6 +2,13 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const { SheetService } = require('../dist/modules/sheet/sheet.service')
+const { SheetUtilsService } = require('../dist/modules/sheet/sheet.utils.service')
+const {
+    TbAccountMenuStatusDefinition,
+    TbAccountMenuType,
+    TbAccountMenuTypeDefinition,
+    TbAccountMenuVisibleDefinition
+} = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
 
 const menus = [
     { keyId: 1, parentKeyId: null, sort: 30, name: '系统管理' },
@@ -167,4 +174,74 @@ test('菜单删除返回与接口文档一致的成功结果', async () => {
     const service = new SheetService(repository, {}, sheetUtilsService, { invalidate: async () => undefined })
 
     assert.deepEqual(await service.httpBaseAccountDeleteSheet({ keyId: 1 }), { success: true })
+})
+
+test('菜单枚举接口直接返回 schema 定义的选项', async () => {
+    const service = new SheetService({}, {}, {}, {})
+    const result = await service.httpBaseAccountSheetEnums()
+
+    assert.deepEqual(result, {
+        typeOptions: TbAccountMenuTypeDefinition.options,
+        statusOptions: TbAccountMenuStatusDefinition.options,
+        visibleOptions: TbAccountMenuVisibleDefinition.options
+    })
+})
+
+test('父菜单为空时允许菜单创建或移动到顶层', async () => {
+    let managerQueryCount = 0
+    let builderQueryCount = 0
+    const manager = {
+        async findOneBy() {
+            managerQueryCount += 1
+        }
+    }
+    const database = {
+        async builder() {
+            builderQueryCount += 1
+        }
+    }
+    const service = new SheetUtilsService({}, database)
+
+    await assert.doesNotReject(() => service.findParentRequired(null, manager))
+    await assert.doesNotReject(() => service.findParentRequired(undefined, manager))
+    assert.equal(managerQueryCount, 0)
+    assert.equal(builderQueryCount, 0)
+})
+
+test('按钮节点不能作为父菜单', async () => {
+    const parent = { keyId: 1, type: TbAccountMenuType.BUTTON }
+    let queryCount = 0
+    const manager = {
+        async findOneBy() {
+            queryCount += 1
+            return parent
+        }
+    }
+    const service = new SheetUtilsService({}, {})
+
+    await assert.rejects(() => service.findParentRequired(parent.keyId, manager), /按钮节点不能包含下级菜单/)
+    assert.equal(queryCount, 1)
+})
+
+test('目录节点必须配置菜单地址', () => {
+    const service = new SheetUtilsService({}, {})
+
+    assert.throws(
+        () =>
+            service.findSheetFieldsRequired({
+                type: TbAccountMenuType.DIRECTORY,
+                permissionCode: null,
+                path: null,
+                externalUrl: null
+            }),
+        /目录节点必须配置菜单地址/
+    )
+    assert.doesNotThrow(() =>
+        service.findSheetFieldsRequired({
+            type: TbAccountMenuType.DIRECTORY,
+            permissionCode: null,
+            path: '/deploy/datetask',
+            externalUrl: null
+        })
+    )
 })

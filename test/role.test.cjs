@@ -4,6 +4,14 @@ const assert = require('node:assert/strict')
 const { TbAccountRole } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
 const { RoleService } = require('../dist/modules/role/role.service')
 
+function selectEffectiveScopeRules(roles, scopes, resourceCode, defaultResourceCode = '*') {
+    return roles.flatMap(role => {
+        const roleScopes = scopes.filter(scope => scope.roleKeyId === role.keyId)
+        const exact = roleScopes.find(scope => scope.resourceCode === resourceCode)
+        return exact ? [exact] : roleScopes.filter(scope => scope.resourceCode === defaultResourceCode)
+    })
+}
+
 test('角色新增在同一事务内完成编码校验与写入', async () => {
     const calls = []
     const transactionManager = {
@@ -110,4 +118,17 @@ test('编辑内置角色时优先返回禁止修改编码错误', async () => {
         error => error.message === '系统内置角色不能修改编码'
     )
     assert.deepEqual(calls, [])
+})
+
+test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
+    const roles = [{ keyId: 1 }, { keyId: 2 }]
+    const rules = [
+        { id: 'a-default', roleKeyId: 1, resourceCode: '*' },
+        { id: 'a-user', roleKeyId: 1, resourceCode: 'account:user' },
+        { id: 'b-default', roleKeyId: 2, resourceCode: '*' }
+    ]
+    assert.deepEqual(
+        selectEffectiveScopeRules(roles, rules, 'account:user').map(rule => rule.id),
+        ['a-user', 'b-default']
+    )
 })
