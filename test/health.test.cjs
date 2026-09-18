@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { BadRequestException } = require('@nestjs/common')
 const { HttpExceptionFilter, PreserveHttpStatus } = require('@wlisfes/chat-web-base-schema/filters')
-const { HealthService } = require('../dist/modules/health/health.service')
+const { HealthService } = require('../dist/health/health.service')
 
 function config(values) {
     return {

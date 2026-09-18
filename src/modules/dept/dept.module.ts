@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { ACCOUNT_MYSQL_ENTITIES } from '@/modules/database/database.constants'
+import { ACCOUNT_MYSQL_ENTITIES } from '@/database/database.constants'
 import { DeptController } from '@/modules/dept/dept.controller'
 import { DeptUtilsService } from '@/modules/dept/dept.utils.service'
 import { DeptService } from '@/modules/dept/dept.service'
