@@ -12,6 +12,23 @@ export class OrganizationUtilsService {
         private readonly database: DataBaseService
     ) {}
 
+    /**按子树去重累计启用成员数量，上级包含下级*/
+    private aggregateSubtreeMemberCount<T extends { keyId: number; memberCount: number; members?: Array<{ uid: string }>; children?: T[] }>(
+        nodes: T[],
+        directUids?: Map<number, Set<string>>
+    ): T[] {
+        const walk = (node: T): Set<string> => {
+            const uids = new Set<string>(directUids?.get(node.keyId) ?? (node.members ?? []).map(item => item.uid))
+            for (const child of node.children ?? []) {
+                for (const uid of walk(child)) uids.add(uid)
+            }
+            node.memberCount = uids.size
+            return uids
+        }
+        nodes.forEach(walk)
+        return nodes
+    }
+
     /**查询并组装完整组织树*/
     public async findTree(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
         const organizations = await this.database.builder(this.organizationRepository, qb =>
@@ -26,17 +43,22 @@ export class OrganizationUtilsService {
                 ? await this.organizationRepository.manager.find(Schema.TbAccountUser, { where: { uid: In(leaderUids) } })
                 : []
         const leaderByUid = new Map(leaders.map(item => [item.uid, item]))
-        const memberCounts = memberships.reduce((counts, item) => {
-            counts.set(item.organizationKeyId, (counts.get(item.organizationKeyId) ?? 0) + 1)
-            return counts
-        }, new Map<number, number>())
-        return buildTree(
-            organizations.map(organization => ({
-                ...organization,
-                memberCount: memberCounts.get(organization.keyId) ?? 0,
-                leader: isNotEmpty(organization.leaderUserUid) ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
-            }))
-        ) as OrganizationDto.OrganizationTreeNodeResponseDto[]
+        const memberUids = memberships.reduce((uids, item) => {
+            const organizationUids = uids.get(item.organizationKeyId) ?? new Set<string>()
+            organizationUids.add(item.userUid)
+            uids.set(item.organizationKeyId, organizationUids)
+            return uids
+        }, new Map<number, Set<string>>())
+        return this.aggregateSubtreeMemberCount(
+            buildTree(
+                organizations.map(organization => ({
+                    ...organization,
+                    memberCount: memberUids.get(organization.keyId)?.size ?? 0,
+                    leader: isNotEmpty(organization.leaderUserUid) ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
+                }))
+            ) as OrganizationDto.OrganizationTreeNodeResponseDto[],
+            memberUids
+        )
     }
 
     /**查询并组装带启用成员的完整组织树*/
@@ -94,7 +116,7 @@ export class OrganizationUtilsService {
             })
             node.memberCount = node.members.length
         })
-        return buildTree([...nodes.values()]) as OrganizationDto.OrganizationUserNodeResponseDto[]
+        return this.aggregateSubtreeMemberCount(buildTree([...nodes.values()]) as OrganizationDto.OrganizationUserNodeResponseDto[])
     }
 
     /**获取必需的组织详情*/

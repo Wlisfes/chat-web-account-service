@@ -27,7 +27,7 @@ export class OrganizationKeyDto {
 export class UpdateOrganizationPayloadDto extends IntersectionType(OrganizationKeyDto, UpdateOrganizationDto) {}
 
 export class OrganizationTreeNodeResponseDto extends Schema.TbAccountOrganizationDto {
-    @ApiProperty({ description: '组织成员数量', example: 12 })
+    @ApiProperty({ description: '组织及下级启用成员数量', example: 12 })
     memberCount: number
 
     @ApiProperty({ description: '组织负责人', type: AccountUserSummaryResponseDto, nullable: true, required: false })

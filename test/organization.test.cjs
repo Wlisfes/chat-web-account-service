@@ -212,7 +212,70 @@ test('带启用成员的组织树把员工挂到所属部门下', async () => {
     const tree = await utils.findOrganizationUser()
     assert.equal(tree.length, 1)
     assert.equal(tree[0].members[0].uid, '10001')
+    assert.equal(tree[0].members.length, 1)
     assert.equal(tree[0].children[0].name, '研发部')
     assert.equal(tree[0].children[0].members[0].name, '李四')
+    assert.equal(tree[0].children[0].memberCount, 1)
+    assert.equal(tree[0].memberCount, 2)
+})
+
+test('上级组织成员数量包含下级启用成员且按用户去重', async () => {
+    const organizations = [
+        { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部' },
+        { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部' },
+        { keyId: 3, parentKeyId: 1, sort: 20, name: '产品部' }
+    ]
+    const raw = [
+        {},
+        {
+            memberUid: '10002',
+            memberNumber: 'A2',
+            memberName: '李四',
+            memberAvatar: 'b.png',
+            isPrimary: true
+        },
+        {
+            memberUid: '10002',
+            memberNumber: 'A2',
+            memberName: '李四',
+            memberAvatar: 'b.png',
+            isPrimary: false
+        }
+    ]
+    const repository = {
+        createQueryBuilder() {
+            const qb = {
+                leftJoin() {
+                    return qb
+                },
+                orderBy() {
+                    return qb
+                },
+                addOrderBy() {
+                    return qb
+                },
+                select() {
+                    return qb
+                },
+                addSelect() {
+                    return qb
+                },
+                async getRawAndEntities() {
+                    return { entities: organizations, raw }
+                }
+            }
+            return qb
+        }
+    }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    const utils = new OrganizationUtilsService(repository, database)
+    const tree = await utils.findOrganizationUser()
+    assert.equal(tree[0].members.length, 0)
+    assert.equal(tree[0].children[0].memberCount, 1)
+    assert.equal(tree[0].children[1].memberCount, 1)
     assert.equal(tree[0].memberCount, 1)
 })
