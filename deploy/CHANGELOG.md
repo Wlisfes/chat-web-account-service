@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-09-20：发布 v1.0.3
+
+- 影响机器：`chat-home-server`。
+- 关联版本：`release/v1.0.3`；Docker 镜像按合并后的完整 Git SHA 构建。
+- 变更内容：发布组织模块重构和组织树成员计数修复；公开接口前缀、数据库结构与 Nacos 配置保持不变。
+- 机器侧操作：合并 `main` 后由 GitHub Actions 自动构建和部署，无需额外修改 `.env` 或 Nacos。
+- 验证命令：确认 Actions 的 `Verify service`、`Build and publish image`、`Deploy to chat-home-server` 成功；检查容器健康及 Gateway `GET /api/account/health` 返回业务 `status=UP`。
+- 回滚方法：将 `chat-web-account-service` 镜像恢复到上一版已部署的完整 Git SHA。
+
 ## 2026-09-18：隔离校验只检查 Account 数据库
 
 - 影响机器：`chat-home-server`。
