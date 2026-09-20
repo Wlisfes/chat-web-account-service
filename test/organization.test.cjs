@@ -1,14 +1,15 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { buildTree, assertValidTree } = require('@wlisfes/chat-web-base-schema/utils')
-const { DeptService } = require('../dist/modules/dept/dept.service')
-const { DeptUtilsService } = require('../dist/modules/dept/dept.utils.service')
+const { OrganizationService } = require('../dist/modules/organization/organization.service')
+const { OrganizationUtilsService } = require('../dist/modules/organization/organization.utils.service')
 const {
     TbAccountOrganization,
     TbAccountRole,
     TbAccountRoleDataScope,
     TbAccountRoleDataScopeOrganization,
     TbAccountRoleMenu,
+    TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserRole
 } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
@@ -46,7 +47,7 @@ test('树校验拒绝循环和缺失父节点', () => {
     )
 })
 
-function fakeDeptManager({ hasMember = false } = {}) {
+function fakeOrganizationManager({ hasMember = false } = {}) {
     const deletes = []
     const candidateScopes = [
         { keyId: 153, roleKeyId: 154 },
@@ -117,21 +118,21 @@ function fakeDeptManager({ hasMember = false } = {}) {
     return manager
 }
 
-function createDeptService(manager) {
+function createOrganizationService(manager) {
     const repository = { manager }
     const database = {
         builder(currentRepository, callback) {
             return callback(currentRepository.createQueryBuilder('t'))
         }
     }
-    return new DeptService(repository, new DeptUtilsService(repository, database))
+    return new OrganizationService(repository, new OrganizationUtilsService(repository, database))
 }
 
 test('空部门删除时级联删除专属岗位角色并移除其他角色中的部门授权', async () => {
-    const manager = fakeDeptManager()
-    const service = createDeptService(manager)
+    const manager = fakeOrganizationManager()
+    const service = createOrganizationService(manager)
 
-    await service.httpBaseAccountDeleteDept({ keyId: 156 })
+    await service.httpBaseAccountDeleteOrganization({ keyId: 156 })
 
     const roleDelete = manager.deletes.find(item => item.entity === TbAccountRole)
     assert.deepEqual(roleDelete.criteria.keyId.value, [154])
@@ -143,9 +144,75 @@ test('空部门删除时级联删除专属岗位角色并移除其他角色中�
 })
 
 test('部门仍有员工时禁止删除且不清理岗位角色', async () => {
-    const manager = fakeDeptManager({ hasMember: true })
-    const service = createDeptService(manager)
+    const manager = fakeOrganizationManager({ hasMember: true })
+    const service = createOrganizationService(manager)
 
-    await assert.rejects(() => service.httpBaseAccountDeleteDept({ keyId: 156 }), /组织仍有关联成员/)
+    await assert.rejects(() => service.httpBaseAccountDeleteOrganization({ keyId: 156 }), /组织仍有关联成员/)
     assert.equal(manager.deletes.length, 0)
+})
+
+test('带启用成员的组织树把员工挂到所属部门下', async () => {
+    const organizations = [
+        { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部', leaderUserUid: '10001' },
+        { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
+    ]
+    const raw = [
+        {
+            isPrimary: true,
+            positionName: '总经理',
+            memberUid: '10001',
+            memberNumber: 'A1',
+            memberName: '张三',
+            memberAvatar: 'a.png',
+            leaderUid: '10001',
+            leaderNumber: 'A1',
+            leaderName: '张三',
+            leaderAvatar: 'a.png'
+        },
+        {
+            isPrimary: true,
+            positionName: '工程师',
+            memberUid: '10002',
+            memberNumber: 'A2',
+            memberName: '李四',
+            memberAvatar: 'b.png'
+        }
+    ]
+    const repository = {
+        createQueryBuilder() {
+            const qb = {
+                leftJoin() {
+                    return qb
+                },
+                orderBy() {
+                    return qb
+                },
+                addOrderBy() {
+                    return qb
+                },
+                select() {
+                    return qb
+                },
+                addSelect() {
+                    return qb
+                },
+                async getRawAndEntities() {
+                    return { entities: organizations, raw }
+                }
+            }
+            return qb
+        }
+    }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    const utils = new OrganizationUtilsService(repository, database)
+    const tree = await utils.findOrganizationUser()
+    assert.equal(tree.length, 1)
+    assert.equal(tree[0].members[0].uid, '10001')
+    assert.equal(tree[0].children[0].name, '研发部')
+    assert.equal(tree[0].children[0].members[0].name, '李四')
+    assert.equal(tree[0].memberCount, 1)
 })

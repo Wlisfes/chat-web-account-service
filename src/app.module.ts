@@ -7,7 +7,7 @@ import { HttpResponseModule } from '@wlisfes/chat-web-base-schema/interceptor'
 import { DatabaseModule } from '@/database/database.module'
 import { SheetModule } from '@/modules/sheet/sheet.module'
 import { HealthModule } from '@/health/health.module'
-import { DeptModule } from '@/modules/dept/dept.module'
+import { OrganizationModule } from '@/modules/organization/organization.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
 import { PositionModule } from '@/modules/position/position.module'
@@ -24,7 +24,7 @@ import { AppService } from '@/app.service'
         GatewayPrincipalModule,
         HealthModule,
         AuthorizationModule,
-        DeptModule,
+        OrganizationModule,
         SheetModule,
         RoleModule,
         UserModule,

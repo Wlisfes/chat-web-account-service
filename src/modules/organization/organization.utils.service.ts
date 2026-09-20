@@ -1,40 +1,30 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
-import {
-    TbAccountOrganization,
-    TbAccountOrganizationClosure,
-    TbAccountOrganizationStatus,
-    TbAccountRole,
-    TbAccountRoleDataScope,
-    TbAccountRoleDataScopeOrganization,
-    TbAccountRoleMenu,
-    TbAccountUser,
-    TbAccountUserOrganization,
-    TbAccountUserOrganizationStatus,
-    TbAccountUserRole
-} from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { DataBaseService, EntityManager, In, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, assertValidTree, buildTree } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
-import * as DeptDto from '@/modules/dept/dto/dept.dto'
+import * as Schema from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import * as OrganizationDto from '@/modules/organization/dto/organization.dto'
 
 @Injectable()
-export class DeptUtilsService {
+export class OrganizationUtilsService {
     constructor(
-        @InjectRepository(TbAccountOrganization) private readonly deptRepository: Repository<TbAccountOrganization>,
+        @InjectRepository(Schema.TbAccountOrganization) private readonly organizationRepository: Repository<Schema.TbAccountOrganization>,
         private readonly database: DataBaseService
     ) {}
 
     /**查询并组装完整组织树*/
-    public async findTree(): Promise<DeptDto.DeptTreeNodeResponseDto[]> {
-        const organizations = await this.database.builder(this.deptRepository, qb =>
+    public async findTree(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
+        const organizations = await this.database.builder(this.organizationRepository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
-        const memberships = await this.deptRepository.manager.find(TbAccountUserOrganization, {
-            where: { status: TbAccountUserOrganizationStatus.ENABLED }
+        const memberships = await this.organizationRepository.manager.find(Schema.TbAccountUserOrganization, {
+            where: { status: Schema.TbAccountUserOrganizationStatus.ENABLED }
         })
         const leaderUids = [...new Set(organizations.map(item => item.leaderUserUid).filter((value): value is string => isNotEmpty(value)))]
         const leaders =
-            leaderUids.length > 0 ? await this.deptRepository.manager.find(TbAccountUser, { where: { uid: In(leaderUids) } }) : []
+            leaderUids.length > 0
+                ? await this.organizationRepository.manager.find(Schema.TbAccountUser, { where: { uid: In(leaderUids) } })
+                : []
         const leaderByUid = new Map(leaders.map(item => [item.uid, item]))
         const memberCounts = memberships.reduce((counts, item) => {
             counts.set(item.organizationKeyId, (counts.get(item.organizationKeyId) ?? 0) + 1)
@@ -46,14 +36,72 @@ export class DeptUtilsService {
                 memberCount: memberCounts.get(organization.keyId) ?? 0,
                 leader: isNotEmpty(organization.leaderUserUid) ? (leaderByUid.get(organization.leaderUserUid) ?? null) : null
             }))
-        ) as DeptDto.DeptTreeNodeResponseDto[]
+        ) as OrganizationDto.OrganizationTreeNodeResponseDto[]
+    }
+
+    /**查询并组装带启用成员的完整组织树*/
+    public async findOrganizationUser(): Promise<OrganizationDto.OrganizationUserNodeResponseDto[]> {
+        const { entities, raw } = await this.database.builder(this.organizationRepository, qb =>
+            qb
+                .leftJoin(
+                    Schema.TbAccountUserOrganization,
+                    'membership',
+                    'membership.organizationKeyId = t.keyId AND membership.status = :membershipStatus',
+                    { membershipStatus: Schema.TbAccountUserOrganizationStatus.ENABLED }
+                )
+                .leftJoin(Schema.TbAccountUser, 'member', 'member.uid = membership.userUid')
+                .leftJoin(Schema.TbAccountUser, 'leader', 'leader.uid = t.leaderUserUid')
+                .orderBy('t.sort', 'ASC')
+                .addOrderBy('t.keyId', 'ASC')
+                .select('t')
+                .addSelect('membership.isPrimary', 'isPrimary')
+                .addSelect('membership.positionName', 'positionName')
+                .addSelect('member.uid', 'memberUid')
+                .addSelect('member.number', 'memberNumber')
+                .addSelect('member.name', 'memberName')
+                .addSelect('member.avatar', 'memberAvatar')
+                .addSelect('leader.uid', 'leaderUid')
+                .addSelect('leader.number', 'leaderNumber')
+                .addSelect('leader.name', 'leaderName')
+                .addSelect('leader.avatar', 'leaderAvatar')
+                .getRawAndEntities()
+        )
+        const nodes = new Map<number, OrganizationDto.OrganizationUserNodeResponseDto>()
+        entities.forEach((organization, index) => {
+            const row = raw[index] ?? {}
+            let node = nodes.get(organization.keyId)
+            if (!node) {
+                node = {
+                    ...organization,
+                    memberCount: 0,
+                    leader: isNotEmpty(row.leaderUid)
+                        ? { uid: row.leaderUid, number: row.leaderNumber, name: row.leaderName, avatar: row.leaderAvatar }
+                        : null,
+                    members: [],
+                    children: []
+                }
+                nodes.set(organization.keyId, node)
+            }
+            if (!isNotEmpty(row.memberUid)) return
+            node.members.push({
+                uid: row.memberUid,
+                number: row.memberNumber,
+                name: row.memberName,
+                avatar: row.memberAvatar,
+                isPrimary: Boolean(row.isPrimary),
+                positionName: row.positionName,
+                organizationKeyId: organization.keyId
+            })
+            node.memberCount = node.members.length
+        })
+        return buildTree([...nodes.values()]) as OrganizationDto.OrganizationUserNodeResponseDto[]
     }
 
     /**获取必需的组织详情*/
-    public async findRequired(keyId: number, manager?: EntityManager): Promise<TbAccountOrganization> {
+    public async findRequired(keyId: number, manager?: EntityManager): Promise<Schema.TbAccountOrganization> {
         const organization = isNotEmpty(manager)
-            ? await manager.findOneBy(TbAccountOrganization, { keyId })
-            : await this.database.builder(this.deptRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
+            ? await manager.findOneBy(Schema.TbAccountOrganization, { keyId })
+            : await this.database.builder(this.organizationRepository, qb => qb.where('t.keyId = :keyId', { keyId }).getOne())
         if (!organization) {
             throw new NotFoundException('组织不存在')
         }
@@ -62,23 +110,23 @@ export class DeptUtilsService {
 
     /**锁定组织树*/
     public async lockTree(manager: EntityManager): Promise<void> {
-        await this.database.builder(manager.getRepository(TbAccountOrganization), qb => qb.setLock('pessimistic_write').getMany())
+        await this.database.builder(manager.getRepository(Schema.TbAccountOrganization), qb => qb.setLock('pessimistic_write').getMany())
     }
 
     /**校验父组织和负责人引用*/
     public async findReferencesRequired(manager: EntityManager, parentKeyId?: number | null, leaderUserUid?: string): Promise<void> {
         if (isNotEmpty(parentKeyId)) {
-            const parent = await manager.findOneBy(TbAccountOrganization, { keyId: parentKeyId })
+            const parent = await manager.findOneBy(Schema.TbAccountOrganization, { keyId: parentKeyId })
             if (!parent) {
                 throw new BadRequestException('父组织不存在')
             }
-            if (parent.status !== TbAccountOrganizationStatus.ENABLED) {
+            if (parent.status !== Schema.TbAccountOrganizationStatus.ENABLED) {
                 throw new BadRequestException('父组织已禁用')
             }
         }
         if (isNotEmpty(leaderUserUid)) {
             assertUid(leaderUserUid, '负责人账号UID')
-            if (!(await manager.existsBy(TbAccountUser, { uid: leaderUserUid }))) {
+            if (!(await manager.existsBy(Schema.TbAccountUser, { uid: leaderUserUid }))) {
                 throw new BadRequestException('负责人账号不存在')
             }
         }
@@ -86,7 +134,7 @@ export class DeptUtilsService {
 
     /**校验组织编码可用*/
     public async findCodeAvailable(manager: EntityManager, code: string, excludedKeyId?: number): Promise<void> {
-        const exists = await this.database.builder(manager.getRepository(TbAccountOrganization), qb => {
+        const exists = await this.database.builder(manager.getRepository(Schema.TbAccountOrganization), qb => {
             qb.where('t.code = :code', { code: code.trim() })
             if (isNotEmpty(excludedKeyId)) {
                 qb.andWhere('t.keyId <> :excludedKeyId', { excludedKeyId })
@@ -100,44 +148,44 @@ export class DeptUtilsService {
 
     /**校验组织节点允许删除*/
     public async findDeleteAvailable(manager: EntityManager, keyId: number): Promise<void> {
-        if (await manager.existsBy(TbAccountOrganization, { parentKeyId: keyId })) {
+        if (await manager.existsBy(Schema.TbAccountOrganization, { parentKeyId: keyId })) {
             throw new ConflictException('组织存在下级节点，不能删除')
         }
-        if (await manager.existsBy(TbAccountUserOrganization, { organizationKeyId: keyId })) {
+        if (await manager.existsBy(Schema.TbAccountUserOrganization, { organizationKeyId: keyId })) {
             throw new ConflictException('组织仍有关联成员，不能删除')
         }
     }
 
     /**删除组织及数据范围引用*/
     public async removeOrganization(manager: EntityManager, keyId: number): Promise<void> {
-        await manager.delete(TbAccountRoleDataScopeOrganization, { organizationKeyId: keyId })
-        await manager.delete(TbAccountOrganization, { keyId })
+        await manager.delete(Schema.TbAccountRoleDataScopeOrganization, { organizationKeyId: keyId })
+        await manager.delete(Schema.TbAccountOrganization, { keyId })
     }
 
     /**删除空部门对应的非内置部门角色*/
     public async removeDepartmentRoles(manager: EntityManager, organizationKeyId: number): Promise<void> {
-        const linkedOrganizations = await manager.find(TbAccountRoleDataScopeOrganization, {
+        const linkedOrganizations = await manager.find(Schema.TbAccountRoleDataScopeOrganization, {
             where: { organizationKeyId },
             select: { dataScopeKeyId: true }
         })
         const linkedDataScopeKeyIds = [...new Set(linkedOrganizations.map(item => item.dataScopeKeyId))]
         if (linkedDataScopeKeyIds.length === 0) return
 
-        const linkedDataScopes = await manager.find(TbAccountRoleDataScope, {
+        const linkedDataScopes = await manager.find(Schema.TbAccountRoleDataScope, {
             where: { keyId: In(linkedDataScopeKeyIds) },
             select: { roleKeyId: true }
         })
         const linkedRoleKeyIds = [...new Set(linkedDataScopes.map(item => item.roleKeyId))]
         if (linkedRoleKeyIds.length === 0) return
 
-        const linkedRoles = await manager.find(TbAccountRole, {
+        const linkedRoles = await manager.find(Schema.TbAccountRole, {
             where: { keyId: In(linkedRoleKeyIds), builtin: false },
             select: { keyId: true }
         })
         const candidateRoleKeyIds = linkedRoles.map(role => role.keyId)
         if (candidateRoleKeyIds.length === 0) return
 
-        const candidateDataScopes = await manager.find(TbAccountRoleDataScope, {
+        const candidateDataScopes = await manager.find(Schema.TbAccountRoleDataScope, {
             where: { roleKeyId: In(candidateRoleKeyIds) },
             select: { keyId: true, roleKeyId: true }
         })
@@ -145,7 +193,7 @@ export class DeptUtilsService {
         const candidateScopeKeyIds = [...roleKeyIdByScope.keys()]
         const candidateOrganizations =
             candidateScopeKeyIds.length > 0
-                ? await manager.find(TbAccountRoleDataScopeOrganization, {
+                ? await manager.find(Schema.TbAccountRoleDataScopeOrganization, {
                       where: { dataScopeKeyId: In(candidateScopeKeyIds) },
                       select: { dataScopeKeyId: true, organizationKeyId: true }
                   })
@@ -167,18 +215,18 @@ export class DeptUtilsService {
         const departmentScopeKeyIds = candidateDataScopes
             .filter(scope => departmentRoleKeyIds.includes(scope.roleKeyId))
             .map(scope => scope.keyId)
-        await manager.delete(TbAccountUserRole, { roleKeyId: In(departmentRoleKeyIds) })
-        await manager.delete(TbAccountRoleMenu, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(Schema.TbAccountUserRole, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(Schema.TbAccountRoleMenu, { roleKeyId: In(departmentRoleKeyIds) })
         if (departmentScopeKeyIds.length > 0) {
-            await manager.delete(TbAccountRoleDataScopeOrganization, { dataScopeKeyId: In(departmentScopeKeyIds) })
+            await manager.delete(Schema.TbAccountRoleDataScopeOrganization, { dataScopeKeyId: In(departmentScopeKeyIds) })
         }
-        await manager.delete(TbAccountRoleDataScope, { roleKeyId: In(departmentRoleKeyIds) })
-        await manager.delete(TbAccountRole, { keyId: In(departmentRoleKeyIds) })
+        await manager.delete(Schema.TbAccountRoleDataScope, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(Schema.TbAccountRole, { keyId: In(departmentRoleKeyIds) })
     }
 
     /**校验组织树并重建闭包表*/
     public async rebuildClosure(manager: EntityManager): Promise<void> {
-        const organizations = await manager.find(TbAccountOrganization, { order: { keyId: 'ASC' } })
+        const organizations = await manager.find(Schema.TbAccountOrganization, { order: { keyId: 'ASC' } })
         try {
             assertValidTree(organizations, '组织架构')
         } catch (error) {
@@ -186,7 +234,7 @@ export class DeptUtilsService {
         }
 
         const byKeyId = new Map(organizations.map(organization => [organization.keyId, organization]))
-        const rows: Array<Pick<TbAccountOrganizationClosure, 'ancestorKeyId' | 'descendantKeyId' | 'depth'>> = []
+        const rows: Array<Pick<Schema.TbAccountOrganizationClosure, 'ancestorKeyId' | 'descendantKeyId' | 'depth'>> = []
         for (const organization of organizations) {
             rows.push({ ancestorKeyId: organization.keyId, descendantKeyId: organization.keyId, depth: 0 })
             let depth = 1
@@ -198,9 +246,9 @@ export class DeptUtilsService {
             }
         }
 
-        await manager.createQueryBuilder().delete().from(TbAccountOrganizationClosure).execute()
+        await manager.createQueryBuilder().delete().from(Schema.TbAccountOrganizationClosure).execute()
         for (let offset = 0; offset < rows.length; offset += 500) {
-            await manager.insert(TbAccountOrganizationClosure, rows.slice(offset, offset + 500))
+            await manager.insert(Schema.TbAccountOrganizationClosure, rows.slice(offset, offset + 500))
         }
     }
 }
