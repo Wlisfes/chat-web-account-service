@@ -10,6 +10,15 @@ export class OrganizationController {
     constructor(private readonly organizationService: OrganizationService) {}
 
     @RequirePermissions('chat:deploy:system:organization')
+    @ApiServiceDecorator(Get('enums'), {
+        operation: { summary: '获取组织类型和状态枚举' },
+        response: { type: OrganizationDto.OrganizationEnumsResponseDto, description: '组织静态枚举' }
+    })
+    public async httpBaseAccountOrganizationEnums() {
+        return this.organizationService.httpBaseAccountOrganizationEnums()
+    }
+
+    @RequirePermissions('chat:deploy:system:organization')
     @ApiServiceDecorator(Get('tree/structure'), {
         operation: { summary: '获取完整组织树' },
         response: { type: OrganizationDto.OrganizationTreeNodeResponseDto, isArray: true, description: '完整组织树' }

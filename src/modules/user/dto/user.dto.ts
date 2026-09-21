@@ -196,6 +196,8 @@ export class ReplaceUserRolesPayloadDto extends IntersectionType(UserUidDto, Rep
 
 export class AccountUserResponseDto extends OmitType(Schema.TbAccountUserDto, ['password'] as const) {}
 
+export class AccountUserSelectResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
+
 export class AccountUserSummaryResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
 
 export class UserOrganizationResponseDto extends Schema.TbAccountOrganizationDto {
