@@ -128,9 +128,12 @@ export class UserService {
 
     /**账号下拉数据*/
     public async httpBaseAccountSelectUser(): Promise<UserDto.AccountUserSelectResponseDto[]> {
-        return this.database.builder(this.userRepository, qb =>
-            qb.select(['t.uid', 't.number', 't.name', 't.avatar']).orderBy('t.name', 'ASC').addOrderBy('t.number', 'ASC').getMany()
-        )
+        return this.database.builder(this.userRepository, qb => {
+            qb.select(['t.keyId', 't.uid', 't.number', 't.name', 't.avatar', 't.status'])
+            qb.orderBy('t.name', 'ASC')
+            qb.addOrderBy('t.number', 'ASC')
+            return qb.getMany().then(items => items.map(t => ({ ...t, showName: `${t.name} ${t.number}` })))
+        })
     }
 
     /**账号详情*/
