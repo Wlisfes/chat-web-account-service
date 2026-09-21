@@ -279,3 +279,142 @@ test('上级组织成员数量包含下级启用成员且按用户去重', async
     assert.equal(tree[0].children[1].memberCount, 1)
     assert.equal(tree[0].memberCount, 1)
 })
+
+function createOrganizationUserUtils(organizations, raw) {
+    const repository = {
+        createQueryBuilder() {
+            const qb = {
+                leftJoin() {
+                    return qb
+                },
+                orderBy() {
+                    return qb
+                },
+                addOrderBy() {
+                    return qb
+                },
+                select() {
+                    return qb
+                },
+                addSelect() {
+                    return qb
+                },
+                async getRawAndEntities() {
+                    return { entities: organizations, raw }
+                }
+            }
+            return qb
+        }
+    }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    return new OrganizationUtilsService(repository, database)
+}
+
+test('组织树人数和成员列表包含未绑定成员关系的负责人', async () => {
+    const organizations = [
+        { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部', leaderUserUid: '10003' },
+        { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
+    ]
+    const raw = [
+        {
+            memberUid: '10001',
+            memberNumber: 'A1',
+            memberName: '张三',
+            memberAvatar: 'a.png',
+            isPrimary: true,
+            leaderUid: '10003',
+            leaderNumber: 'A3',
+            leaderName: '王五',
+            leaderAvatar: 'c.png'
+        },
+        {
+            memberUid: '10002',
+            memberNumber: 'A2',
+            memberName: '李四',
+            memberAvatar: 'b.png',
+            isPrimary: true
+        }
+    ]
+    const tree = await createOrganizationUserUtils(organizations, raw).findOrganizationUser()
+    assert.equal(tree[0].members.length, 2)
+    assert.ok(tree[0].members.some(item => item.uid === '10003'))
+    assert.equal(tree[0].children[0].memberCount, 1)
+    assert.equal(tree[0].memberCount, 3)
+})
+
+test('新增组织时把负责人绑定为当前组织启用成员', async () => {
+    const inserted = []
+    const manager = {
+        async find(entity, options) {
+            assert.equal(entity, TbAccountUserOrganization)
+            assert.equal(options.where.userUid, '10001')
+            return []
+        },
+        async insert(entity, payload) {
+            inserted.push({ entity, payload })
+        }
+    }
+    const utils = new OrganizationUtilsService({}, {})
+    await utils.ensureLeaderMembership(manager, 8, '10001')
+    assert.equal(inserted.length, 1)
+    assert.equal(inserted[0].entity, TbAccountUserOrganization)
+    assert.equal(inserted[0].payload.userUid, '10001')
+    assert.equal(inserted[0].payload.organizationKeyId, 8)
+    assert.equal(inserted[0].payload.isPrimary, true)
+    assert.equal(inserted[0].payload.status, 'enabled')
+})
+
+test('负责人已有其他主组织时以非主组织关系绑定', async () => {
+    const inserted = []
+    const manager = {
+        async find() {
+            return [{ organizationKeyId: 2, isPrimary: true, status: 'enabled' }]
+        },
+        async insert(entity, payload) {
+            inserted.push(payload)
+        }
+    }
+    const utils = new OrganizationUtilsService({}, {})
+    await utils.ensureLeaderMembership(manager, 8, '10001')
+    assert.equal(inserted[0].isPrimary, false)
+    assert.equal(inserted[0].organizationKeyId, 8)
+})
+
+test('负责人成员关系已禁用时重新启用且不重复插入', async () => {
+    const existing = { organizationKeyId: 8, status: 'disabled' }
+    let saved = null
+    const manager = {
+        async find() {
+            return [existing]
+        },
+        async save(entity) {
+            saved = entity
+        },
+        async insert() {
+            throw new Error('should not insert')
+        }
+    }
+    const utils = new OrganizationUtilsService({}, {})
+    await utils.ensureLeaderMembership(manager, 8, '10001')
+    assert.equal(saved.status, 'enabled')
+})
+
+test('负责人已绑定启用成员时不重复写入', async () => {
+    const manager = {
+        async find() {
+            return [{ organizationKeyId: 8, status: 'enabled' }]
+        },
+        async save() {
+            throw new Error('should not save')
+        },
+        async insert() {
+            throw new Error('should not insert')
+        }
+    }
+    const utils = new OrganizationUtilsService({}, {})
+    await utils.ensureLeaderMembership(manager, 8, '10001')
+})

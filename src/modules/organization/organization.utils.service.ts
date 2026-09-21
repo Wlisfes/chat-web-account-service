@@ -49,6 +49,12 @@ export class OrganizationUtilsService {
             uids.set(item.organizationKeyId, organizationUids)
             return uids
         }, new Map<number, Set<string>>())
+        for (const organization of organizations) {
+            if (!isNotEmpty(organization.leaderUserUid)) continue
+            const organizationUids = memberUids.get(organization.keyId) ?? new Set<string>()
+            organizationUids.add(organization.leaderUserUid)
+            memberUids.set(organization.keyId, organizationUids)
+        }
         return this.aggregateSubtreeMemberCount(
             buildTree(
                 organizations.map(organization => ({
@@ -116,6 +122,20 @@ export class OrganizationUtilsService {
             })
             node.memberCount = node.members.length
         })
+        for (const node of nodes.values()) {
+            const leader = node.leader
+            if (leader && !node.members.some(item => item.uid === leader.uid)) {
+                node.members.push({
+                    uid: leader.uid,
+                    number: leader.number,
+                    name: leader.name,
+                    avatar: leader.avatar,
+                    isPrimary: false,
+                    organizationKeyId: node.keyId
+                })
+            }
+            node.memberCount = node.members.length
+        }
         return this.aggregateSubtreeMemberCount(buildTree([...nodes.values()]) as OrganizationDto.OrganizationUserNodeResponseDto[])
     }
 
@@ -152,6 +172,28 @@ export class OrganizationUtilsService {
                 throw new BadRequestException('负责人账号不存在')
             }
         }
+    }
+
+    /**确保负责人已绑定为当前组织启用成员*/
+    public async ensureLeaderMembership(manager: EntityManager, organizationKeyId: number, leaderUserUid?: string): Promise<void> {
+        if (!isNotEmpty(leaderUserUid)) {
+            return
+        }
+        const memberships = await manager.find(Schema.TbAccountUserOrganization, { where: { userUid: leaderUserUid } })
+        const existing = memberships.find(item => item.organizationKeyId === organizationKeyId)
+        if (existing) {
+            if (existing.status !== Schema.TbAccountUserOrganizationStatus.ENABLED) {
+                existing.status = Schema.TbAccountUserOrganizationStatus.ENABLED
+                await manager.save(existing)
+            }
+            return
+        }
+        await manager.insert(Schema.TbAccountUserOrganization, {
+            userUid: leaderUserUid,
+            organizationKeyId,
+            isPrimary: !memberships.some(item => item.isPrimary),
+            status: Schema.TbAccountUserOrganizationStatus.ENABLED
+        })
     }
 
     /**校验组织编码可用*/

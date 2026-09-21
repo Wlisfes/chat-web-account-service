@@ -48,6 +48,7 @@ export class OrganizationService {
                 parentKeyId: parentKeyId as unknown as number
             })
             const saved = await manager.save(organization)
+            await this.organizationUtilsService.ensureLeaderMembership(manager, saved.keyId, saved.leaderUserUid)
             await this.organizationUtilsService.rebuildClosure(manager)
             return saved
         })
@@ -74,6 +75,7 @@ export class OrganizationService {
 
             manager.merge(Schema.TbAccountOrganization, organization, fields, { parentKeyId: nextParentKeyId as unknown as number })
             await manager.save(organization)
+            await this.organizationUtilsService.ensureLeaderMembership(manager, organization.keyId, organization.leaderUserUid)
             await this.organizationUtilsService.rebuildClosure(manager)
             return organization
         })
