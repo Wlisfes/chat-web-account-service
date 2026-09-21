@@ -153,7 +153,17 @@ test('部门仍有员工时禁止删除且不清理岗位角色', async () => {
 
 test('带启用成员的组织树把员工挂到所属部门下', async () => {
     const organizations = [
-        { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部', leaderUserUid: '10001' },
+        {
+            keyId: 1,
+            parentKeyId: undefined,
+            sort: 10,
+            name: '总部',
+            leaderUserUid: '10001',
+            code: 'HQ',
+            status: 'enabled',
+            createTime: '2026-01-01 00:00:00',
+            modifyTime: '2026-01-02 00:00:00'
+        },
         { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
     ]
     const raw = [
@@ -217,6 +227,11 @@ test('带启用成员的组织树把员工挂到所属部门下', async () => {
     assert.equal(tree[0].children[0].members[0].name, '李四')
     assert.equal(tree[0].children[0].memberCount, 1)
     assert.equal(tree[0].memberCount, 2)
+    assert.equal(tree[0].leader, undefined)
+    assert.equal(tree[0].code, undefined)
+    assert.equal(tree[0].status, undefined)
+    assert.equal(tree[0].createTime, undefined)
+    assert.equal(tree[0].modifyTime, undefined)
 })
 
 test('上级组织成员数量包含下级启用成员且按用户去重', async () => {

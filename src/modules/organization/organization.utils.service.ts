@@ -95,20 +95,31 @@ export class OrganizationUtilsService {
                 .getRawAndEntities()
         )
         const nodes = new Map<number, OrganizationDto.OrganizationUserNodeResponseDto>()
+        const leaders = new Map<number, Pick<OrganizationDto.OrganizationUserResponseDto, 'uid' | 'number' | 'name' | 'avatar'>>()
         entities.forEach((organization, index) => {
             const row = raw[index] ?? {}
             let node = nodes.get(organization.keyId)
             if (!node) {
                 node = {
-                    ...organization,
+                    keyId: organization.keyId,
+                    parentKeyId: organization.parentKeyId,
+                    name: organization.name,
+                    type: organization.type,
+                    leaderUserUid: organization.leaderUserUid,
+                    sort: organization.sort,
                     memberCount: 0,
-                    leader: isNotEmpty(row.leaderUid)
-                        ? { uid: row.leaderUid, number: row.leaderNumber, name: row.leaderName, avatar: row.leaderAvatar }
-                        : null,
                     members: [],
                     children: []
                 }
                 nodes.set(organization.keyId, node)
+                if (isNotEmpty(row.leaderUid)) {
+                    leaders.set(organization.keyId, {
+                        uid: row.leaderUid,
+                        number: row.leaderNumber,
+                        name: row.leaderName,
+                        avatar: row.leaderAvatar
+                    })
+                }
             }
             if (!isNotEmpty(row.memberUid)) return
             node.members.push({
@@ -123,7 +134,7 @@ export class OrganizationUtilsService {
             node.memberCount = node.members.length
         })
         for (const node of nodes.values()) {
-            const leader = node.leader
+            const leader = leaders.get(node.keyId)
             if (leader && !node.members.some(item => item.uid === leader.uid)) {
                 node.members.push({
                     uid: leader.uid,

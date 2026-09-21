@@ -49,12 +49,22 @@ export class OrganizationUserResponseDto extends AccountUserSummaryResponseDto {
     organizationKeyId: number
 }
 
-export class OrganizationUserNodeResponseDto extends OrganizationTreeNodeResponseDto {
+export class OrganizationUserNodeResponseDto extends PickType(Schema.TbAccountOrganizationDto, [
+    'keyId',
+    'parentKeyId',
+    'name',
+    'type',
+    'leaderUserUid',
+    'sort'
+] as const) {
+    @ApiProperty({ description: '组织及下级启用成员数量', example: 12 })
+    memberCount: number
+
     @ApiProperty({ description: '组织启用成员', type: [OrganizationUserResponseDto], example: [] })
     members: OrganizationUserResponseDto[]
 
     @ApiProperty({ description: '下级组织节点', type: () => OrganizationUserNodeResponseDto, isArray: true, example: [] })
-    declare children: OrganizationUserNodeResponseDto[]
+    children: OrganizationUserNodeResponseDto[]
 }
 
 export class OrganizationEnumsResponseDto extends EnumsResponseDto({
