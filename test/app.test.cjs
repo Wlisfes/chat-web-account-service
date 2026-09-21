@@ -66,6 +66,7 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.ok(document.paths['/sheet/tree/structure'], '菜单管理接口必须使用 /sheet 路由前缀')
     assert.ok(document.paths['/dept/tree/structure'], '部门组织接口必须使用 /dept 路由前缀')
     assert.ok(document.paths['/dept/tree/user'], '部门组织接口必须提供带成员的组织树')
+    assert.ok(document.paths['/user/select']?.get, '账号管理必须提供负责人下拉接口')
     // 认证已迁移到鉴权服务，账号服务不得再暴露任何令牌内省路由。
     assert.equal(document.paths['/feign/auth/token/introspect'], undefined, 'Account 服务不能保留业务 Feign 内省接口')
     assert.equal(document.paths['/internal/auth/token/introspect'], undefined, 'Account 服务不能保留内部内省接口')
@@ -81,7 +82,7 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 38)
+    assert.equal(operations.length, 39)
     assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 23)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 6)
 

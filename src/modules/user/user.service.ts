@@ -126,6 +126,13 @@ export class UserService {
         })
     }
 
+    /**账号下拉数据*/
+    public async httpBaseAccountSelectUser(): Promise<UserDto.AccountUserSelectResponseDto[]> {
+        return this.database.builder(this.userRepository, qb =>
+            qb.select(['t.uid', 't.number', 't.name', 't.avatar']).orderBy('t.name', 'ASC').addOrderBy('t.number', 'ASC').getMany()
+        )
+    }
+
     /**账号详情*/
     public async httpBaseAccountUserResolver(principal: AuthPrincipal, query: UserDto.UserUidDto): Promise<UserDto.UserDetailResponseDto> {
         return this.userUtilsService.findDetail(principal.uid, query.uid)

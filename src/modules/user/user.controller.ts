@@ -29,6 +29,15 @@ export class UserController {
     }
 
     @RequirePermissions('chat:deploy:system:user')
+    @ApiServiceDecorator(Get('select'), {
+        operation: { summary: '获取账号下拉选项' },
+        response: { type: UserDto.AccountUserSelectResponseDto, isArray: true, description: '账号下拉选项' }
+    })
+    public async httpBaseAccountSelectUser() {
+        return this.userService.httpBaseAccountSelectUser()
+    }
+
+    @RequirePermissions('chat:deploy:system:user')
     @ApiServiceDecorator(Get('resolve'), {
         operation: { summary: '按当前用户的数据范围获取账号详情' },
         request: { source: 'query', type: UserDto.UserUidDto },
