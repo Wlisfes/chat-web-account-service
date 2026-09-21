@@ -1,4 +1,5 @@
 import { ApiProperty, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
+import { EnumsResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
 import { IsInt, Min } from 'class-validator'
 import { AccountUserSummaryResponseDto } from '@/modules/user/dto/user.dto'
@@ -55,3 +56,8 @@ export class OrganizationUserNodeResponseDto extends OrganizationTreeNodeRespons
     @ApiProperty({ description: '下级组织节点', type: () => OrganizationUserNodeResponseDto, isArray: true, example: [] })
     declare children: OrganizationUserNodeResponseDto[]
 }
+
+export class OrganizationEnumsResponseDto extends EnumsResponseDto({
+    typeOptions: { description: '组织类型选项', example: Schema.TbAccountOrganizationTypeDefinition.options },
+    statusOptions: { description: '组织状态选项', example: Schema.TbAccountOrganizationStatusDefinition.options }
+}) {}

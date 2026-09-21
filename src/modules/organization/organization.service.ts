@@ -13,6 +13,14 @@ export class OrganizationService {
         private readonly organizationUtilsService: OrganizationUtilsService
     ) {}
 
+    /**组织静态枚举*/
+    public async httpBaseAccountOrganizationEnums(): Promise<OrganizationDto.OrganizationEnumsResponseDto> {
+        return {
+            typeOptions: Schema.TbAccountOrganizationTypeDefinition.options,
+            statusOptions: Schema.TbAccountOrganizationStatusDefinition.options
+        }
+    }
+
     /**组织树结构*/
     public async httpBaseAccountOrganizationTreeStructure(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
         return this.organizationUtilsService.findTree()
