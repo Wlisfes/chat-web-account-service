@@ -169,6 +169,7 @@ export class UserUtilsService {
         memberships: UserDto.UserOrganizationMembershipDto[]
     ): Promise<void> {
         if (memberships.length === 0) {
+            await this.syncDepartmentRoles(manager, userUid)
             return
         }
         await manager.insert(
@@ -181,6 +182,41 @@ export class UserUtilsService {
                 status: item.status
             }))
         )
+        await this.syncDepartmentRoles(manager, userUid)
+    }
+
+    /**部门角色默认关联当前启用部门成员，角色主键与组织主键一致。*/
+    public async syncDepartmentRoles(manager: EntityManager, userUid: string): Promise<void> {
+        const memberships = await manager.find(Schema.TbAccountUserOrganization, {
+            where: { userUid, status: Schema.TbAccountUserOrganizationStatus.ENABLED }
+        })
+        const organizationKeyIds = memberships.map(item => item.organizationKeyId)
+        const assigned = await manager.find(Schema.TbAccountUserRole, { where: { userUid } })
+        const assignedRoleKeyIds = new Set(assigned.map(item => item.roleKeyId))
+        if (assigned.length > 0) {
+            const assignedRoles = await manager.find(Schema.TbAccountRole, {
+                where: { keyId: In(assigned.map(item => item.roleKeyId)), builtin: false }
+            })
+            const staleRoleKeyIds = assignedRoles
+                .filter(role => role.code.startsWith('dept_') && !organizationKeyIds.includes(role.keyId))
+                .map(role => role.keyId)
+            if (staleRoleKeyIds.length > 0) {
+                await manager.delete(Schema.TbAccountUserRole, { userUid, roleKeyId: In(staleRoleKeyIds) })
+            }
+        }
+        if (organizationKeyIds.length === 0) {
+            return
+        }
+        const departmentRoles = await manager.find(Schema.TbAccountRole, {
+            where: { keyId: In(organizationKeyIds), builtin: false }
+        })
+        const missingRoleKeyIds = departmentRoles.map(role => role.keyId).filter(roleKeyId => !assignedRoleKeyIds.has(roleKeyId))
+        if (missingRoleKeyIds.length > 0) {
+            await manager.insert(
+                Schema.TbAccountUserRole,
+                missingRoleKeyIds.map(roleKeyId => ({ userUid, roleKeyId }))
+            )
+        }
     }
 
     /**批量写入账号角色关系*/
