@@ -151,6 +151,50 @@ test('部门仍有员工时禁止删除且不清理岗位角色', async () => {
     assert.equal(manager.deletes.length, 0)
 })
 
+function createOrganizationUserUtils(organizations, memberships, users) {
+    const transactionManager = {
+        async find(entity, options) {
+            if (entity === TbAccountUserOrganization) {
+                assert.equal(options.where.status, 'enabled')
+                return memberships
+            }
+            if (entity === TbAccountUser) return users
+            throw new Error(`未处理的查询实体：${entity.name}`)
+        },
+        getRepository(entity) {
+            assert.equal(entity, TbAccountOrganization)
+            return {
+                createQueryBuilder() {
+                    return {
+                        orderBy() {
+                            return this
+                        },
+                        addOrderBy() {
+                            return this
+                        },
+                        async getMany() {
+                            return organizations
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const repository = {
+        manager: {
+            async transaction(callback) {
+                return callback(transactionManager)
+            }
+        }
+    }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    return new OrganizationUtilsService(repository, database)
+}
+
 test('带启用成员的组织树把员工挂到所属部门下', async () => {
     const organizations = [
         {
@@ -166,62 +210,18 @@ test('带启用成员的组织树把员工挂到所属部门下', async () => {
         },
         { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
     ]
-    const raw = [
-        {
-            isPrimary: true,
-            positionName: '总经理',
-            memberUid: '10001',
-            memberNumber: 'A1',
-            memberName: '张三',
-            memberAvatar: 'a.png',
-            leaderUid: '10001',
-            leaderNumber: 'A1',
-            leaderName: '张三',
-            leaderAvatar: 'a.png'
-        },
-        {
-            isPrimary: true,
-            positionName: '工程师',
-            memberUid: '10002',
-            memberNumber: 'A2',
-            memberName: '李四',
-            memberAvatar: 'b.png'
-        }
+    const memberships = [
+        { userUid: '10001', organizationKeyId: 1, isPrimary: true, positionName: '总经理', status: 'enabled' },
+        { userUid: '10002', organizationKeyId: 2, isPrimary: true, positionName: '工程师', status: 'enabled' }
     ]
-    const repository = {
-        createQueryBuilder() {
-            const qb = {
-                leftJoin() {
-                    return qb
-                },
-                orderBy() {
-                    return qb
-                },
-                addOrderBy() {
-                    return qb
-                },
-                select() {
-                    return qb
-                },
-                addSelect() {
-                    return qb
-                },
-                async getRawAndEntities() {
-                    return { entities: organizations, raw }
-                }
-            }
-            return qb
-        }
-    }
-    const database = {
-        builder(currentRepository, callback) {
-            return callback(currentRepository.createQueryBuilder('t'))
-        }
-    }
-    const utils = new OrganizationUtilsService(repository, database)
-    const tree = await utils.findOrganizationUser()
+    const users = [
+        { uid: '10001', number: 'A1', name: '张三', avatar: 'a.png' },
+        { uid: '10002', number: 'A2', name: '李四', avatar: 'b.png' }
+    ]
+    const tree = await createOrganizationUserUtils(organizations, memberships, users).findOrganizationUser()
     assert.equal(tree.length, 1)
     assert.equal(tree[0].members[0].uid, '10001')
+    assert.equal(tree[0].members[0].positionName, '总经理')
     assert.equal(tree[0].members.length, 1)
     assert.equal(tree[0].children[0].name, '研发部')
     assert.equal(tree[0].children[0].members[0].name, '李四')
@@ -240,125 +240,55 @@ test('上级组织成员数量包含下级启用成员且按用户去重', async
         { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部' },
         { keyId: 3, parentKeyId: 1, sort: 20, name: '产品部' }
     ]
-    const raw = [
-        {},
-        {
-            memberUid: '10002',
-            memberNumber: 'A2',
-            memberName: '李四',
-            memberAvatar: 'b.png',
-            isPrimary: true
-        },
-        {
-            memberUid: '10002',
-            memberNumber: 'A2',
-            memberName: '李四',
-            memberAvatar: 'b.png',
-            isPrimary: false
-        }
+    const memberships = [
+        { userUid: '10002', organizationKeyId: 2, isPrimary: true, status: 'enabled' },
+        { userUid: '10002', organizationKeyId: 3, isPrimary: false, status: 'enabled' }
     ]
-    const repository = {
-        createQueryBuilder() {
-            const qb = {
-                leftJoin() {
-                    return qb
-                },
-                orderBy() {
-                    return qb
-                },
-                addOrderBy() {
-                    return qb
-                },
-                select() {
-                    return qb
-                },
-                addSelect() {
-                    return qb
-                },
-                async getRawAndEntities() {
-                    return { entities: organizations, raw }
-                }
-            }
-            return qb
-        }
-    }
-    const database = {
-        builder(currentRepository, callback) {
-            return callback(currentRepository.createQueryBuilder('t'))
-        }
-    }
-    const utils = new OrganizationUtilsService(repository, database)
-    const tree = await utils.findOrganizationUser()
+    const users = [{ uid: '10002', number: 'A2', name: '李四', avatar: 'b.png' }]
+    const tree = await createOrganizationUserUtils(organizations, memberships, users).findOrganizationUser()
     assert.equal(tree[0].members.length, 0)
     assert.equal(tree[0].children[0].memberCount, 1)
     assert.equal(tree[0].children[1].memberCount, 1)
     assert.equal(tree[0].memberCount, 1)
 })
 
-function createOrganizationUserUtils(organizations, raw) {
-    const repository = {
-        createQueryBuilder() {
-            const qb = {
-                leftJoin() {
-                    return qb
-                },
-                orderBy() {
-                    return qb
-                },
-                addOrderBy() {
-                    return qb
-                },
-                select() {
-                    return qb
-                },
-                addSelect() {
-                    return qb
-                },
-                async getRawAndEntities() {
-                    return { entities: organizations, raw }
-                }
-            }
-            return qb
-        }
-    }
-    const database = {
-        builder(currentRepository, callback) {
-            return callback(currentRepository.createQueryBuilder('t'))
-        }
-    }
-    return new OrganizationUtilsService(repository, database)
-}
-
 test('组织树人数和成员列表包含未绑定成员关系的负责人', async () => {
     const organizations = [
         { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部', leaderUserUid: '10003' },
         { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
     ]
-    const raw = [
-        {
-            memberUid: '10001',
-            memberNumber: 'A1',
-            memberName: '张三',
-            memberAvatar: 'a.png',
-            isPrimary: true,
-            leaderUid: '10003',
-            leaderNumber: 'A3',
-            leaderName: '王五',
-            leaderAvatar: 'c.png'
-        },
-        {
-            memberUid: '10002',
-            memberNumber: 'A2',
-            memberName: '李四',
-            memberAvatar: 'b.png',
-            isPrimary: true
-        }
+    const memberships = [
+        { userUid: '10001', organizationKeyId: 1, isPrimary: true, status: 'enabled' },
+        { userUid: '10002', organizationKeyId: 2, isPrimary: true, status: 'enabled' }
     ]
-    const tree = await createOrganizationUserUtils(organizations, raw).findOrganizationUser()
+    const users = [
+        { uid: '10001', number: 'A1', name: '张三', avatar: 'a.png' },
+        { uid: '10002', number: 'A2', name: '李四', avatar: 'b.png' },
+        { uid: '10003', number: 'A3', name: '王五', avatar: 'c.png' }
+    ]
+    const tree = await createOrganizationUserUtils(organizations, memberships, users).findOrganizationUser()
     assert.equal(tree[0].members.length, 2)
     assert.ok(tree[0].members.some(item => item.uid === '10003'))
     assert.equal(tree[0].children[0].memberCount, 1)
     assert.equal(tree[0].memberCount, 3)
+})
+
+test('同一组织包含多个启用成员时全部返回', async () => {
+    const organizations = [{ keyId: 1, parentKeyId: undefined, sort: 10, name: '总部' }]
+    const memberships = [
+        { userUid: '10001', organizationKeyId: 1, isPrimary: true, status: 'enabled' },
+        { userUid: '10002', organizationKeyId: 1, isPrimary: false, status: 'enabled' },
+        { userUid: '10003', organizationKeyId: 1, isPrimary: false, status: 'enabled' }
+    ]
+    const users = [
+        { uid: '10001', number: 'A1', name: '张三', avatar: 'a.png' },
+        { uid: '10002', number: 'A2', name: '李四', avatar: 'b.png' },
+        { uid: '10003', number: 'A3', name: '王五', avatar: 'c.png' }
+    ]
+    const tree = await createOrganizationUserUtils(organizations, memberships, users).findOrganizationUser()
+    assert.equal(tree[0].members.length, 3)
+    assert.equal(tree[0].memberCount, 3)
+    assert.deepEqual(tree[0].members.map(item => item.uid).sort(), ['10001', '10002', '10003'])
 })
 
 test('新增组织时把负责人绑定为当前组织启用成员', async () => {

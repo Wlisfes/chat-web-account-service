@@ -31,17 +31,20 @@ export class OrganizationUtilsService {
 
     /**查询并组装完整组织树*/
     public async findTree(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
-        const organizations = await this.database.builder(this.organizationRepository, qb =>
+        return this.organizationRepository.manager.transaction(manager => this.findTreeWithManager(manager))
+    }
+
+    /**在事务内查询并组装完整组织树*/
+    private async findTreeWithManager(manager: EntityManager): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
+        const repository = manager.getRepository(Schema.TbAccountOrganization)
+        const organizations = await this.database.builder(repository, qb =>
             qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany()
         )
-        const memberships = await this.organizationRepository.manager.find(Schema.TbAccountUserOrganization, {
+        const memberships = await manager.find(Schema.TbAccountUserOrganization, {
             where: { status: Schema.TbAccountUserOrganizationStatus.ENABLED }
         })
         const leaderUids = [...new Set(organizations.map(item => item.leaderUserUid).filter((value): value is string => isNotEmpty(value)))]
-        const leaders =
-            leaderUids.length > 0
-                ? await this.organizationRepository.manager.find(Schema.TbAccountUser, { where: { uid: In(leaderUids) } })
-                : []
+        const leaders = leaderUids.length > 0 ? await manager.find(Schema.TbAccountUser, { where: { uid: In(leaderUids) } }) : []
         const leaderByUid = new Map(leaders.map(item => [item.uid, item]))
         const memberUids = memberships.reduce((uids, item) => {
             const organizationUids = uids.get(item.organizationKeyId) ?? new Set<string>()
@@ -69,85 +72,129 @@ export class OrganizationUtilsService {
 
     /**查询并组装带启用成员的完整组织树*/
     public async findOrganizationUser(): Promise<OrganizationDto.OrganizationUserNodeResponseDto[]> {
-        const { entities, raw } = await this.database.builder(this.organizationRepository, qb =>
-            qb
-                .leftJoin(
-                    Schema.TbAccountUserOrganization,
-                    'membership',
-                    'membership.organizationKeyId = t.keyId AND membership.status = :membershipStatus',
-                    { membershipStatus: Schema.TbAccountUserOrganizationStatus.ENABLED }
-                )
-                .leftJoin(Schema.TbAccountUser, 'member', 'member.uid = membership.userUid')
-                .leftJoin(Schema.TbAccountUser, 'leader', 'leader.uid = t.leaderUserUid')
-                .orderBy('t.sort', 'ASC')
-                .addOrderBy('t.keyId', 'ASC')
-                .select('t')
-                .addSelect('membership.isPrimary', 'isPrimary')
-                .addSelect('membership.positionName', 'positionName')
-                .addSelect('member.uid', 'memberUid')
-                .addSelect('member.number', 'memberNumber')
-                .addSelect('member.name', 'memberName')
-                .addSelect('member.avatar', 'memberAvatar')
-                .addSelect('leader.uid', 'leaderUid')
-                .addSelect('leader.number', 'leaderNumber')
-                .addSelect('leader.name', 'leaderName')
-                .addSelect('leader.avatar', 'leaderAvatar')
-                .getRawAndEntities()
+        return this.organizationRepository.manager.transaction(manager => this.findOrganizationUserWithManager(manager))
+    }
+
+    /**在事务内查询并组装带启用成员的组织树*/
+    private async findOrganizationUserWithManager(manager: EntityManager): Promise<OrganizationDto.OrganizationUserNodeResponseDto[]> {
+        const repository = manager.getRepository(Schema.TbAccountOrganization)
+        const organizations = await this.findOrganizationUserOrganizations(repository)
+        const memberships = await this.findOrganizationUserMemberships(manager)
+        const userByUid = await this.findOrganizationUserByUid(manager, organizations, memberships)
+        const membershipsByOrganization = this.groupOrganizationUserMemberships(memberships)
+        const nodes = organizations.map(organization =>
+            this.createOrganizationUserNode(organization, membershipsByOrganization.get(organization.keyId) ?? [], userByUid)
         )
-        const nodes = new Map<number, OrganizationDto.OrganizationUserNodeResponseDto>()
-        const leaders = new Map<number, Pick<OrganizationDto.OrganizationUserResponseDto, 'uid' | 'number' | 'name' | 'avatar'>>()
-        entities.forEach((organization, index) => {
-            const row = raw[index] ?? {}
-            let node = nodes.get(organization.keyId)
-            if (!node) {
-                node = {
-                    keyId: organization.keyId,
-                    parentKeyId: organization.parentKeyId,
-                    name: organization.name,
-                    type: organization.type,
-                    leaderUserUid: organization.leaderUserUid,
-                    sort: organization.sort,
-                    memberCount: 0,
-                    members: [],
-                    children: []
-                }
-                nodes.set(organization.keyId, node)
-                if (isNotEmpty(row.leaderUid)) {
-                    leaders.set(organization.keyId, {
-                        uid: row.leaderUid,
-                        number: row.leaderNumber,
-                        name: row.leaderName,
-                        avatar: row.leaderAvatar
-                    })
-                }
-            }
-            if (!isNotEmpty(row.memberUid)) return
-            node.members.push({
-                uid: row.memberUid,
-                number: row.memberNumber,
-                name: row.memberName,
-                avatar: row.memberAvatar,
-                isPrimary: Boolean(row.isPrimary),
-                positionName: row.positionName,
-                organizationKeyId: organization.keyId
-            })
-            node.memberCount = node.members.length
+        return this.aggregateSubtreeMemberCount(buildTree(nodes) as OrganizationDto.OrganizationUserNodeResponseDto[])
+    }
+
+    /**查询带成员组织树的全部组织*/
+    private async findOrganizationUserOrganizations(
+        repository: Repository<Schema.TbAccountOrganization>
+    ): Promise<Schema.TbAccountOrganization[]> {
+        return this.database.builder(repository, qb => qb.orderBy('t.sort', 'ASC').addOrderBy('t.keyId', 'ASC').getMany())
+    }
+
+    /**查询全部启用的用户组织关系*/
+    private async findOrganizationUserMemberships(manager: EntityManager): Promise<Schema.TbAccountUserOrganization[]> {
+        return manager.find(Schema.TbAccountUserOrganization, {
+            where: { status: Schema.TbAccountUserOrganizationStatus.ENABLED }
         })
-        for (const node of nodes.values()) {
-            const leader = leaders.get(node.keyId)
-            if (leader && !node.members.some(item => item.uid === leader.uid)) {
-                node.members.push({
-                    uid: leader.uid,
-                    number: leader.number,
-                    name: leader.name,
-                    avatar: leader.avatar,
-                    isPrimary: false,
-                    organizationKeyId: node.keyId
-                })
-            }
-            node.memberCount = node.members.length
+    }
+
+    /**查询成员和负责人摘要，并按 UID 建立索引*/
+    private async findOrganizationUserByUid(
+        manager: EntityManager,
+        organizations: Schema.TbAccountOrganization[],
+        memberships: Schema.TbAccountUserOrganization[]
+    ): Promise<Map<string, Schema.TbAccountUser>> {
+        const userUids = new Set<string>()
+        for (const membership of memberships) {
+            userUids.add(membership.userUid)
         }
-        return this.aggregateSubtreeMemberCount(buildTree([...nodes.values()]) as OrganizationDto.OrganizationUserNodeResponseDto[])
+        for (const organization of organizations) {
+            if (isNotEmpty(organization.leaderUserUid)) {
+                userUids.add(organization.leaderUserUid)
+            }
+        }
+        if (userUids.size === 0) {
+            return new Map()
+        }
+        const users = await manager.find(Schema.TbAccountUser, {
+            where: { uid: In([...userUids]) }
+        })
+        return new Map(users.map(item => [item.uid, item]))
+    }
+
+    /**按组织分组用户组织关系*/
+    private groupOrganizationUserMemberships(
+        memberships: Schema.TbAccountUserOrganization[]
+    ): Map<number, Schema.TbAccountUserOrganization[]> {
+        const membershipsByOrganization = new Map<number, Schema.TbAccountUserOrganization[]>()
+        for (const membership of memberships) {
+            const organizationMemberships = membershipsByOrganization.get(membership.organizationKeyId) ?? []
+            organizationMemberships.push(membership)
+            membershipsByOrganization.set(membership.organizationKeyId, organizationMemberships)
+        }
+        return membershipsByOrganization
+    }
+
+    /**组装单个组织节点及直接成员*/
+    private createOrganizationUserNode(
+        organization: Schema.TbAccountOrganization,
+        memberships: Schema.TbAccountUserOrganization[],
+        userByUid: Map<string, Schema.TbAccountUser>
+    ): OrganizationDto.OrganizationUserNodeResponseDto {
+        const members: OrganizationDto.OrganizationUserResponseDto[] = []
+        for (const membership of memberships) {
+            const user = userByUid.get(membership.userUid)
+            if (user) {
+                members.push(this.createOrganizationUserMember(user, organization.keyId, membership))
+            }
+        }
+        this.appendOrganizationUserLeader(members, organization, userByUid)
+        return {
+            keyId: organization.keyId,
+            parentKeyId: organization.parentKeyId,
+            name: organization.name,
+            type: organization.type,
+            leaderUserUid: organization.leaderUserUid,
+            sort: organization.sort,
+            memberCount: members.length,
+            members,
+            children: []
+        }
+    }
+
+    /**负责人不是正式成员时补充到成员列表*/
+    private appendOrganizationUserLeader(
+        members: OrganizationDto.OrganizationUserResponseDto[],
+        organization: Schema.TbAccountOrganization,
+        userByUid: Map<string, Schema.TbAccountUser>
+    ): void {
+        const isLeaderMissing = isNotEmpty(organization.leaderUserUid) && !members.some(item => item.uid === organization.leaderUserUid)
+        if (!isLeaderMissing) return
+        const leader = userByUid.get(organization.leaderUserUid)
+        if (leader) {
+            members.push(this.createOrganizationUserMember(leader, organization.keyId))
+        }
+    }
+
+    /**创建组织成员响应数据*/
+    private createOrganizationUserMember(
+        user: Schema.TbAccountUser,
+        organizationKeyId: number,
+        membership?: Schema.TbAccountUserOrganization
+    ): OrganizationDto.OrganizationUserResponseDto {
+        return {
+            uid: user.uid,
+            number: user.number,
+            name: user.name,
+            avatar: user.avatar,
+            isPrimary: Boolean(membership?.isPrimary),
+            positionName: membership?.positionName,
+            organizationKeyId
+        }
     }
 
     /**获取必需的组织详情*/
