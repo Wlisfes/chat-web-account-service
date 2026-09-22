@@ -103,8 +103,23 @@ export class UserService {
                         FROM tb_account_user_role filter_user_role
                         WHERE filter_user_role.user_uid = t.uid
                           AND filter_user_role.role_key_id = :filterRoleKeyId
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM tb_account_user_organization filter_dept_org
+                        INNER JOIN tb_account_organization_closure filter_dept_closure
+                            ON filter_dept_closure.descendant_key_id = filter_dept_org.organization_key_id
+                        INNER JOIN tb_account_role filter_dept_role
+                            ON filter_dept_role.key_id = filter_dept_closure.ancestor_key_id
+                        WHERE filter_dept_org.user_uid = t.uid
+                          AND filter_dept_closure.ancestor_key_id = :filterRoleKeyId
+                          AND filter_dept_org.status = :filterDeptMembershipStatus
+                          AND filter_dept_role.builtin = 0
                     )`,
-                    { filterRoleKeyId: input.roleKeyId }
+                    {
+                        filterRoleKeyId: input.roleKeyId,
+                        filterDeptMembershipStatus: Schema.TbAccountUserOrganizationStatus.ENABLED
+                    }
                 )
             }
             if ((input.positionKeyIds?.length ?? 0) > 0) {

@@ -301,6 +301,9 @@ test('新增组织时把负责人绑定为当前组织启用成员', async () =>
         },
         async insert(entity, payload) {
             inserted.push({ entity, payload })
+        },
+        async findOne() {
+            return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})
@@ -321,6 +324,9 @@ test('负责人已有其他主组织时以非主组织关系绑定', async () =>
         },
         async insert(entity, payload) {
             inserted.push(payload)
+        },
+        async findOne() {
+            return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})
@@ -341,6 +347,9 @@ test('负责人成员关系已禁用时重新启用且不重复插入', async ()
         },
         async insert() {
             throw new Error('should not insert')
+        },
+        async findOne() {
+            return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})
@@ -358,6 +367,9 @@ test('负责人已绑定启用成员时不重复写入', async () => {
         },
         async insert() {
             throw new Error('should not insert')
+        },
+        async findOne() {
+            return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})

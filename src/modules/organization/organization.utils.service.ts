@@ -232,7 +232,6 @@ export class OrganizationUtilsService {
         }
     }
 
-    /**确保负责人已绑定为当前组织启用成员*/
     public async ensureLeaderMembership(manager: EntityManager, organizationKeyId: number, leaderUserUid?: string): Promise<void> {
         if (!isNotEmpty(leaderUserUid)) {
             return
@@ -244,14 +243,22 @@ export class OrganizationUtilsService {
                 existing.status = Schema.TbAccountUserOrganizationStatus.ENABLED
                 await manager.save(existing)
             }
+        } else {
+            await manager.insert(Schema.TbAccountUserOrganization, {
+                userUid: leaderUserUid,
+                organizationKeyId,
+                isPrimary: !memberships.some(item => item.isPrimary),
+                status: Schema.TbAccountUserOrganizationStatus.ENABLED
+            })
+        }
+        const departmentRole = await manager.findOne(Schema.TbAccountRole, { where: { keyId: organizationKeyId, builtin: false } })
+        if (!departmentRole) {
             return
         }
-        await manager.insert(Schema.TbAccountUserOrganization, {
-            userUid: leaderUserUid,
-            organizationKeyId,
-            isPrimary: !memberships.some(item => item.isPrimary),
-            status: Schema.TbAccountUserOrganizationStatus.ENABLED
-        })
+        const hasRole = await manager.existsBy(Schema.TbAccountUserRole, { userUid: leaderUserUid, roleKeyId: organizationKeyId })
+        if (!hasRole) {
+            await manager.insert(Schema.TbAccountUserRole, { userUid: leaderUserUid, roleKeyId: organizationKeyId })
+        }
     }
 
     /**校验组织编码可用*/
