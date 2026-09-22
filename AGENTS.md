@@ -120,7 +120,8 @@
 
 - 功能权限码与数据范围资源编码分离。权限码用于 `@RequirePermissions`，例如 `chat:deploy:system:user`。
 - 数据范围 `resourceCode` 格式固定为 `chat:{服务}:{资源}`，全小写。账号模块使用 `chat:account:user`；`*` 表示默认规则。其他服务按同样规则，例如 `chat:crm:consumer`、`chat:finance:voucher`。
-- 查询数据范围必须调用 `AuthorizationService.resolveDataScope(uid, resourceCode)`，禁止把数据范围挂到 `AuthPrincipal`。
+- 只有使用了 `@RequirePermissions` 的接口才会请求 `/feign/auth/permission/authorized-principal`。多个权限码为或关系；传入 `*` 时跳过权限校验，但仍查询当前用户的角色与数据权限。未使用该装饰器的接口不得调用该 Feign。
+- 权限校验通过后，Auth 返回的 `superAdmin`、`roleCodes`、`all`、`items` 由 `AuthorizationGuard` 挂到 `request.user`，业务代码从 `CurrentPrincipal` 读取，不得再调用 `hasPermission` / `isSuperAdmin` / `resolveDataScope`，也不得再请求 `/permission/check`。
 
 ## Git 提交规范
 
@@ -238,7 +239,7 @@
 - 本服务不再使用 Redis。登录会话和图形验证码归鉴权服务，index `0` 已移交，不得重新引入 Redis 依赖或连接任何 index。
 - 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
 - 授权（权限码校验）通过共享包 `AuthorizationModule`、`AuthorizationGuard` 和 `AuthorizationService` 完成；本服务不得再维护本地授权模块。权限计算统一由 Auth 服务负责，业务服务只通过 Feign 调用。
-- `AuthPrincipal` 只承载网关签发的身份：`uid`、`number`、`name`、`sessionId`。禁止把 `superAdmin`、`all`、`items` 当成 Principal 字段；超级管理员判断必须调用 `AuthorizationService.isSuperAdmin(uid)`，数据范围必须调用 `AuthorizationService.resolveDataScope(uid, resourceCode)`。2026-09-18 P0：误把授权数据挂到 Principal 后，`yarn test` 会在 `nest build` 因 TS2339 失败，即便格式检查先拦住也不会发布。
+- `AuthPrincipal` 网关签发字段为 `uid`、`number`、`name`、`sessionId`。使用 `@RequirePermissions` 的接口在权限校验通过后，由 `AuthorizationGuard` 把 `superAdmin`、`roleCodes`、`all`、`items` 挂到 Principal。未使用 `@RequirePermissions` 时不请求 `authorized-principal`。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。

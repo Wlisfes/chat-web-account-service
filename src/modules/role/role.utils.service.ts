@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
-import { AuthorizationService } from '@wlisfes/chat-web-base-schema/auth'
+import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { DataBaseService, EntityManager, In, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { isNotEmpty } from 'class-validator'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -9,8 +9,7 @@ import * as RoleDto from '@/modules/role/dto/role.dto'
 export class RoleUtilsService {
     constructor(
         @InjectRepository(Schema.TbAccountRole) private readonly roleRepository: Repository<Schema.TbAccountRole>,
-        private readonly database: DataBaseService,
-        private readonly permissionService: AuthorizationService
+        private readonly database: DataBaseService
     ) {}
 
     /**获取角色及数据范围列表*/
@@ -99,8 +98,8 @@ export class RoleUtilsService {
     }
 
     /**校验操作者为超级管理员*/
-    public async findSuperAdminRequired(actorUid: string, message: string): Promise<void> {
-        if (!(await this.permissionService.isSuperAdmin(actorUid))) {
+    public async findSuperAdminRequired(principal: AuthPrincipal, message: string): Promise<void> {
+        if (principal.superAdmin !== true) {
             throw new ConflictException(message)
         }
     }
