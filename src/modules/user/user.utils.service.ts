@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository, Repository, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
-import { EntityManager, In, SelectQueryBuilder } from '@wlisfes/chat-web-base-schema/database'
+import { EntityManager, In } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, isEmpty, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -15,35 +15,9 @@ export class UserUtilsService {
         private readonly database: DataBaseService
     ) {}
 
-    /**将账号数据范围应用到查询构造器*/
-    public async applyDataScope(builder: SelectQueryBuilder<Schema.TbAccountUser>, principal: AuthPrincipal): Promise<void> {
-        if (principal.all) {
-            return
-        }
-        const items = principal.items ?? []
-        if (items.length === 0) {
-            builder.andWhere('1 = 0')
-            return
-        }
-        builder.andWhere('t.uid IN (:...scopeUserUids)', { scopeUserUids: items })
-    }
-
-    /**校验操作者可以访问目标账号*/
-    public async findCanAccessUser(principal: AuthPrincipal, targetUid: string): Promise<void> {
-        const exists = await this.database.builder(this.userRepository, async qb => {
-            qb.where('t.uid = :targetUid', { targetUid })
-            await this.applyDataScope(qb, principal)
-            return qb.getExists()
-        })
-        if (!exists) {
-            throw new ForbiddenException('无权访问目标账号的数据')
-        }
-    }
-
     /**获取账号完整详情*/
-    public async findDetail(principal: AuthPrincipal, targetUid: string): Promise<UserDto.UserDetailResponseDto> {
+    public async findDetail(targetUid: string): Promise<UserDto.UserDetailResponseDto> {
         const normalizedTargetUid = assertUid(targetUid, '账号UID')
-        await this.findCanAccessUser(principal, normalizedTargetUid)
         const user = await this.database.builder(this.userRepository, qb => qb.where('t.uid = :uid', { uid: normalizedTargetUid }).getOne())
         if (!user) {
             throw new NotFoundException('账号不存在')
@@ -278,36 +252,6 @@ export class UserUtilsService {
                 })
             }
         })
-    }
-
-    /**校验组织列表位于操作者数据范围内*/
-    public async findCanAssignOrganizations(principal: AuthPrincipal, organizationKeyIds: number[]): Promise<void> {
-        if (principal.all) {
-            return
-        }
-        const items = new Set(principal.items ?? [])
-        if (organizationKeyIds.length === 0 || items.size === 0) {
-            throw new ForbiddenException('不能把账号分配到当前用户数据范围之外的组织')
-        }
-        const memberships = await this.userRepository.manager.find(Schema.TbAccountUserOrganization, {
-            where: {
-                organizationKeyId: In(organizationKeyIds),
-                status: Schema.TbAccountUserOrganizationStatus.ENABLED
-            }
-        })
-        const membersByOrg = new Map<number, string[]>()
-        for (const membership of memberships) {
-            const uids = membersByOrg.get(membership.organizationKeyId) ?? []
-            uids.push(membership.userUid)
-            membersByOrg.set(membership.organizationKeyId, uids)
-        }
-        const outOfScope = organizationKeyIds.some(keyId => {
-            const members = membersByOrg.get(keyId) ?? []
-            return members.length === 0 || members.some(uid => !items.has(uid))
-        })
-        if (outOfScope) {
-            throw new ForbiddenException('不能把账号分配到当前用户数据范围之外的组织')
-        }
     }
 
     /**校验操作者为超级管理员*/

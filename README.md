@@ -79,7 +79,7 @@ Group: DEFAULT_GROUP
 
 配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
 
-认证由独立的 `chat-web-auth-service` 负责。Gateway 收到 `/api/**` 请求后调用 Auth 的内部 `POST /internal/auth/token/introspect` 校验用户令牌，再签发 `X-Gateway-Principal` 身份上下文转发给 Account；Account 只在本地验证该签名上下文，不持有 JWT 密钥、不读取登录会话，也不提供用户令牌内省接口。业务 Feign 路由统一使用 `/feign/account/**`，只校验 Nacos `gateway.feign.service_token`。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色数据范围支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`；没有匹配规则时默认无数据权限。
+认证由独立的 `chat-web-auth-service` 负责。Gateway 收到 `/api/**` 请求后调用 Auth 的内部 `POST /internal/auth/token/introspect` 校验用户令牌，再签发 `X-Gateway-Principal` 身份上下文转发给 Account；Account 只在本地验证该签名上下文，不持有 JWT 密钥、不读取登录会话，也不提供用户令牌内省接口。业务 Feign 路由统一使用 `/feign/account/**`，只校验 Nacos `gateway.feign.service_token`。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码，Account 业务接口不按数据范围过滤。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色模块仍可配置数据范围规则供其他服务使用，支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`。
 
 职位管理使用 `/api/account/position`：`POST /create`、`POST /update`、`GET /resolver`、`POST /column`、`POST /delete` 和 `GET /select`。分页请求和响应统一使用 `page`、`size`、`total`、`list`；账号创建/更新通过 `positionKeyIds` 数组维护职位关系，职位已关联员工时不可删除。
 

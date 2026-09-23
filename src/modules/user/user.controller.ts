@@ -20,12 +20,12 @@ export class UserController {
 
     @RequirePermissions('chat:deploy:system:user')
     @ApiServiceDecorator(Post('column'), {
-        operation: { summary: '按当前用户的数据范围分页查询账号' },
+        operation: { summary: '分页查询账号' },
         request: { source: 'body', type: UserDto.UserQueryDto },
         response: { type: UserDto.UserPageResponseDto, description: '账号分页数据' }
     })
-    public async httpBaseAccountColumnUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UserDto.UserQueryDto) {
-        return this.userService.httpBaseAccountColumnUser(principal, input)
+    public async httpBaseAccountColumnUser(@Body() input: UserDto.UserQueryDto) {
+        return this.userService.httpBaseAccountColumnUser(input)
     }
 
     @RequirePermissions('chat:deploy:system:user')
@@ -39,22 +39,22 @@ export class UserController {
 
     @RequirePermissions('chat:deploy:system:user')
     @ApiServiceDecorator(Get('resolve'), {
-        operation: { summary: '按当前用户的数据范围获取账号详情' },
+        operation: { summary: '获取账号详情' },
         request: { source: 'query', type: UserDto.UserUidDto },
         response: { type: UserDto.UserDetailResponseDto, description: '账号详情' }
     })
-    public async httpBaseAccountUserResolver(@CurrentPrincipal() principal: AuthPrincipal, @Query() query: UserDto.UserUidDto) {
-        return this.userService.httpBaseAccountUserResolver(principal, query)
+    public async httpBaseAccountUserResolver(@Query() query: UserDto.UserUidDto) {
+        return this.userService.httpBaseAccountUserResolver(query)
     }
 
     @RequirePermissions('chat:deploy:system:user:update')
     @ApiServiceDecorator(Post('update'), {
-        operation: { summary: '按当前用户的数据范围更新账号资料和状态' },
+        operation: { summary: '更新账号资料和状态' },
         request: { source: 'body', type: UserDto.UpdateUserPayloadDto },
         response: { type: UserDto.AccountUserResponseDto, description: '更新后的账号信息' }
     })
-    public async httpBaseAccountUpdateUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: UserDto.UpdateUserPayloadDto) {
-        return this.userService.httpBaseAccountUpdateUser(principal, input)
+    public async httpBaseAccountUpdateUser(@Body() input: UserDto.UpdateUserPayloadDto) {
+        return this.userService.httpBaseAccountUpdateUser(input)
     }
 
     @RequirePermissions('chat:deploy:system:user:password:reset')
@@ -76,11 +76,8 @@ export class UserController {
         request: { source: 'body', type: UserDto.ReplaceUserOrganizationsPayloadDto },
         response: { type: SuccessResponseDataDto, description: '账号组织关系更新结果' }
     })
-    public async httpBaseAccountUpdateUserOrganization(
-        @CurrentPrincipal() principal: AuthPrincipal,
-        @Body() input: UserDto.ReplaceUserOrganizationsPayloadDto
-    ) {
-        return this.userService.httpBaseAccountUpdateUserOrganization(principal, input)
+    public async httpBaseAccountUpdateUserOrganization(@Body() input: UserDto.ReplaceUserOrganizationsPayloadDto) {
+        return this.userService.httpBaseAccountUpdateUserOrganization(input)
     }
 
     @RequirePermissions('chat:deploy:system:user:role:measure')

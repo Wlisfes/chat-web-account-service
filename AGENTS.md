@@ -116,12 +116,12 @@
 - `yarn test` 固定为 `yarn build && node --test test/*.test.cjs`。测试引用 `dist/` 编译产物。
 - 禁止引入 Jest，禁止 `*.spec.ts`，禁止 `security-and-tree`、`service-behavior`、`api-documentation` 这类与模块无关的文件名。同一模块的用例合并到一个测试文件，不要按 column/enums/utils 拆多个文件。
 
-### 数据范围资源编码
+### 操作权限
 
-- 功能权限码与数据范围资源编码分离。权限码用于 `@RequirePermissions`，例如 `chat:deploy:system:user`。
-- 数据范围 `resourceCode` 格式固定为 `chat:{服务}:{资源}`，全小写。账号模块使用 `chat:account:user`；`*` 表示默认规则。其他服务按同样规则，例如 `chat:crm:consumer`、`chat:finance:voucher`。
-- 只有使用了 `@RequirePermissions` 的接口才会请求 `/feign/auth/permission/authorized-principal`。多个权限码为或关系；传入 `*` 时跳过权限校验，但仍查询当前用户的角色与数据权限。未使用该装饰器的接口不得调用该 Feign。
-- 权限校验通过后，Auth 返回的 `superAdmin`、`roleCodes`、`all`、`items` 由 `AuthorizationGuard` 挂到 `request.user`，业务代码从 `CurrentPrincipal` 读取，不得再调用 `hasPermission` / `isSuperAdmin` / `resolveDataScope`，也不得再请求 `/permission/check`。
+- 本服务 HTTP 业务接口只使用 `@RequirePermissions` 做操作权限校验，不按数据范围过滤账号、组织、职位或菜单数据。
+- 只有使用了 `@RequirePermissions` 的接口才会请求 `/feign/auth/permission/authorized-principal`。多个权限码为或关系；传入 `*` 时跳过权限码校验。未使用该装饰器的接口不得调用该 Feign。
+- 权限校验通过后，Auth 返回的 `superAdmin`、`roleCodes` 由 `AuthorizationGuard` 挂到 `request.user`。本服务业务代码只允许用 `superAdmin` 做超级管理员校验，不得使用 `all` / `items` 做数据范围过滤，也不得再调用 `hasPermission` / `isSuperAdmin` / `resolveDataScope` 或 `/permission/check`。
+- 角色模块仍可配置数据范围规则，供其他服务使用；规则 `resourceCode` 格式为 `chat:{服务}:{资源}`。本服务自身接口不消费这些规则。
 
 ## Git 提交规范
 
@@ -196,7 +196,7 @@
 - `src/health/`、`src/feign/`、`src/database/` 是基础设施模块的唯一位置，不得再放回 `src/modules/`。`AppModule` 使用 `import { HealthModule } from '@/health/health.module'`、`import { FeignModule } from '@/feign/feign.module'`、`import { DatabaseModule } from '@/database/database.module'`。其他服务必须按同样方式提取这 3 个模块。
 - 本仓库 `src/cli` 只保留 `nacos-auth.ts`、`isolate-service-databases.ts`、`apply-schema.ts`。隔离脚本只校验 `chat-web-account-service.yaml` 与 `chat_web_account`。
 - 本仓库测试文件为 `test/app.test.cjs`、`test/sheet.test.cjs`、`test/dept.test.cjs`、`test/role.test.cjs`、`test/user.test.cjs`、`test/feign.test.cjs`、`test/health.test.cjs`、`test/isolate-service-databases.test.cjs`。
-- 账号数据范围资源编码为 `chat:account:user`。
+- 本服务业务接口不应用数据范围；有 `@RequirePermissions` 即可访问对应账号数据。
 - Controller 必须保持为薄协议层：除装饰器、`query`/`body` DTO、当前身份参数和调用同名 Service 方法外，不得进行 DTO 拆包、字段转换、默认值注入、数据库访问、业务校验或响应结构拼装。
 - 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountSheetTree`、`httpBaseAccountSheetResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
 - Cookie 读写、Header 解析、流或文件响应、SVG 输出等依赖 Express 的纯 HTTP 协议适配允许保留在 Controller。禁止把 `Request`、`Response`、Cookie、Header 或响应发送逻辑传入业务 Service；协议例外必须写中文职责注释。
@@ -206,7 +206,7 @@
 - 对应 Service 的公开 HTTP 方法必须添加简洁中文职责注释、声明明确的 `Promise<返回类型>` 并负责完整业务响应；成功结果对象也在 Service 中返回，Controller 不得额外包一层或临时拼装。
 - DTO 字段必须提供 Swagger 示例/说明、必要的类型转换和中文校验消息；优先使用 `PickType`、`PartialType`、`IntersectionType` 复用共享 DTO，分页 DTO 继承公共 `PageDto`。
 - Entity 查询优先使用公共 `DataBaseService.builder`，QueryBuilder 别名固定为 `t`，并统一条件拼装；事务、批量关系写入及 TypeORM 必须原生能力可继续使用 `EntityManager`/`Repository`。
-- 可复用的实体查找、唯一性校验、引用校验、锁、数据范围、树构建和批量关系转换必须抽到 `<module>.utils.service.ts`；Utils Service 使用 `@Injectable()`，公开工具方法写中文职责注释，并在对应 Module 的 `providers` 中注册后由业务 Service 注入。仅调用一次且无复用价值的简单步骤不得机械拆成 Utils Service。
+- 可复用的实体查找、唯一性校验、引用校验、锁、树构建和批量关系转换必须抽到 `<module>.utils.service.ts`；Utils Service 使用 `@Injectable()`，公开工具方法写中文职责注释，并在对应 Module 的 `providers` 中注册后由业务 Service 注入。仅调用一次且无复用价值的简单步骤不得机械拆成 Utils Service。
 - 多步校验后写入、唯一性校验后写入、层级调整和关联关系替换必须由 Service 建立 TypeORM 事务；Utils 方法参与事务时接收 `EntityManager` 并始终使用该 Manager 的 Repository，需要并发保护时先锁定相关数据。Module 按 `imports`、`controllers`、`providers`、`exports` 组织。
 - 普通可选入参使用 `isEmpty`/`isNotEmpty` 判断，禁止使用 `value === undefined`、`value === null` 或隐式 truthy 判空。实体或 Map 查询结果可使用 `if (!entity)` 获得 TypeScript 类型收窄；数组使用明确的 `length === 0`/`length > 0`，布尔业务状态按布尔语义判断。
 - 三态更新字段以业务语义优先，例如 `parentKeyId` 的 `undefined` 表示不修改、`null` 表示清空父级、数字表示设置父级；此类必要的 `=== undefined` 判断允许保留，但必须紧邻中文注释说明三态含义。
@@ -239,7 +239,7 @@
 - 本服务不再使用 Redis。登录会话和图形验证码归鉴权服务，index `0` 已移交，不得重新引入 Redis 依赖或连接任何 index。
 - 认证归 `chat-web-auth-service`。本服务不得持有 `security.jwt.*`、不得读取登录会话存储、不得实现 `AuthTokenAuthenticator`；Gateway 负责调用 Auth 内部内省协议，Account 只导入共享包 `GatewayPrincipalModule` 校验网关身份上下文。共享包的 `auth-session` 子路径只允许鉴权服务导入。
 - 授权（权限码校验）通过共享包 `AuthorizationModule`、`AuthorizationGuard` 和 `AuthorizationService` 完成；本服务不得再维护本地授权模块。权限计算统一由 Auth 服务负责，业务服务只通过 Feign 调用。
-- `AuthPrincipal` 网关签发字段为 `uid`、`number`、`name`、`sessionId`。使用 `@RequirePermissions` 的接口在权限校验通过后，由 `AuthorizationGuard` 把 `superAdmin`、`roleCodes`、`all`、`items` 挂到 Principal。未使用 `@RequirePermissions` 时不请求 `authorized-principal`。
+- `AuthPrincipal` 网关签发字段为 `uid`、`number`、`name`、`sessionId`。使用 `@RequirePermissions` 的接口在权限校验通过后，由 `AuthorizationGuard` 把 `superAdmin`、`roleCodes` 挂到 Principal。本服务不使用 `all` / `items`。未使用 `@RequirePermissions` 时不请求 `authorized-principal`。
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
