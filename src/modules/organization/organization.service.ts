@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
-import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
+import { assertUid, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import { OrganizationUtilsService } from '@/modules/organization/organization.utils.service'
 import * as OrganizationDto from '@/modules/organization/dto/organization.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
@@ -83,14 +83,26 @@ export class OrganizationService {
 
     /**删除组织*/
     public async httpBaseAccountDeleteOrganization(input: OrganizationDto.OrganizationKeyDto): Promise<SuccessResponseDataDto> {
-        await this.organizationRepository.manager.transaction(async manager => {
+        return await this.organizationRepository.manager.transaction(async manager => {
             await this.organizationUtilsService.lockTree(manager)
             await this.organizationUtilsService.findRequired(input.keyId, manager)
             await this.organizationUtilsService.findDeleteAvailable(manager, input.keyId)
             await this.organizationUtilsService.removeDepartmentRoles(manager, input.keyId)
             await this.organizationUtilsService.removeOrganization(manager, input.keyId)
             await this.organizationUtilsService.rebuildClosure(manager)
+            return { success: true }
         })
-        return { success: true }
+    }
+
+    /**批量把账号加入指定组织*/
+    public async httpBaseAccountUpdateOrganizationUser(input: OrganizationDto.UpdateOrganizationUsersDto): Promise<SuccessResponseDataDto> {
+        const uids = [...new Set(input.uids.map(uid => assertUid(uid, '账号UID')))]
+        return await this.organizationRepository.manager.transaction(async manager => {
+            await this.organizationUtilsService.findRequired(input.organizationKeyId, manager)
+            for (const uid of uids) {
+                await this.organizationUtilsService.ensureUserMembership(manager, input.organizationKeyId, uid)
+            }
+            return { success: true }
+        })
     }
 }

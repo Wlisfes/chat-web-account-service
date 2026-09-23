@@ -75,4 +75,14 @@ export class OrganizationController {
     public async httpBaseAccountDeleteOrganization(@Body() input: OrganizationDto.OrganizationKeyDto) {
         return this.organizationService.httpBaseAccountDeleteOrganization(input)
     }
+
+    @RequirePermissions('chat:deploy:system:organization:update')
+    @ApiServiceDecorator(Post('update/user'), {
+        operation: { summary: '批量把账号加入指定组织' },
+        request: { source: 'body', type: OrganizationDto.UpdateOrganizationUsersDto },
+        response: { type: SuccessResponseDataDto, description: '组织成员更新结果' }
+    })
+    public async httpBaseAccountUpdateOrganizationUser(@Body() input: OrganizationDto.UpdateOrganizationUsersDto) {
+        return this.organizationService.httpBaseAccountUpdateOrganizationUser(input)
+    }
 }

@@ -302,6 +302,9 @@ test('新增组织时把负责人绑定为当前组织启用成员', async () =>
         async insert(entity, payload) {
             inserted.push({ entity, payload })
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
@@ -324,6 +327,9 @@ test('负责人已有其他主组织时以非主组织关系绑定', async () =>
         },
         async insert(entity, payload) {
             inserted.push(payload)
+        },
+        async existsBy() {
+            return true
         },
         async findOne() {
             return null
@@ -348,6 +354,9 @@ test('负责人成员关系已禁用时重新启用且不重复插入', async ()
         async insert() {
             throw new Error('should not insert')
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
@@ -368,10 +377,45 @@ test('负责人已绑定启用成员时不重复写入', async () => {
         async insert() {
             throw new Error('should not insert')
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})
     await utils.ensureLeaderMembership(manager, 8, '10001')
+})
+
+test('批量加入组织时为多个账号写入启用成员关系', async () => {
+    const inserted = []
+    const manager = {
+        async transaction(callback) {
+            return callback(manager)
+        },
+        async existsBy() {
+            return true
+        },
+        async find() {
+            return []
+        },
+        async insert(entity, payload) {
+            inserted.push({ entity, payload })
+        },
+        async findOne() {
+            return null
+        },
+        async findOneBy() {
+            return { keyId: 8, name: '测试组' }
+        }
+    }
+    const service = createOrganizationService(manager)
+    const result = await service.httpBaseAccountUpdateOrganizationUser({ organizationKeyId: 8, uids: ['10001', '10002', '10001'] })
+    assert.equal(result.success, true)
+    assert.equal(inserted.length, 2)
+    assert.deepEqual(
+        inserted.map(item => item.payload.userUid),
+        ['10001', '10002']
+    )
 })

@@ -1,7 +1,7 @@
 import { ApiProperty, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import { EnumsResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
-import { IsInt, Min } from 'class-validator'
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsInt, IsString, Min } from 'class-validator'
 import { AccountUserSummaryResponseDto } from '@/modules/user/dto/user.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
@@ -71,3 +71,19 @@ export class OrganizationEnumsResponseDto extends EnumsResponseDto({
     typeOptions: { description: '组织类型选项', example: Schema.TbAccountOrganizationTypeDefinition.options },
     statusOptions: { description: '组织状态选项', example: Schema.TbAccountOrganizationStatusDefinition.options }
 }) {}
+
+export class UpdateOrganizationUsersDto {
+    @ApiProperty({ description: '组织主键', example: 1124100 })
+    @Type(() => Number)
+    @IsInt({ message: '组织主键必须是整数' })
+    @Min(1, { message: '组织主键必须大于0' })
+    organizationKeyId: number
+
+    @ApiProperty({ description: '要加入该组织的账号 UID', type: [String], example: ['2281665656346656771'] })
+    @IsArray({ message: '账号UID列表必须是数组' })
+    @ArrayMinSize(1, { message: '至少选择一个账号' })
+    @ArrayMaxSize(100, { message: '单次最多加入100个账号' })
+    @ArrayUnique({ message: '账号UID不能重复' })
+    @IsString({ each: true, message: '账号UID必须是字符串' })
+    uids: string[]
+}

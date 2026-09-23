@@ -232,25 +232,35 @@ export class OrganizationUtilsService {
         }
     }
 
-    public async ensureLeaderMembership(manager: EntityManager, organizationKeyId: number, leaderUserUid?: string): Promise<void> {
-        if (!isNotEmpty(leaderUserUid)) {
-            return
+    /**确保账号加入指定组织；已存在则启用，没有主组织时将本次设为主组织*/
+    public async ensureUserMembership(manager: EntityManager, organizationKeyId: number, userUid: string): Promise<void> {
+        assertUid(userUid, '账号UID')
+        if (!(await manager.existsBy(Schema.TbAccountUser, { uid: userUid }))) {
+            throw new BadRequestException('账号不存在')
         }
-        const memberships = await manager.find(Schema.TbAccountUserOrganization, { where: { userUid: leaderUserUid } })
+        const memberships = await manager.find(Schema.TbAccountUserOrganization, { where: { userUid } })
         const existing = memberships.find(item => item.organizationKeyId === organizationKeyId)
         if (existing) {
             if (existing.status !== Schema.TbAccountUserOrganizationStatus.ENABLED) {
                 existing.status = Schema.TbAccountUserOrganizationStatus.ENABLED
                 await manager.save(existing)
             }
-        } else {
-            await manager.insert(Schema.TbAccountUserOrganization, {
-                userUid: leaderUserUid,
-                organizationKeyId,
-                isPrimary: !memberships.some(item => item.isPrimary),
-                status: Schema.TbAccountUserOrganizationStatus.ENABLED
-            })
+            return
         }
+        await manager.insert(Schema.TbAccountUserOrganization, {
+            userUid,
+            organizationKeyId,
+            isPrimary: !memberships.some(item => item.isPrimary),
+            status: Schema.TbAccountUserOrganizationStatus.ENABLED
+        })
+    }
+
+    /**确保负责人加入组织并绑定部门角色*/
+    public async ensureLeaderMembership(manager: EntityManager, organizationKeyId: number, leaderUserUid?: string): Promise<void> {
+        if (!isNotEmpty(leaderUserUid)) {
+            return
+        }
+        await this.ensureUserMembership(manager, organizationKeyId, leaderUserUid)
         const departmentRole = await manager.findOne(Schema.TbAccountRole, { where: { keyId: organizationKeyId, builtin: false } })
         if (!departmentRole) {
             return
