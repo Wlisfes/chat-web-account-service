@@ -18,6 +18,15 @@ export class UserService {
         private readonly permissionCacheService: AuthorizationService
     ) {}
 
+    /**账号静态枚举*/
+    public async httpBaseAccountUserEnums(): Promise<UserDto.UserEnumsResponseDto> {
+        return {
+            statusOptions: Schema.TbAccountUserStatusDefinition.options,
+            employmentStatusOptions: Schema.TbAccountUserEmploymentStatusDefinition.options,
+            membershipStatusOptions: Schema.TbAccountUserOrganizationStatusDefinition.options
+        }
+    }
+
     /**新增账号*/
     public async httpBaseAccountCreateUser(
         principal: AuthPrincipal,

@@ -16,7 +16,7 @@ import {
     Min,
     ValidateNested
 } from 'class-validator'
-import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { EnumsResponseDto, PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -239,3 +239,9 @@ export class UserPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
     list: UserDetailResponseDto[]
 }
+
+export class UserEnumsResponseDto extends EnumsResponseDto({
+    statusOptions: { description: '账号状态选项', example: Schema.TbAccountUserStatusDefinition.options },
+    employmentStatusOptions: { description: '员工状态选项', example: Schema.TbAccountUserEmploymentStatusDefinition.options },
+    membershipStatusOptions: { description: '用户组织关系状态选项', example: Schema.TbAccountUserOrganizationStatusDefinition.options }
+}) {}
