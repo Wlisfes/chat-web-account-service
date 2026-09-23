@@ -21,9 +21,11 @@ export class OrganizationService {
         }
     }
 
-    /**组织树结构*/
-    public async httpBaseAccountOrganizationTreeStructure(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
-        return this.organizationUtilsService.findTree()
+    /**组织树结构；传入 keyId 时只返回该组织的下级子树*/
+    public async httpBaseAccountOrganizationTreeStructure(
+        query: OrganizationDto.OrganizationTreeQueryDto
+    ): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
+        return this.organizationUtilsService.findTree(query.keyId)
     }
 
     /**带启用成员的组织树结构*/
@@ -34,6 +36,13 @@ export class OrganizationService {
     /**组织详情*/
     public async httpBaseAccountOrganizationResolver(query: OrganizationDto.OrganizationKeyDto): Promise<Schema.TbAccountOrganization> {
         return this.organizationUtilsService.findRequired(query.keyId)
+    }
+
+    /**指定组织的直接启用成员*/
+    public async httpBaseAccountOrganizationColumnUser(
+        query: OrganizationDto.OrganizationKeyDto
+    ): Promise<OrganizationDto.OrganizationUserResponseDto[]> {
+        return this.organizationUtilsService.findOrganizationMembers(query.keyId)
     }
 
     /**新增组织*/
@@ -94,13 +103,26 @@ export class OrganizationService {
         })
     }
 
-    /**批量把账号加入指定组织*/
+    /**按账号UID全集同步组织成员，多出的新增、缺少的移除*/
     public async httpBaseAccountUpdateOrganizationUser(input: OrganizationDto.UpdateOrganizationUsersDto): Promise<SuccessResponseDataDto> {
         const uids = [...new Set(input.uids.map(uid => assertUid(uid, '账号UID')))]
+        const desired = new Set(uids)
         return await this.organizationRepository.manager.transaction(async manager => {
             await this.organizationUtilsService.findRequired(input.organizationKeyId, manager)
-            for (const uid of uids) {
+            const current = await manager.find(Schema.TbAccountUserOrganization, { where: { organizationKeyId: input.organizationKeyId } })
+            const toAdd = uids.filter(uid => {
+                const membership = current.find(item => item.userUid === uid)
+                return !membership || membership.status !== Schema.TbAccountUserOrganizationStatus.ENABLED
+            })
+            const toRemove = [...new Set(current.map(item => item.userUid))].filter(uid => !desired.has(uid))
+            if (toAdd.length === 0 && toRemove.length === 0) {
+                return { success: true }
+            }
+            for (const uid of toAdd) {
                 await this.organizationUtilsService.ensureUserMembership(manager, input.organizationKeyId, uid)
+            }
+            for (const uid of toRemove) {
+                await this.organizationUtilsService.removeUserMembership(manager, input.organizationKeyId, uid)
             }
             return { success: true }
         })
