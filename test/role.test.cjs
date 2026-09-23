@@ -1,7 +1,12 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { TbAccountRole } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
+const {
+    TbAccountRole,
+    TbAccountRoleDataScopeStatusDefinition,
+    TbAccountRoleDataScopeTypeDefinition,
+    TbAccountRoleStatusDefinition
+} = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
 const { RoleService } = require('../dist/modules/role/role.service')
 
 function selectEffectiveScopeRules(roles, scopes, resourceCode, defaultResourceCode = '*') {
@@ -131,4 +136,15 @@ test('资源专属数据范围覆盖同角色的默认规则，不影响其他�
         selectEffectiveScopeRules(roles, rules, 'chat:account:user').map(rule => rule.id),
         ['a-user', 'b-default']
     )
+})
+
+test('角色枚举接口直接返回 schema 定义的选项', async () => {
+    const service = new RoleService({}, {}, {})
+    const result = await service.httpBaseAccountRoleEnums()
+
+    assert.deepEqual(result, {
+        statusOptions: TbAccountRoleStatusDefinition.options,
+        scopeTypeOptions: TbAccountRoleDataScopeTypeDefinition.options,
+        scopeStatusOptions: TbAccountRoleDataScopeStatusDefinition.options
+    })
 })

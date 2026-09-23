@@ -3,6 +3,11 @@ const assert = require('node:assert/strict')
 const { generateUid } = require('@wlisfes/chat-web-base-schema/utils')
 const { PasswordService } = require('@wlisfes/chat-web-base-schema/auth')
 const { UserService } = require('../dist/modules/user/user.service')
+const {
+    TbAccountUserEmploymentStatusDefinition,
+    TbAccountUserOrganizationStatusDefinition,
+    TbAccountUserStatusDefinition
+} = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
 
 test('批量账号摘要只返回展示字段并对重复 UID 去重', async () => {
     let received = {}
@@ -57,4 +62,15 @@ test('密码校验兼容旧管理端的 Base64 + encodeURIComponent 编码', asy
     assert.equal(await service.verify(legacyPassword, encoded), true)
     assert.equal(await service.verify('123456', encoded), true)
     assert.equal(await service.verify('MTIzNDU2=', encoded), false)
+})
+
+test('账号枚举接口直接返回 schema 定义的选项', async () => {
+    const service = new UserService({}, {}, {}, {}, {})
+    const result = await service.httpBaseAccountUserEnums()
+
+    assert.deepEqual(result, {
+        statusOptions: TbAccountUserStatusDefinition.options,
+        employmentStatusOptions: TbAccountUserEmploymentStatusDefinition.options,
+        membershipStatusOptions: TbAccountUserOrganizationStatusDefinition.options
+    })
 })

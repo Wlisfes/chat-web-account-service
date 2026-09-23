@@ -16,7 +16,7 @@ import {
     Min,
     ValidateNested
 } from 'class-validator'
-import { PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
+import { EnumsResponseDto, PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -95,16 +95,26 @@ export class UserOrganizationMembershipDto {
 }
 
 export class ReplaceUserOrganizationsDto {
-    @ApiProperty({
+    @ApiPropertyOptional({
         description: '用户的完整组织关系；空数组表示清空',
         type: [UserOrganizationMembershipDto],
         example: [{ organizationKeyId: 1, isPrimary: true, positionName: '研发工程师', status: 'enabled' }]
     })
+    @IsOptional()
     @IsArray({ message: '组织关系列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个用户最多关联100个组织' })
     @ValidateNested({ each: true })
     @Type(() => UserOrganizationMembershipDto)
-    memberships: UserOrganizationMembershipDto[]
+    memberships?: UserOrganizationMembershipDto[]
+
+    @ApiPropertyOptional({ description: '账号组织主键', type: [Number], example: [1, 2] })
+    @IsOptional()
+    @IsArray({ message: '组织主键列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单个用户最多关联100个组织' })
+    @ArrayUnique({ message: '组织主键不能重复' })
+    @IsInt({ each: true, message: '组织主键必须是整数' })
+    @Min(1, { each: true, message: '组织主键必须大于0' })
+    organizationKeyIds?: number[]
 }
 
 export class ReplaceUserRolesDto {
@@ -143,6 +153,15 @@ export class CreateUserDto extends IntersectionType(
     @ValidateNested({ each: true })
     @Type(() => UserOrganizationMembershipDto)
     memberships?: UserOrganizationMembershipDto[]
+
+    @ApiPropertyOptional({ description: '账号组织主键', type: [Number], example: [1, 2] })
+    @IsOptional()
+    @IsArray({ message: '组织主键列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单个用户最多关联100个组织' })
+    @ArrayUnique({ message: '组织主键不能重复' })
+    @IsInt({ each: true, message: '组织主键必须是整数' })
+    @Min(1, { each: true, message: '组织主键必须大于0' })
+    organizationKeyIds?: number[]
 
     @ApiPropertyOptional({ description: '创建时一并设置的角色主键；仅超级管理员可用', type: [Number], example: [2] })
     @IsOptional()
@@ -219,6 +238,9 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号组织关系', type: [Schema.TbAccountUserOrganizationDto] })
     memberships: Schema.TbAccountUserOrganizationDto[]
 
+    @ApiProperty({ description: '账号组织主键', type: [Number], example: [1, 2] })
+    organizationKeyIds: number[]
+
     @ApiProperty({ description: '账号所属组织', type: [UserOrganizationResponseDto] })
     organizations: UserOrganizationResponseDto[]
 
@@ -239,3 +261,9 @@ export class UserPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
     list: UserDetailResponseDto[]
 }
+
+export class UserEnumsResponseDto extends EnumsResponseDto({
+    statusOptions: { description: '账号状态选项', example: Schema.TbAccountUserStatusDefinition.options },
+    employmentStatusOptions: { description: '员工状态选项', example: Schema.TbAccountUserEmploymentStatusDefinition.options },
+    membershipStatusOptions: { description: '用户组织关系状态选项', example: Schema.TbAccountUserOrganizationStatusDefinition.options }
+}) {}

@@ -8,6 +8,15 @@ import * as UserDto from '@/modules/user/dto/user.dto'
 export class UserController {
     constructor(private readonly userService: UserService) {}
 
+    @RequirePermissions('chat:deploy:system:user')
+    @ApiServiceDecorator(Get('enums'), {
+        operation: { summary: '获取账号状态、员工状态和组织关系状态枚举' },
+        response: { type: UserDto.UserEnumsResponseDto, description: '账号静态枚举' }
+    })
+    public async httpBaseAccountUserEnums() {
+        return this.userService.httpBaseAccountUserEnums()
+    }
+
     @RequirePermissions('chat:deploy:system:user:create')
     @ApiServiceDecorator(Post('create'), {
         operation: { summary: '创建账号并可原子设置组织和角色' },

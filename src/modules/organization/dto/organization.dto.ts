@@ -1,7 +1,7 @@
-import { ApiProperty, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
 import { EnumsResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
-import { IsInt, Min } from 'class-validator'
+import { ArrayMaxSize, ArrayUnique, IsArray, IsInt, IsOptional, IsString, Min } from 'class-validator'
 import { AccountUserSummaryResponseDto } from '@/modules/user/dto/user.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
@@ -25,15 +25,25 @@ export class OrganizationKeyDto {
     keyId: number
 }
 
+export class OrganizationTreeQueryDto {
+    @ApiPropertyOptional({ description: '上级组织主键；传入后只返回该组织的下级子树', example: 1124100 })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt({ message: '组织主键必须是整数' })
+    @Min(1, { message: '组织主键必须大于0' })
+    keyId?: number
+}
+
 export class UpdateOrganizationPayloadDto extends IntersectionType(OrganizationKeyDto, UpdateOrganizationDto) {}
 
-export class OrganizationTreeNodeResponseDto extends Schema.TbAccountOrganizationDto {
-    @ApiProperty({ description: '组织及下级启用成员数量', example: 12 })
-    memberCount: number
-
-    @ApiProperty({ description: '组织负责人', type: AccountUserSummaryResponseDto, nullable: true, required: false })
-    leader?: AccountUserSummaryResponseDto | null
-
+export class OrganizationTreeNodeResponseDto extends PickType(Schema.TbAccountOrganizationDto, [
+    'keyId',
+    'parentKeyId',
+    'name',
+    'type',
+    'leaderUserUid',
+    'sort'
+] as const) {
     @ApiProperty({ description: '下级组织节点', type: () => OrganizationTreeNodeResponseDto, isArray: true, example: [] })
     children: OrganizationTreeNodeResponseDto[]
 }
@@ -71,3 +81,18 @@ export class OrganizationEnumsResponseDto extends EnumsResponseDto({
     typeOptions: { description: '组织类型选项', example: Schema.TbAccountOrganizationTypeDefinition.options },
     statusOptions: { description: '组织状态选项', example: Schema.TbAccountOrganizationStatusDefinition.options }
 }) {}
+
+export class UpdateOrganizationUsersDto {
+    @ApiProperty({ description: '组织主键', example: 1124100 })
+    @Type(() => Number)
+    @IsInt({ message: '组织主键必须是整数' })
+    @Min(1, { message: '组织主键必须大于0' })
+    organizationKeyId: number
+
+    @ApiProperty({ description: '该组织的目标成员账号 UID 全集；多出的新增，缺少的移除', type: [String], example: ['2281665656346656771'] })
+    @IsArray({ message: '账号UID列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单次最多处理100个账号' })
+    @ArrayUnique({ message: '账号UID不能重复' })
+    @IsString({ each: true, message: '账号UID必须是字符串' })
+    uids: string[]
+}

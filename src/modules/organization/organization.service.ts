@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
-import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
+import { assertUid, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import { OrganizationUtilsService } from '@/modules/organization/organization.utils.service'
 import * as OrganizationDto from '@/modules/organization/dto/organization.dto'
 import * as Schema from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
@@ -21,9 +21,11 @@ export class OrganizationService {
         }
     }
 
-    /**组织树结构*/
-    public async httpBaseAccountOrganizationTreeStructure(): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
-        return this.organizationUtilsService.findTree()
+    /**组织树结构；传入 keyId 时只返回该组织的下级子树*/
+    public async httpBaseAccountOrganizationTreeStructure(
+        query: OrganizationDto.OrganizationTreeQueryDto
+    ): Promise<OrganizationDto.OrganizationTreeNodeResponseDto[]> {
+        return this.organizationUtilsService.findTree(query.keyId)
     }
 
     /**带启用成员的组织树结构*/
@@ -34,6 +36,13 @@ export class OrganizationService {
     /**组织详情*/
     public async httpBaseAccountOrganizationResolver(query: OrganizationDto.OrganizationKeyDto): Promise<Schema.TbAccountOrganization> {
         return this.organizationUtilsService.findRequired(query.keyId)
+    }
+
+    /**指定组织的直接启用成员*/
+    public async httpBaseAccountOrganizationColumnUser(
+        query: OrganizationDto.OrganizationKeyDto
+    ): Promise<OrganizationDto.OrganizationUserResponseDto[]> {
+        return this.organizationUtilsService.findOrganizationMembers(query.keyId)
     }
 
     /**新增组织*/
@@ -83,14 +92,39 @@ export class OrganizationService {
 
     /**删除组织*/
     public async httpBaseAccountDeleteOrganization(input: OrganizationDto.OrganizationKeyDto): Promise<SuccessResponseDataDto> {
-        await this.organizationRepository.manager.transaction(async manager => {
+        return await this.organizationRepository.manager.transaction(async manager => {
             await this.organizationUtilsService.lockTree(manager)
             await this.organizationUtilsService.findRequired(input.keyId, manager)
             await this.organizationUtilsService.findDeleteAvailable(manager, input.keyId)
             await this.organizationUtilsService.removeDepartmentRoles(manager, input.keyId)
             await this.organizationUtilsService.removeOrganization(manager, input.keyId)
             await this.organizationUtilsService.rebuildClosure(manager)
+            return { success: true }
         })
-        return { success: true }
+    }
+
+    /**按账号UID全集同步组织成员，多出的新增、缺少的移除*/
+    public async httpBaseAccountUpdateOrganizationUser(input: OrganizationDto.UpdateOrganizationUsersDto): Promise<SuccessResponseDataDto> {
+        const uids = [...new Set(input.uids.map(uid => assertUid(uid, '账号UID')))]
+        const desired = new Set(uids)
+        return await this.organizationRepository.manager.transaction(async manager => {
+            await this.organizationUtilsService.findRequired(input.organizationKeyId, manager)
+            const current = await manager.find(Schema.TbAccountUserOrganization, { where: { organizationKeyId: input.organizationKeyId } })
+            const toAdd = uids.filter(uid => {
+                const membership = current.find(item => item.userUid === uid)
+                return !membership || membership.status !== Schema.TbAccountUserOrganizationStatus.ENABLED
+            })
+            const toRemove = [...new Set(current.map(item => item.userUid))].filter(uid => !desired.has(uid))
+            if (toAdd.length === 0 && toRemove.length === 0) {
+                return { success: true }
+            }
+            for (const uid of toAdd) {
+                await this.organizationUtilsService.ensureUserMembership(manager, input.organizationKeyId, uid)
+            }
+            for (const uid of toRemove) {
+                await this.organizationUtilsService.removeUserMembership(manager, input.organizationKeyId, uid)
+            }
+            return { success: true }
+        })
     }
 }

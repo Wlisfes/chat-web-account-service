@@ -302,6 +302,9 @@ test('新增组织时把负责人绑定为当前组织启用成员', async () =>
         async insert(entity, payload) {
             inserted.push({ entity, payload })
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
@@ -324,6 +327,9 @@ test('负责人已有其他主组织时以非主组织关系绑定', async () =>
         },
         async insert(entity, payload) {
             inserted.push(payload)
+        },
+        async existsBy() {
+            return true
         },
         async findOne() {
             return null
@@ -348,6 +354,9 @@ test('负责人成员关系已禁用时重新启用且不重复插入', async ()
         async insert() {
             throw new Error('should not insert')
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
@@ -368,10 +377,180 @@ test('负责人已绑定启用成员时不重复写入', async () => {
         async insert() {
             throw new Error('should not insert')
         },
+        async existsBy() {
+            return true
+        },
         async findOne() {
             return null
         }
     }
     const utils = new OrganizationUtilsService({}, {})
     await utils.ensureLeaderMembership(manager, 8, '10001')
+})
+
+test('批量加入组织时为多个账号写入启用成员关系', async () => {
+    const inserted = []
+    const manager = {
+        async transaction(callback) {
+            return callback(manager)
+        },
+        async existsBy() {
+            return true
+        },
+        async find() {
+            return []
+        },
+        async insert(entity, payload) {
+            inserted.push({ entity, payload })
+        },
+        async findOne() {
+            return null
+        },
+        async findOneBy() {
+            return { keyId: 8, name: '测试组' }
+        }
+    }
+    const service = createOrganizationService(manager)
+    const result = await service.httpBaseAccountUpdateOrganizationUser({
+        organizationKeyId: 8,
+        uids: ['10001', '10002', '10001']
+    })
+    assert.equal(result.success, true)
+    assert.equal(inserted.length, 2)
+    assert.deepEqual(
+        inserted.map(item => item.payload.userUid),
+        ['10001', '10002']
+    )
+})
+
+test('同步组织成员时移除未传入的账号', async () => {
+    const deleted = []
+    const inserted = []
+    const keep = { userUid: '10001', organizationKeyId: 8, isPrimary: true, status: 'enabled' }
+    const drop = { userUid: '10002', organizationKeyId: 8, isPrimary: false, status: 'enabled' }
+    const manager = {
+        async transaction(callback) {
+            return callback(manager)
+        },
+        async existsBy() {
+            return true
+        },
+        async find(entity, options) {
+            if (options?.where?.userUid === '10001') return [keep]
+            if (options?.where?.userUid === '10002') return [drop]
+            return [keep, drop]
+        },
+        async insert() {
+            inserted.push(true)
+        },
+        async delete(entity, criteria) {
+            deleted.push(criteria)
+        },
+        async save() {
+            throw new Error('should not save')
+        },
+        async findOneBy() {
+            return { keyId: 8, name: '测试组' }
+        }
+    }
+    const service = createOrganizationService(manager)
+    const result = await service.httpBaseAccountUpdateOrganizationUser({ organizationKeyId: 8, uids: ['10001'] })
+    assert.equal(result.success, true)
+    assert.equal(inserted.length, 0)
+    assert.equal(deleted.length, 1)
+    assert.equal(deleted[0].userUid, '10002')
+})
+
+test('成员UID与表中一致时不写入', async () => {
+    const keep = { userUid: '10001', organizationKeyId: 8, isPrimary: true, status: 'enabled' }
+    const other = { userUid: '10002', organizationKeyId: 8, isPrimary: false, status: 'enabled' }
+    const manager = {
+        async transaction(callback) {
+            return callback(manager)
+        },
+        async find() {
+            return [keep, other]
+        },
+        async insert() {
+            throw new Error('should not insert')
+        },
+        async delete() {
+            throw new Error('should not delete')
+        },
+        async save() {
+            throw new Error('should not save')
+        },
+        async findOneBy() {
+            return { keyId: 8, name: '测试组' }
+        }
+    }
+    const service = createOrganizationService(manager)
+    const result = await service.httpBaseAccountUpdateOrganizationUser({ organizationKeyId: 8, uids: ['10002', '10001'] })
+    assert.equal(result.success, true)
+})
+
+function createOrganizationTreeUtils(organizations) {
+    const transactionManager = {
+        async findOneBy(entity, where) {
+            assert.equal(entity, TbAccountOrganization)
+            return organizations.find(item => item.keyId === where.keyId) ?? null
+        },
+        getRepository(entity) {
+            assert.equal(entity, TbAccountOrganization)
+            return {
+                createQueryBuilder() {
+                    return {
+                        orderBy() {
+                            return this
+                        },
+                        addOrderBy() {
+                            return this
+                        },
+                        async getMany() {
+                            return organizations
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const repository = {
+        manager: {
+            async transaction(callback) {
+                return callback(transactionManager)
+            }
+        }
+    }
+    const database = {
+        builder(currentRepository, callback) {
+            return callback(currentRepository.createQueryBuilder('t'))
+        }
+    }
+    return new OrganizationUtilsService(repository, database)
+}
+
+test('组织树传入组织主键时只返回该组织的下级子树', async () => {
+    const organizations = [
+        { keyId: 1, parentKeyId: undefined, sort: 10, name: '总部', type: 'company', leaderUserUid: '10001' },
+        { keyId: 2, parentKeyId: 1, sort: 10, name: '产研中心', type: 'department', leaderUserUid: '10002' },
+        { keyId: 3, parentKeyId: 2, sort: 10, name: '后端组', type: 'team', leaderUserUid: '10003' },
+        { keyId: 4, parentKeyId: 1, sort: 20, name: '财务部', type: 'department', leaderUserUid: '10004' }
+    ]
+    const utils = createOrganizationTreeUtils(organizations)
+
+    const full = await utils.findTree()
+    assert.deepEqual(
+        full.map(node => node.keyId),
+        [1]
+    )
+    assert.deepEqual(Object.keys(full[0]).sort(), ['children', 'keyId', 'leaderUserUid', 'name', 'parentKeyId', 'sort', 'type'])
+
+    const children = await utils.findTree(2)
+    assert.deepEqual(
+        children.map(node => node.keyId),
+        [3]
+    )
+
+    const leaf = await utils.findTree(3)
+    assert.deepEqual(leaf, [])
 })

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, PartialType, PickType } from '@nestjs/swagger'
+import { EnumsResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
 import {
     ArrayMaxSize,
@@ -129,3 +130,9 @@ export class RoleResponseDto extends Schema.TbAccountRoleDto {
     @ApiProperty({ description: '角色数据范围规则', type: [RoleDataScopeResponseDto] })
     dataScopes: RoleDataScopeResponseDto[]
 }
+
+export class RoleEnumsResponseDto extends EnumsResponseDto({
+    statusOptions: { description: '角色状态选项', example: Schema.TbAccountRoleStatusDefinition.options },
+    scopeTypeOptions: { description: '数据范围类型选项', example: Schema.TbAccountRoleDataScopeTypeDefinition.options },
+    scopeStatusOptions: { description: '数据范围规则状态选项', example: Schema.TbAccountRoleDataScopeStatusDefinition.options }
+}) {}

@@ -20,11 +20,12 @@ export class OrganizationController {
 
     @RequirePermissions('chat:deploy:system:organization')
     @ApiServiceDecorator(Get('tree/structure'), {
-        operation: { summary: '获取完整组织树' },
-        response: { type: OrganizationDto.OrganizationTreeNodeResponseDto, isArray: true, description: '完整组织树' }
+        operation: { summary: '获取组织树；传入组织主键时只返回该组织的下级子树' },
+        request: { source: 'query', type: OrganizationDto.OrganizationTreeQueryDto },
+        response: { type: OrganizationDto.OrganizationTreeNodeResponseDto, isArray: true, description: '组织树' }
     })
-    public async httpBaseAccountOrganizationTreeStructure() {
-        return this.organizationService.httpBaseAccountOrganizationTreeStructure()
+    public async httpBaseAccountOrganizationTreeStructure(@Query() query: OrganizationDto.OrganizationTreeQueryDto) {
+        return this.organizationService.httpBaseAccountOrganizationTreeStructure(query)
     }
 
     @RequirePermissions('chat:deploy:system:organization')
@@ -34,6 +35,16 @@ export class OrganizationController {
     })
     public async httpBaseAccountOrganizationTreeUser() {
         return this.organizationService.httpBaseAccountOrganizationTreeUser()
+    }
+
+    @RequirePermissions('chat:deploy:system:organization')
+    @ApiServiceDecorator(Get('column/user'), {
+        operation: { summary: '按组织主键获取该组织的直接启用成员' },
+        request: { source: 'query', type: OrganizationDto.OrganizationKeyDto },
+        response: { type: OrganizationDto.OrganizationUserResponseDto, isArray: true, description: '组织直接成员列表' }
+    })
+    public async httpBaseAccountOrganizationColumnUser(@Query() query: OrganizationDto.OrganizationKeyDto) {
+        return this.organizationService.httpBaseAccountOrganizationColumnUser(query)
     }
 
     @RequirePermissions('chat:deploy:system:organization')
@@ -74,5 +85,15 @@ export class OrganizationController {
     })
     public async httpBaseAccountDeleteOrganization(@Body() input: OrganizationDto.OrganizationKeyDto) {
         return this.organizationService.httpBaseAccountDeleteOrganization(input)
+    }
+
+    @RequirePermissions('chat:deploy:system:organization:update')
+    @ApiServiceDecorator(Post('update/user'), {
+        operation: { summary: '按账号UID全集同步组织成员' },
+        request: { source: 'body', type: OrganizationDto.UpdateOrganizationUsersDto },
+        response: { type: SuccessResponseDataDto, description: '组织成员更新结果' }
+    })
+    public async httpBaseAccountUpdateOrganizationUser(@Body() input: OrganizationDto.UpdateOrganizationUsersDto) {
+        return this.organizationService.httpBaseAccountUpdateOrganizationUser(input)
     }
 }

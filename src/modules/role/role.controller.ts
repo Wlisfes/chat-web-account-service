@@ -9,7 +9,16 @@ import * as RoleDto from '@/modules/role/dto/role.dto'
 export class RoleController {
     constructor(private readonly roleService: RoleService) {}
 
-    // @RequirePermissions('chat:deploy:system:role')
+    @RequirePermissions('chat:deploy:system:role')
+    @ApiServiceDecorator(Get('enums'), {
+        operation: { summary: '获取角色状态和数据范围枚举' },
+        response: { type: RoleDto.RoleEnumsResponseDto, description: '角色静态枚举' }
+    })
+    public async httpBaseAccountRoleEnums() {
+        return this.roleService.httpBaseAccountRoleEnums()
+    }
+
+    @RequirePermissions('chat:deploy:system:role')
     @ApiServiceDecorator(Get('/select'), {
         operation: { summary: '获取角色列表' },
         response: { type: RoleDto.RoleResponseDto, isArray: true, description: '角色列表' }

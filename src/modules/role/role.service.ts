@@ -15,6 +15,15 @@ export class RoleService {
         private readonly permissionCacheService: AuthorizationService
     ) {}
 
+    /**角色静态枚举**/
+    public async httpBaseAccountRoleEnums(): Promise<RoleDto.RoleEnumsResponseDto> {
+        return {
+            statusOptions: Schema.TbAccountRoleStatusDefinition.options,
+            scopeTypeOptions: Schema.TbAccountRoleDataScopeTypeDefinition.options,
+            scopeStatusOptions: Schema.TbAccountRoleDataScopeStatusDefinition.options
+        }
+    }
+
     /**角色下拉列表**/
     public async httpBaseAccountSelectRole(): Promise<RoleDto.RoleResponseDto[]> {
         return this.roleUtilsService.findAll()

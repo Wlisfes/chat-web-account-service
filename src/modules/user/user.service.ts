@@ -18,12 +18,21 @@ export class UserService {
         private readonly permissionCacheService: AuthorizationService
     ) {}
 
+    /**账号静态枚举*/
+    public async httpBaseAccountUserEnums(): Promise<UserDto.UserEnumsResponseDto> {
+        return {
+            statusOptions: Schema.TbAccountUserStatusDefinition.options,
+            employmentStatusOptions: Schema.TbAccountUserEmploymentStatusDefinition.options,
+            membershipStatusOptions: Schema.TbAccountUserOrganizationStatusDefinition.options
+        }
+    }
+
     /**新增账号*/
     public async httpBaseAccountCreateUser(
         principal: AuthPrincipal,
         input: UserDto.CreateUserDto
     ): Promise<UserDto.AccountUserResponseDto> {
-        const memberships = input.memberships ?? []
+        const memberships = this.userUtilsService.resolveMemberships(input)
         const roleKeyIds = input.roleKeyIds ?? []
         const positionKeyIds = input.positionKeyIds ?? []
         this.userUtilsService.findMembershipsRequired(memberships)
@@ -39,7 +48,7 @@ export class UserService {
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
             await this.userUtilsService.findPositionsRequired(manager, positionKeyIds)
-            const { memberships: _memberships, roleKeyIds: _roleKeyIds, positionKeyIds: _positionKeyIds, password, ...fields } = input
+            const { memberships: _memberships, roleKeyIds: _roleKeyIds, positionKeyIds: _positionKeyIds, organizationKeyIds: _organizationKeyIds, password, ...fields } = input
             const user = manager.create(Schema.TbAccountUser, {
                 ...fields,
                 uid: generateUid(),
@@ -200,13 +209,14 @@ export class UserService {
     /**替换账号组织关系*/
     public async httpBaseAccountUpdateUserOrganization(input: UserDto.ReplaceUserOrganizationsPayloadDto): Promise<SuccessResponseDataDto> {
         const targetUid = assertUid(input.uid, '账号UID')
-        this.userUtilsService.findMembershipsRequired(input.memberships)
+        const memberships = this.userUtilsService.resolveMemberships(input, true)
+        this.userUtilsService.findMembershipsRequired(memberships)
         await this.userRepository.manager.transaction(async manager => {
             await this.userUtilsService.lockUser(manager, targetUid)
-            const organizationKeyIds = input.memberships.map(item => item.organizationKeyId)
+            const organizationKeyIds = memberships.map(item => item.organizationKeyId)
             await this.userUtilsService.findOrganizationsRequired(manager, organizationKeyIds)
             await manager.delete(Schema.TbAccountUserOrganization, { userUid: targetUid })
-            await this.userUtilsService.insertMemberships(manager, targetUid, input.memberships)
+            await this.userUtilsService.insertMemberships(manager, targetUid, memberships)
         })
         return { success: true }
     }
