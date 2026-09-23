@@ -41,6 +41,7 @@ export class UserUtilsService {
         return {
             ...user,
             memberships,
+            organizationKeyIds,
             organizations: organizations.map(organization => ({
                 ...organization,
                 isPrimary: membershipByOrganization.get(organization.keyId)?.isPrimary ?? false,
@@ -53,6 +54,32 @@ export class UserUtilsService {
             positionKeyIds,
             positions
         }
+    }
+
+    /**按组织主键生成默认组织关系，首个为主组织*/
+    public createMembershipsByOrganizationKeyIds(organizationKeyIds: number[] = []): UserDto.UserOrganizationMembershipDto[] {
+        return organizationKeyIds.map((organizationKeyId, index) => ({
+            organizationKeyId,
+            isPrimary: index === 0,
+            status: Schema.TbAccountUserOrganizationStatus.ENABLED
+        }))
+    }
+
+    /**优先使用 memberships，否则按组织主键生成*/
+    public resolveMemberships(
+        input: { memberships?: UserDto.UserOrganizationMembershipDto[]; organizationKeyIds?: number[] },
+        required = false
+    ): UserDto.UserOrganizationMembershipDto[] {
+        if (input.memberships !== undefined) {
+            return input.memberships
+        }
+        if (input.organizationKeyIds !== undefined) {
+            return this.createMembershipsByOrganizationKeyIds(input.organizationKeyIds)
+        }
+        if (required) {
+            throw new BadRequestException('组织关系列表必须是数组')
+        }
+        return []
     }
 
     /**校验账号组织关系规则*/
@@ -242,6 +269,7 @@ export class UserUtilsService {
             return {
                 ...user,
                 memberships: userMemberships,
+                organizationKeyIds: userMemberships.map(item => item.organizationKeyId),
                 organizations: userOrganizations,
                 roleKeyIds: userRoleRelations.map(item => item.roleKeyId),
                 roles: userRoles,
