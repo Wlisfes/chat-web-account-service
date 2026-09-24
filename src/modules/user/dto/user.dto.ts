@@ -243,9 +243,21 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     positions: PositionSelectResponseDto[]
 }
 
+export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
+
+export class UserColumnRoleResponseDto extends PickType(Schema.TbAccountRoleDto, ['keyId', 'name', 'code'] as const) {}
+
+export class UserColumnResponseDto extends OmitType(UserDetailResponseDto, ['memberships', 'organizations', 'roles'] as const) {
+    @ApiProperty({ description: '账号所属组织', type: [UserColumnOrganizationResponseDto] })
+    organizations: UserColumnOrganizationResponseDto[]
+
+    @ApiProperty({ description: '账号角色', type: [UserColumnRoleResponseDto] })
+    roles: UserColumnRoleResponseDto[]
+}
+
 export class UserPageResponseDto extends PageResponseDataDto {
-    @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
-    list: UserDetailResponseDto[]
+    @ApiProperty({ description: '账号列表', type: [UserColumnResponseDto] })
+    list: UserColumnResponseDto[]
 }
 
 export class UserEnumsResponseDto extends EnumsResponseDto({

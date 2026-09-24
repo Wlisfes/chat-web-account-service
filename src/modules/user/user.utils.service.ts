@@ -282,6 +282,15 @@ export class UserUtilsService {
         })
     }
 
+    /**裁剪账号分页字段，只保留列表展示和操作所需的关联摘要*/
+    public toColumnUsers(users: UserDto.UserDetailResponseDto[]): UserDto.UserColumnResponseDto[] {
+        return users.map(({ memberships: _memberships, organizations, roles, ...user }) => ({
+            ...user,
+            organizations: organizations.map(({ keyId, name, code }) => ({ keyId, name, code })),
+            roles: roles.map(({ keyId, name, code }) => ({ keyId, name, code }))
+        }))
+    }
+
     /**校验操作者为超级管理员*/
     public async findSuperAdminRequired(principal: AuthPrincipal, message: string): Promise<void> {
         if (principal.superAdmin !== true) {
