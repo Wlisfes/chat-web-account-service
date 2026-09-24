@@ -10,14 +10,30 @@ const { execFileSync, spawnSync } = require('node:child_process')
 
 const MAIN_BRANCH = 'main'
 
-/** 执行命令并返回标准输出。 */
-function run(command, args) {
-    return execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+/** Windows 下 gh 是 .cmd，需要走 shell 才能找到；参数带空格时不能用 shell 拼接，因此这里解析出真实可执行文件路径。 */
+function resolveCommand(command) {
+    if (process.platform !== 'win32' || command !== 'gh') {
+        return command
+    }
+    try {
+        const found = execFileSync('where.exe', ['gh'], { encoding: 'utf8' })
+            .split(/\r?\n/)
+            .map(item => item.trim())
+            .filter(Boolean)
+        return found.find(item => item.toLowerCase().endsWith('.exe')) ?? found[0] ?? command
+    } catch {
+        return command
+    }
 }
 
-/** 执行命令并直接输出到终端。 */
+/** 执行命令并返回标准输出。 */
+function run(command, args) {
+    return execFileSync(resolveCommand(command), args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+}
+
+/** 执行命令并直接输出到终端。参数不经过 shell，避免带空格的标题被拆成多个参数。 */
 function runInherit(command, args) {
-    const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32' })
+    const result = spawnSync(resolveCommand(command), args, { stdio: 'inherit' })
     if (result.error) {
         throw result.error
     }
