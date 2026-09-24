@@ -48,7 +48,14 @@ export class UserService {
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
             await this.userUtilsService.findPositionsRequired(manager, positionKeyIds)
-            const { memberships: _memberships, roleKeyIds: _roleKeyIds, positionKeyIds: _positionKeyIds, organizationKeyIds: _organizationKeyIds, password, ...fields } = input
+            const {
+                memberships: _memberships,
+                roleKeyIds: _roleKeyIds,
+                positionKeyIds: _positionKeyIds,
+                organizationKeyIds: _organizationKeyIds,
+                password,
+                ...fields
+            } = input
             const user = manager.create(Schema.TbAccountUser, {
                 ...fields,
                 uid: generateUid(),
