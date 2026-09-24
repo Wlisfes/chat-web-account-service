@@ -72,7 +72,7 @@ export class UserService {
     }
 
     /**账号分页数据*/
-    public async httpBaseAccountColumnUser(input: UserDto.UserQueryDto): Promise<PageResult<UserDto.UserDetailResponseDto>> {
+    public async httpBaseAccountColumnUser(input: UserDto.UserQueryDto): Promise<PageResult<UserDto.UserColumnResponseDto>> {
         return this.database.builder(this.userRepository, async qb => {
             if (isNotEmpty(input.vague?.trim())) {
                 const vague = `%${this.userUtilsService.escapeLike(input.vague?.trim() ?? '')}%`
@@ -144,7 +144,7 @@ export class UserService {
                 page: input.page,
                 size: input.size,
                 total,
-                list: await this.userUtilsService.enrichUsers(users)
+                list: this.userUtilsService.toColumnUsers(await this.userUtilsService.enrichUsers(users))
             }
         })
     }

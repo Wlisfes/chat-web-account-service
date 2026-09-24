@@ -1,24 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, OmitType, PartialType, PickType } from '@nestjs/swagger'
-import { Type } from 'class-transformer'
-import {
-    ArrayMaxSize,
-    ArrayUnique,
-    IsArray,
-    IsBoolean,
-    IsEnum,
-    IsInt,
-    IsNotEmpty,
-    IsOptional,
-    IsString,
-    Length,
-    Matches,
-    MaxLength,
-    Min,
-    ValidateNested
-} from 'class-validator'
+import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty } from 'class-validator'
+import { IsOptional, IsString, Length, Matches, MaxLength, Min, ValidateNested } from 'class-validator'
 import { EnumsResponseDto, PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
+import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
 class PositionKeyIdsDto {
@@ -257,9 +243,21 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     positions: PositionSelectResponseDto[]
 }
 
+export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
+
+export class UserColumnRoleResponseDto extends PickType(Schema.TbAccountRoleDto, ['keyId', 'name', 'code'] as const) {}
+
+export class UserColumnResponseDto extends OmitType(UserDetailResponseDto, ['memberships', 'organizations', 'roles'] as const) {
+    @ApiProperty({ description: '账号所属组织', type: [UserColumnOrganizationResponseDto] })
+    organizations: UserColumnOrganizationResponseDto[]
+
+    @ApiProperty({ description: '账号角色', type: [UserColumnRoleResponseDto] })
+    roles: UserColumnRoleResponseDto[]
+}
+
 export class UserPageResponseDto extends PageResponseDataDto {
-    @ApiProperty({ description: '账号列表', type: [UserDetailResponseDto] })
-    list: UserDetailResponseDto[]
+    @ApiProperty({ description: '账号列表', type: [UserColumnResponseDto] })
+    list: UserColumnResponseDto[]
 }
 
 export class UserEnumsResponseDto extends EnumsResponseDto({
