@@ -1,24 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType, OmitType, PartialType, PickType } from '@nestjs/swagger'
-import { Type } from 'class-transformer'
-import {
-    ArrayMaxSize,
-    ArrayUnique,
-    IsArray,
-    IsBoolean,
-    IsEnum,
-    IsInt,
-    IsNotEmpty,
-    IsOptional,
-    IsString,
-    Length,
-    Matches,
-    MaxLength,
-    Min,
-    ValidateNested
-} from 'class-validator'
+import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpty } from 'class-validator'
+import { IsOptional, IsString, Length, Matches, MaxLength, Min, ValidateNested } from 'class-validator'
 import { EnumsResponseDto, PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
+import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
 class PositionKeyIdsDto {
