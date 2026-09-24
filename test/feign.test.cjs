@@ -24,10 +24,10 @@ test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭�
     )
 
     assert.equal(FeignController.prototype.introspect, undefined)
-    assert.equal(FeignController.prototype.resolveConsumer, undefined)
-    assert.deepEqual(await controller.batchResolveUsers('Bearer service-token', { uids: ['2149446185344106496'] }), users)
+    assert.equal(FeignController.prototype.httpBaseCrmConsumerResolver, undefined)
+    assert.deepEqual(await controller.httpBaseAccountBatchUserResolver('Bearer service-token', { uids: ['2149446185344106496'] }), users)
     await assert.rejects(
-        () => controller.batchResolveUsers('Bearer user-token', { uids: ['2149446185344106496'] }),
+        () => controller.httpBaseAccountBatchUserResolver('Bearer user-token', { uids: ['2149446185344106496'] }),
         error => error?.status === 401
     )
 })
