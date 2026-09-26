@@ -30,8 +30,8 @@ test('批量账号摘要只返回展示字段并对重复 UID 去重', async () 
     }
     const service = new UserService({}, database, {}, {})
 
-    assert.deepEqual(await service.httpBaseAccountBatchResolverUser({ uids: [] }), [])
-    assert.deepEqual(await service.httpBaseAccountBatchResolverUser({ uids: ['1', '1', '2'] }), [{ uid: '1', number: 'A1', name: '张三' }])
+    assert.deepEqual(await service.httpBaseAccountColumnUserResolver({ uids: [] }), [])
+    assert.deepEqual(await service.httpBaseAccountColumnUserResolver({ uids: ['1', '1', '2'] }), [{ uid: '1', number: 'A1', name: '张三' }])
     assert.deepEqual(received.fields, ['t.uid', 't.number', 't.name', 't.avatar'])
     assert.deepEqual(received.parameters, { uids: ['1', '2'] })
 })

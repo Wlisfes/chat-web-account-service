@@ -79,7 +79,9 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/consumer/resolve'], undefined, 'Account 服务不能保留客户详情接口')
     assert.equal(document.paths['/consumer/select'], undefined, 'Account 服务不能保留客户下拉接口')
     // 服务间路由带 /feign/<服务名> 前缀，由网关按该前缀转发且不改写。
-    assert.ok(document.paths['/feign/account/user/batch/resolve']?.post, 'Account 服务必须提供账号摘要批量还原接口')
+    assert.ok(document.paths['/feign/account/user/column/resolve']?.post, 'Account 服务必须提供账号摘要列表还原接口')
+    assert.ok(document.paths['/feign/account/user/resolve']?.post, 'Account 服务必须提供账号摘要单个还原接口')
+    assert.equal(document.paths['/feign/account/user/batch/resolve'], undefined, 'Account 服务不能保留账号摘要批量还原旧路径')
     assert.equal(document.paths['/feign/account/consumer/resolve'], undefined, 'Account 服务不能保留服务间客户详情接口')
     for (const [methodName, definition] of getFeignMethodDefinitions(FeignClientAccountManager)) {
         assert.ok(document.paths[definition.path]?.[definition.method.toLowerCase()], `Feign 客户端 ${methodName} 未找到对应服务路由`)
@@ -87,8 +89,8 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 44)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 24)
+    assert.equal(operations.length, 45)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 25)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 8)
 
     for (const { path, method, operation } of operations) {

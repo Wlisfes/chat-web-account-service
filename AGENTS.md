@@ -130,6 +130,7 @@
 - 所有提交信息必须使用 Conventional Commits 类型前缀，格式固定为 `<type>: 中文摘要`；如需填写作用域，使用 `<type>(<scope>): 中文摘要`。
 - `type` 只能使用以下类型：`init`（项目初始化）、`feat`（添加新特性）、`fix`（修复缺陷）、`docs`（仅修改文档）、`style`（仅调整格式或样式）、`refactor`（代码重构）、`perf`（性能优化）、`test`（增加或调整测试）、`build`（构建或依赖变更）、`ci`（持续集成或部署配置）、`chore`（工程工具或其他维护性变更）。
 - 提交摘要、正文和脚注必须使用中文；类型前缀保留上述英文小写关键字，代码标识符、命令和版本号可按实际需要保留原文。
+- Agent 完成代码修改后默认不得执行 `git commit`，改动保留在工作区供用户 review；只有用户明确说出“提交”“commit”或等价表述时才允许提交，且授权只对当次请求有效。不得因改动较小、验证已通过或为了汇报方便而自行提交。
 - 每个提交应聚焦单一目的，摘要使用动词开头并准确说明影响范围，禁止使用 `update`、`modify` 等无意义描述或整句英文提交信息。
 - 示例：`feat: 新增客户归属人筛选`、`fix: 修复 Nacos 服务注册失败`、`docs: 补充部署回滚说明`。
 - 日常开发在 `developer` 分支进行；`main` 只接收来自业务分支的合并，不直接提交。
@@ -168,7 +169,7 @@
 
 - `package.json` 的 `version` 是本仓库唯一维护的发布版本号，格式固定为 `MAJOR.MINOR.PATCH`。
 - 日常开发、缺陷修复和合并 `developer` 时不得改动 `version`。
-- 发布和部署必须由用户明确指令触发。用户未明确要求发布时，Agent 只能做到提交本地改动为止，不得执行 `npm run deploy`、不得推送 `developer`、不得创建或合并 PR、不得修改 `version`、不得打标签、不得触发任何部署流水线；完成改动后应汇报状态并等待用户决定是否发布。
+- 发布和部署必须由用户明确指令触发。用户未明确要求发布时，Agent 只能修改工作区代码（用户明确要求提交时才可提交本地改动），不得执行 `npm run deploy`、不得推送 `developer`、不得创建或合并 PR、不得修改 `version`、不得打标签、不得触发任何部署流水线；完成改动后应汇报状态并等待用户决定是否发布。
 - 「修复这个问题」「处理一下」「写入规约」这类改代码指令不包含发布授权；只有用户说出发布、部署、上线、合并 main 或等价表述时才视为授权，且该授权只对当次请求有效，不得延续到后续请求。
 - 用户授权范围内的仓库才允许发布。不得因为存在依赖联动就自行扩大到其他仓库，确有联动需要时先向用户说明再等待确认。
 - 只有用户明确要求发布/部署并合并 `main` 时才变更版本号。每次发布必须自增一个修订号（小版本），规则与 `chat-web-base-schema` 一致：
@@ -179,6 +180,7 @@
     - 当 `PATCH` 达到 `99` 时进位：`MINOR + 1` 且 `PATCH` 归 `0`（例如 `1.0.99` → `1.1.0`）
     - 不得发布已经存在的版本号，不得跳号、降版本或使用预发布标签
 - `chat-web-base-schema` 由 `main` 上的 Publish 流水线自动计算版本、发布到 GitHub Packages、回写 `package.json` 并打 `vX.Y.Z` 标签；Agent 不得在本地修改共享包版本号，也不得执行 `npm publish`。
+- 本地联调未发布的 `chat-web-base-schema` 改动时，在 Schema 仓库执行 `yarn local:link <服务名>`（服务名可省略 `chat-web-` 前缀和 `-service` 后缀，不传则覆盖全部依赖服务），把本地构建产物复制到服务 `node_modules`；联调结束执行 `yarn local:unlink <服务名>` 恢复 `yarn.lock` 锁定的 npm 版本，`yarn local:status` 查看当前来源。禁止使用 `yarn link`、`file:`、`link:` 或修改服务 `package.json`、`yarn.lock` 引用本地 Schema，避免 `typeorm`、`@nestjs/*` 被加载两份；本地产物仅用于调试，上线前仍须发布 Schema 并在服务中升级到明确版本。
 - 其他服务和管理端在合并 `main` 发布前，由 Agent 将 `package.json` 的 `version` 改为下一个修订号，提交信息使用 `chore(release): vX.Y.Z`，并同步打 `vX.Y.Z` 标签；Docker 镜像仍按 Git SHA 构建部署。
 
 ## 本仓库专属补充规约
@@ -254,7 +256,7 @@
 - 本服务需要其他业务数据时同样必须使用强类型 HTTP 客户端 Provider，不得连接其他服务数据库或执行跨业务库 SQL。
 - 外部客户主数据和客户接口归 CRM 服务；Account 不得保留客户实体、客户业务模块、客户 Feign 契约或客户数据脚本。
 - 本服务提供给其他微服务调用的业务 Feign HTTP 接口由 `FeignController`、`FeignService` 和 `FeignModule` 集中维护。Controller 必须继承 `chat-web-base-schema` 中对应的 Feign 客户端，在构造函数中传入 `FeignService`，不得重复声明路由、参数绑定或 Swagger 装饰器；共享客户端是调用端和服务端的唯一接口契约。Feign Service 负责跨服务接口编排，领域查询能力继续复用所属业务 Service，不得复制业务实现。
-- 业务 Feign 的 Authorization 位承载调用方服务凭据（`gateway.feign.service_token`），不承载终端用户令牌。跨服务基础查询接口不做权限码校验和数据范围过滤，因此必须限制返回字段和单次数量，例如 `/feign/user/batch/resolver` 只返回 `uid`、`number`、`name`、`avatar` 且单次上限 100。业务 Feign 中不得再出现任何令牌内省接口。
+- 业务 Feign 的 Authorization 位承载调用方服务凭据（`gateway.feign.service_token`），不承载终端用户令牌。跨服务基础查询接口不做权限码校验和数据范围过滤，因此必须限制返回字段和单次数量，例如 `/feign/account/user/column/resolve` 和 `/feign/account/user/resolve` 只返回 `uid`、`number`、`name`、`avatar`，列表接口单次上限 100。业务 Feign 中不得再出现任何令牌内省接口。
 - 业务 Feign 调用方统一通过 Gateway 访问目标服务的 `/feign/**` 入口，地址和超时读取调用方 Nacos `gateway.feign.url/timeout`；本服务作为 Feign 提供方使用 `gateway.feign.service_token`。
 
 ### 共享 Schema 依赖联动
