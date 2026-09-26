@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { Brackets, DataBaseService, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
-import { AccountUserBatchDto } from '@wlisfes/chat-web-base-schema/feign'
+import { AccountColumnUserResolverDto } from '@wlisfes/chat-web-base-schema/feign'
 import { assertUid, generateUid, isNotEmpty, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -165,12 +165,12 @@ export class UserService {
     }
 
     /**
-     * 批量把账号 UID 还原为展示摘要。
+     * 按列表批量把账号 UID 还原为展示摘要。
      *
      * 供其他服务把 createBy、modifyBy 等操作人字段渲染为姓名工号；只返回展示所需的
      * 最小字段，不校验权限码也不做数据范围过滤，因此仅通过服务凭据保护的 Feign 暴露。
      */
-    public async httpBaseAccountBatchResolverUser(input: AccountUserBatchDto): Promise<UserDto.AccountUserSummaryResponseDto[]> {
+    public async httpBaseAccountColumnUserResolver(input: AccountColumnUserResolverDto): Promise<UserDto.AccountUserSummaryResponseDto[]> {
         const uids = [...new Set(input.uids)]
         if (uids.length === 0) return []
         return this.database.builder(this.userRepository, qb =>

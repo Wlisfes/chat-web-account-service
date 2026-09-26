@@ -15,9 +15,8 @@ test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭�
     const users = [{ uid: '2149446185344106496', number: 'A1', name: '张三' }]
     const controller = new FeignController(
         new FeignService({
-            async httpBaseAccountBatchResolverUser(input) {
-                assert.deepEqual(input, { uids: ['2149446185344106496'] })
-                return users
+            async httpBaseAccountColumnUserResolver(input) {
+                return users.filter(user => input.uids.includes(user.uid))
             }
         }),
         config({ 'gateway.feign.service_token': 'service-token' })
@@ -25,9 +24,23 @@ test('业务 Feign 不再暴露客户和内省接口，且只接受服务间凭�
 
     assert.equal(FeignController.prototype.introspect, undefined)
     assert.equal(FeignController.prototype.httpBaseCrmConsumerResolver, undefined)
-    assert.deepEqual(await controller.httpBaseAccountBatchUserResolver('Bearer service-token', { uids: ['2149446185344106496'] }), users)
+    assert.equal(FeignController.prototype.httpBaseAccountBatchUserResolver, undefined)
+    assert.deepEqual(await controller.httpBaseAccountColumnUserResolver('Bearer service-token', { uids: ['2149446185344106496'] }), users)
+    assert.deepEqual(await controller.httpBaseAccountUserResolver('Bearer service-token', { uid: '2149446185344106496' }), users[0])
     await assert.rejects(
-        () => controller.httpBaseAccountBatchUserResolver('Bearer user-token', { uids: ['2149446185344106496'] }),
+        () => controller.httpBaseAccountUserResolver('Bearer service-token', { uid: '2149446185344106497' }),
+        error => error?.status === 404
+    )
+    await assert.rejects(
+        () => controller.httpBaseAccountUserResolver('Bearer service-token', { uid: 'missing' }),
+        error => error?.status === 400
+    )
+    await assert.rejects(
+        () => controller.httpBaseAccountColumnUserResolver('Bearer user-token', { uids: ['2149446185344106496'] }),
+        error => error?.status === 401
+    )
+    await assert.rejects(
+        () => controller.httpBaseAccountUserResolver('Bearer user-token', { uid: '2149446185344106496' }),
         error => error?.status === 401
     )
 })
