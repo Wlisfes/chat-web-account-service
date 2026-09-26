@@ -81,7 +81,7 @@ Group: DEFAULT_GROUP
 
 认证由独立的 `chat-web-auth-service` 负责。Gateway 收到 `/api/**` 请求后调用 Auth 的内部 `POST /internal/auth/token/introspect` 校验用户令牌，再签发 `X-Gateway-Principal` 身份上下文转发给 Account；Account 只在本地验证该签名上下文，不持有 JWT 密钥、不读取登录会话，也不提供用户令牌内省接口。业务 Feign 路由统一使用 `/feign/account/**`，只校验 Nacos `gateway.feign.service_token`。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码，Account 业务接口不按数据范围过滤。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色模块仍可配置数据范围规则供其他服务使用，支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`。
 
-职位管理使用 `/api/account/position`：`POST /create`、`POST /update`、`GET /resolver`、`POST /column`、`POST /delete` 和 `GET /select`。分页请求和响应统一使用 `page`、`size`、`total`、`list`；账号创建/更新通过 `positionKeyIds` 数组维护职位关系，职位已关联员工时不可删除。
+职位已迁移为 Skyline 枚举字典 `CHUNK_ACCOUNT_POSITION`（模块 `CHUNK_SYSTEM`），Account 不再提供 `/api/account/position` 接口。账号创建/更新仍通过 `positionKeyIds` 数组维护职位关系，职位主键即枚举项 `value`，保存时通过 Skyline Feign 校验职位存在且启用；详情和列表的 `positions` 同样通过 Skyline Feign 还原为 `{ keyId, name }`。
 
 `/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 `gateway.feign.service_token` 是否配置，缺表或服务间凭据缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL 并配置服务间凭据。
 

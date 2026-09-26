@@ -47,7 +47,7 @@ export class UserService {
                 memberships.map(item => item.organizationKeyId)
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
-            await this.userUtilsService.findPositionsRequired(manager, positionKeyIds)
+            await this.userUtilsService.findPositionsRequired(positionKeyIds)
             const {
                 memberships: _memberships,
                 roleKeyIds: _roleKeyIds,
@@ -196,7 +196,7 @@ export class UserService {
             // positionKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
             if (positionKeyIds !== undefined) {
                 const nextPositionKeyIds = positionKeyIds ?? []
-                await this.userUtilsService.findPositionsRequired(manager, nextPositionKeyIds)
+                await this.userUtilsService.findPositionsRequired(nextPositionKeyIds)
                 await this.userUtilsService.replacePositions(manager, targetUid, nextPositionKeyIds)
             }
             return saved

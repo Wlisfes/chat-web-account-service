@@ -3,12 +3,20 @@ import { ArrayMaxSize, ArrayUnique, IsArray, IsBoolean, IsEnum, IsInt, IsNotEmpt
 import { IsOptional, IsString, Length, Matches, MaxLength, Min, ValidateNested } from 'class-validator'
 import { EnumsResponseDto, PageResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
-import { PositionSelectResponseDto } from '@/modules/position/dto/position.dto'
 import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
+/** 账号职位展示数据，职位来源于 Skyline 枚举 CHUNK_ACCOUNT_POSITION。 */
+export class UserPositionResponseDto {
+    @ApiProperty({ description: '职位主键（Skyline 职位枚举值）', example: 1024100 })
+    keyId: number
+
+    @ApiProperty({ description: '职位名称', example: '外贸业务员' })
+    name: string
+}
+
 class PositionKeyIdsDto {
-    @ApiPropertyOptional({ description: '职位主键数组', type: [Number], example: [1, 2] })
+    @ApiPropertyOptional({ description: '职位主键数组（Skyline 职位枚举值）', type: [Number], example: [1024100, 1024101] })
     @IsOptional()
     @IsArray({ message: '职位主键列表必须是数组' })
     @ArrayMaxSize(100, { message: '单个账号最多关联100个职位' })
@@ -236,11 +244,11 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号角色', type: [Schema.TbAccountRoleDto] })
     roles: Schema.TbAccountRoleDto[]
 
-    @ApiProperty({ description: '账号职位主键', type: [Number], example: [1, 2] })
+    @ApiProperty({ description: '账号职位主键（Skyline 职位枚举值）', type: [Number], example: [1024100, 1024101] })
     positionKeyIds: number[]
 
-    @ApiProperty({ description: '账号职位', type: [PositionSelectResponseDto] })
-    positions: PositionSelectResponseDto[]
+    @ApiProperty({ description: '账号职位', type: [UserPositionResponseDto] })
+    positions: UserPositionResponseDto[]
 }
 
 export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
