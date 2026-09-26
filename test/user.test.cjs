@@ -34,6 +34,9 @@ test('批量账号摘要只返回展示字段并对重复 UID 去重', async () 
     assert.deepEqual(await service.httpBaseAccountColumnUserResolver({ uids: ['1', '1', '2'] }), [{ uid: '1', number: 'A1', name: '张三' }])
     assert.deepEqual(received.fields, ['t.uid', 't.number', 't.name', 't.avatar'])
     assert.deepEqual(received.parameters, { uids: ['1', '2'] })
+
+    await service.httpBaseAccountColumnUserResolver({ uids: ['1'], fields: ['name', 'phone', 'name'] })
+    assert.deepEqual(received.fields, ['t.uid', 't.name', 't.phone'])
 })
 
 test('业务UID为不超过19位的正数字字符串', () => {

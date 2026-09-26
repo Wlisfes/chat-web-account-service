@@ -24,7 +24,7 @@ export class FeignService extends FeignSchema.FeignClientAccountManager implemen
         input: FeignSchema.AccountUserResolverDto
     ): Promise<FeignSchema.AccountUserSummary> {
         const uid = assertUid(input.uid, '账号UID')
-        const [user] = await this.userService.httpBaseAccountColumnUserResolver({ uids: [uid] })
+        const [user] = await this.userService.httpBaseAccountColumnUserResolver({ uids: [uid], fields: input.fields })
         if (!user) {
             throw new NotFoundException('账号不存在')
         }
