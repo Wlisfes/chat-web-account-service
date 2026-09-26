@@ -10,7 +10,6 @@ import { HealthModule } from '@/health/health.module'
 import { OrganizationModule } from '@/modules/organization/organization.module'
 import { RoleModule } from '@/modules/role/role.module'
 import { UserModule } from '@/modules/user/user.module'
-import { PositionModule } from '@/modules/position/position.module'
 import { FeignModule } from '@/feign/feign.module'
 import { AppController } from '@/app.controller'
 import { AppService } from '@/app.service'
@@ -28,7 +27,6 @@ import { AppService } from '@/app.service'
         SheetModule,
         RoleModule,
         UserModule,
-        PositionModule,
         FeignModule
     ],
     controllers: [AppController],

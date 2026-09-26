@@ -1,19 +1,54 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { InjectRepository, Repository, DataBaseService } from '@wlisfes/chat-web-base-schema/database'
 import { EntityManager, In } from '@wlisfes/chat-web-base-schema/database'
 import { assertUid, isEmpty, isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import * as Schema from '@wlisfes/chat-web-base-schema'
+import * as feign from '@wlisfes/chat-web-base-schema/feign'
 import * as UserDto from '@/modules/user/dto/user.dto'
+
+/** Skyline 中账号职位的枚举类型编码。 */
+const USER_POSITION_CHUNK_TYPE = 'CHUNK_ACCOUNT_POSITION'
 
 @Injectable()
 export class UserUtilsService {
     constructor(
         @InjectRepository(Schema.TbAccountUser) private readonly userRepository: Repository<Schema.TbAccountUser>,
-        @InjectRepository(Schema.TbAccountPosition) private readonly positionRepository: Repository<Schema.TbAccountPosition>,
         @InjectRepository(Schema.TbAccountUserPosition) private readonly userPositionRepository: Repository<Schema.TbAccountUserPosition>,
-        private readonly database: DataBaseService
+        private readonly database: DataBaseService,
+        private readonly skylineFeignClient: feign.FeignClientSkylineManager,
+        private readonly configService: ConfigService
     ) {}
+
+    /**
+     * 通过 Skyline Feign 获取职位枚举（CHUNK_ACCOUNT_POSITION），返回 职位主键 -> 职位名称。
+     *
+     * 职位主键即枚举项 value（tb_account_user_position.position_key_id 存储该值），仅包含启用状态的职位。
+     */
+    public async findPositionOptions(): Promise<Map<number, string>> {
+        const authorization = feign.resolveFeignServiceAuthorization(this.configService)
+        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, { types: [USER_POSITION_CHUNK_TYPE] })
+        const options = new Map<number, string>()
+        const stack = groups.flatMap(group => group.options ?? [])
+        while (stack.length > 0) {
+            const option = stack.shift() as feign.SkylineChunkOption
+            const keyId = Number(option.value)
+            if (Number.isInteger(keyId) && keyId > 0) {
+                options.set(keyId, option.label)
+            }
+            stack.push(...(option.children ?? []))
+        }
+        return options
+    }
+
+    /**按职位主键还原职位名称，不存在或已禁用的职位不返回。*/
+    public toPositionOptions(positionKeyIds: number[], positionOptions: Map<number, string>): UserDto.UserPositionResponseDto[] {
+        return positionKeyIds.flatMap(keyId => {
+            const name = positionOptions.get(keyId)
+            return name === undefined ? [] : [{ keyId, name }]
+        })
+    }
 
     /**获取账号完整详情*/
     public async findDetail(targetUid: string): Promise<UserDto.UserDetailResponseDto> {
@@ -30,12 +65,12 @@ export class UserUtilsService {
         const organizationKeyIds = memberships.map(item => item.organizationKeyId)
         const roleKeyIds = roleRelations.map(item => item.roleKeyId)
         const positionKeyIds = positionRelations.map(item => item.positionKeyId)
-        const [organizations, roles, positions] = await Promise.all([
+        const [organizations, roles, positionOptions] = await Promise.all([
             organizationKeyIds.length > 0
                 ? this.userRepository.manager.find(Schema.TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
                 : [],
             roleKeyIds.length > 0 ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : [],
-            positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : []
+            positionKeyIds.length > 0 ? this.findPositionOptions() : new Map<number, string>()
         ])
         const membershipByOrganization = new Map(memberships.map(item => [item.organizationKeyId, item]))
         return {
@@ -52,7 +87,7 @@ export class UserUtilsService {
             roleKeyIds,
             roles,
             positionKeyIds,
-            positions
+            positions: this.toPositionOptions(positionKeyIds, positionOptions)
         }
     }
 
@@ -132,11 +167,11 @@ export class UserUtilsService {
         }
     }
 
-    /**校验职位列表存在。*/
-    public async findPositionsRequired(manager: EntityManager, positionKeyIds: number[]): Promise<void> {
+    /**校验职位列表均为 Skyline 中启用状态的职位枚举。*/
+    public async findPositionsRequired(positionKeyIds: number[]): Promise<void> {
         if (positionKeyIds.length === 0) return
-        const positions = await manager.find(Schema.TbAccountPosition, { where: { keyId: In(positionKeyIds) } })
-        if (positions.length !== positionKeyIds.length) throw new BadRequestException('职位列表包含不存在的职位')
+        const positionOptions = await this.findPositionOptions()
+        if (positionKeyIds.some(keyId => !positionOptions.has(keyId))) throw new BadRequestException('职位列表包含不存在或已禁用的职位')
     }
 
     /**批量写入账号组织关系*/
@@ -240,12 +275,11 @@ export class UserUtilsService {
             roleKeyIds.length > 0
                 ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } })
                 : Promise.resolve([])
-        const positionsPromise: Promise<Schema.TbAccountPosition[]> =
-            positionKeyIds.length > 0 ? this.positionRepository.find({ where: { keyId: In(positionKeyIds) } }) : Promise.resolve([])
-        const [organizations, roles, positions] = await Promise.all([organizationsPromise, rolesPromise, positionsPromise])
+        const positionsPromise: Promise<Map<number, string>> =
+            positionKeyIds.length > 0 ? this.findPositionOptions() : Promise.resolve(new Map<number, string>())
+        const [organizations, roles, positionOptions] = await Promise.all([organizationsPromise, rolesPromise, positionsPromise])
         const organizationByKeyId = new Map<number, Schema.TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
         const roleByKeyId = new Map<number, Schema.TbAccountRole>(roles.map(item => [item.keyId, item]))
-        const positionByKeyId = new Map<number, Schema.TbAccountPosition>(positions.map(item => [item.keyId, item]))
         return users.map(user => {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
@@ -274,10 +308,10 @@ export class UserUtilsService {
                 roleKeyIds: userRoleRelations.map(item => item.roleKeyId),
                 roles: userRoles,
                 positionKeyIds: userPositionRelations.map(item => item.positionKeyId),
-                positions: userPositionRelations.flatMap(item => {
-                    const position = positionByKeyId.get(item.positionKeyId)
-                    return position ? [{ keyId: position.keyId, name: position.name }] : []
-                })
+                positions: this.toPositionOptions(
+                    userPositionRelations.map(item => item.positionKeyId),
+                    positionOptions
+                )
             }
         })
     }

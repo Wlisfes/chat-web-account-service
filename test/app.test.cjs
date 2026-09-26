@@ -11,7 +11,6 @@ const controllers = [
     require('../dist/feign/feign.controller').FeignController,
     require('../dist/modules/sheet/sheet.controller').SheetController,
     require('../dist/modules/organization/organization.controller').OrganizationController,
-    require('../dist/modules/position/position.controller').PositionController,
     require('../dist/modules/role/role.controller').RoleController,
     require('../dist/modules/user/user.controller').UserController
 ]
@@ -47,7 +46,7 @@ async function createDocument() {
 
 test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     const document = await createDocument()
-    for (const schemaName of ['UserPageResponseDto', 'SheetPageResponseDto', 'PositionPageResponseDto']) {
+    for (const schemaName of ['UserPageResponseDto', 'SheetPageResponseDto']) {
         const properties = document.components.schemas?.[schemaName]?.properties ?? {}
         assert.deepEqual(Object.keys(properties).sort(), ['list', 'page', 'size', 'total'])
         assert.equal(properties.pageSize, undefined, `${schemaName} 不能保留 pageSize`)
@@ -89,9 +88,10 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/menu/tree/structure'], undefined, '菜单管理不能保留 /menu 路由前缀')
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
-    assert.equal(operations.length, 45)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 25)
-    assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 8)
+    assert.equal(document.paths['/position/column'], undefined, '职位管理已迁移至 Skyline 枚举，不能保留 /position 路由')
+    assert.equal(operations.length, 39)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 21)
+    assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 6)
 
     for (const { path, method, operation } of operations) {
         const operationLabel = `${method.toUpperCase()} ${path}`

@@ -9,7 +9,6 @@ import {
     TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserRole,
-    TbAccountPosition,
     TbAccountUserPosition
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 
@@ -28,6 +27,5 @@ export const ACCOUNT_MYSQL_ENTITIES = [
     TbAccountRoleMenu,
     TbAccountRoleDataScope,
     TbAccountRoleDataScopeOrganization,
-    TbAccountPosition,
     TbAccountUserPosition
 ]
