@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { Brackets, DataBaseService, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
-import { AccountColumnUserResolverDto } from '@wlisfes/chat-web-base-schema/feign'
+import { ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS, AccountColumnUserResolverDto, AccountUserSummary } from '@wlisfes/chat-web-base-schema/feign'
 import { assertUid, generateUid, isNotEmpty, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -167,14 +167,19 @@ export class UserService {
     /**
      * 按列表批量把账号 UID 还原为展示摘要。
      *
-     * 供其他服务把 createBy、modifyBy 等操作人字段渲染为姓名工号；只返回展示所需的
-     * 最小字段，不校验权限码也不做数据范围过滤，因此仅通过服务凭据保护的 Feign 暴露。
+     * 供其他服务把 createBy、modifyBy 等操作人字段渲染为姓名工号；默认只返回展示所需的
+     * 最小字段，调用方可按共享白名单扩展，不校验权限码也不做数据范围过滤，因此仅通过服务凭据保护的 Feign 暴露。
      */
-    public async httpBaseAccountColumnUserResolver(input: AccountColumnUserResolverDto): Promise<UserDto.AccountUserSummaryResponseDto[]> {
+    public async httpBaseAccountColumnUserResolver(input: AccountColumnUserResolverDto): Promise<AccountUserSummary[]> {
         const uids = [...new Set(input.uids)]
         if (uids.length === 0) return []
+        // fields 已由共享 DTO 限定在白名单内；uid 作为映射键始终返回。
+        const fields = [...new Set(['uid', ...(input.fields ?? ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS)])]
         return this.database.builder(this.userRepository, qb =>
-            qb.select(['t.uid', 't.number', 't.name', 't.avatar']).where('t.uid IN (:...uids)', { uids }).getMany()
+            qb
+                .select(fields.map(field => `t.${field}`))
+                .where('t.uid IN (:...uids)', { uids })
+                .getMany()
         )
     }
 
