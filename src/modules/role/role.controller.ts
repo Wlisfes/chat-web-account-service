@@ -57,6 +57,19 @@ export class RoleController {
         return this.roleService.httpBaseAccountUpdateRole(principal, input)
     }
 
+    @RequirePermissions('chat:deploy:system:role:update')
+    @ApiServiceDecorator(Post('/update/sheet'), {
+        operation: { summary: '替换角色的全部菜单和按钮权限' },
+        request: { source: 'body', type: RoleDto.ReplaceRoleSheetsPayloadDto },
+        response: { type: SuccessResponseDataDto, description: '角色菜单权限更新结果' }
+    })
+    public async httpBaseAccountUpdateRoleSheet(
+        @CurrentPrincipal() principal: AuthPrincipal,
+        @Body() input: RoleDto.ReplaceRoleSheetsPayloadDto
+    ) {
+        return this.roleService.httpBaseAccountUpdateRoleSheet(principal, input)
+    }
+
     @RequirePermissions('chat:deploy:system:role:delete')
     @ApiServiceDecorator(Post('/delete'), {
         operation: { summary: '删除未分配用户的非内置角色' },
@@ -85,18 +98,5 @@ export class RoleController {
     })
     public async httpBaseAccountRoleUnlinkUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: RoleDto.RoleUserPayloadDto) {
         return this.roleService.httpBaseAccountRoleUnlinkUser(principal, input)
-    }
-
-    @RequirePermissions('chat:deploy:system:role:authorize')
-    @ApiServiceDecorator(Post('/update/sheet'), {
-        operation: { summary: '替换角色的全部菜单和按钮权限' },
-        request: { source: 'body', type: RoleDto.ReplaceRoleSheetsPayloadDto },
-        response: { type: SuccessResponseDataDto, description: '角色菜单权限更新结果' }
-    })
-    public async httpBaseAccountUpdateRoleSheet(
-        @CurrentPrincipal() principal: AuthPrincipal,
-        @Body() input: RoleDto.ReplaceRoleSheetsPayloadDto
-    ) {
-        return this.roleService.httpBaseAccountUpdateRoleSheet(principal, input)
     }
 }
