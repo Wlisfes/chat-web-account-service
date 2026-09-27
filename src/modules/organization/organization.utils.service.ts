@@ -404,7 +404,7 @@ export class OrganizationUtilsService {
             .filter(scope => departmentRoleKeyIds.includes(scope.roleKeyId))
             .map(scope => scope.keyId)
         await manager.delete(Schema.TbAccountUserRole, { roleKeyId: In(departmentRoleKeyIds) })
-        await manager.delete(Schema.TbAccountRoleMenu, { roleKeyId: In(departmentRoleKeyIds) })
+        await manager.delete(Schema.TbAccountRoleSheet, { roleKeyId: In(departmentRoleKeyIds) })
         if (departmentScopeKeyIds.length > 0) {
             await manager.delete(Schema.TbAccountRoleDataScopeOrganization, { dataScopeKeyId: In(departmentScopeKeyIds) })
         }

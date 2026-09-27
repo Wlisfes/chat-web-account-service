@@ -17,18 +17,14 @@ import {
 } from 'class-validator'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
-export class CreateRoleDto extends PickType(Schema.TbAccountRoleDto, ['code', 'name', 'description', 'sort', 'status'] as const) {}
-
-export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
-
-export class ReplaceRoleMenusDto {
+export class ReplaceRoleSheetsDto {
     @ApiProperty({ description: '角色拥有的全部菜单主键；空数组表示清空', type: [Number], example: [1, 2, 3] })
     @IsArray({ message: '菜单主键列表必须是数组' })
     @ArrayMaxSize(1000, { message: '单个角色最多关联1000个菜单' })
     @ArrayUnique({ message: '菜单主键不能重复' })
     @IsInt({ each: true, message: '菜单主键必须是整数' })
     @Min(1, { each: true, message: '菜单主键必须大于0' })
-    menuKeyIds: number[]
+    sheetKeyIds: number[]
 }
 
 export class DataScopeOrganizationGrantDto {
@@ -82,13 +78,13 @@ export class RoleDataScopeRuleDto {
     organizations?: DataScopeOrganizationGrantDto[]
 }
 
-export class ReplaceRoleDataScopesDto {
+export class RoleDataScopesDto {
     @ApiProperty({
         description: '角色的完整数据范围规则；空数组表示清空',
         type: [RoleDataScopeRuleDto],
         example: [
             {
-                resourceCode: 'chat:account:user',
+                resourceCode: '*',
                 scopeType: 'custom',
                 status: 'enabled',
                 organizations: [{ organizationKeyId: 1, includeChildren: true }]
@@ -99,8 +95,15 @@ export class ReplaceRoleDataScopesDto {
     @ArrayMaxSize(100, { message: '单个角色最多配置100条数据范围规则' })
     @ValidateNested({ each: true })
     @Type(() => RoleDataScopeRuleDto)
-    rules: RoleDataScopeRuleDto[]
+    dataScopes: RoleDataScopeRuleDto[]
 }
+
+export class CreateRoleDto extends IntersectionType(
+    PickType(Schema.TbAccountRoleDto, ['code', 'name', 'description', 'sort', 'status'] as const),
+    RoleDataScopesDto
+) {}
+
+export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
 
 export class RoleKeyDto {
     @ApiProperty({ description: '角色主键', example: 1 })
@@ -110,11 +113,19 @@ export class RoleKeyDto {
     keyId: number
 }
 
+export class RoleUserPayloadDto extends RoleKeyDto {
+    @ApiProperty({ description: '账号UID列表', type: [String], example: ['2281665656346656771'] })
+    @IsArray({ message: '账号UID列表必须是数组' })
+    @ArrayMaxSize(1000, { message: '单次最多处理1000个账号' })
+    @ArrayUnique({ message: '账号UID不能重复' })
+    @IsString({ each: true, message: '账号UID必须是字符串' })
+    @IsNotEmpty({ each: true, message: '账号UID不能为空' })
+    uids: string[]
+}
+
 export class UpdateRolePayloadDto extends IntersectionType(RoleKeyDto, UpdateRoleDto) {}
 
-export class ReplaceRoleMenusPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleMenusDto) {}
-
-export class ReplaceRoleDataScopesPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleDataScopesDto) {}
+export class ReplaceRoleSheetsPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleSheetsDto) {}
 
 export class RoleDataScopeOrganizationResponseDto extends Schema.TbAccountRoleDataScopeOrganizationDto {}
 
@@ -125,7 +136,7 @@ export class RoleDataScopeResponseDto extends Schema.TbAccountRoleDataScopeDto {
 
 export class RoleResponseDto extends Schema.TbAccountRoleDto {
     @ApiProperty({ description: '角色拥有的菜单主键', type: [Number], required: false, example: [1, 2, 3] })
-    menuKeyIds?: number[]
+    sheetKeyIds?: number[]
 
     @ApiProperty({ description: '角色数据范围规则', type: [RoleDataScopeResponseDto] })
     dataScopes: RoleDataScopeResponseDto[]
