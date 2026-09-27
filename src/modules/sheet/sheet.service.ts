@@ -31,8 +31,9 @@ export class SheetService {
     }
 
     /**菜单树结构**/
-    public async httpBaseAccountSheetTreeStructure(): Promise<Array<Schema.TbAccountMenu>> {
+    public async httpBaseAccountSheetTreeStructure(): Promise<Array<SheetDto.SheetTreeNodeDto>> {
         return await this.database.builder(this.sheetRepository, async qb => {
+            qb.select(['t.keyId', 't.parentKeyId', 't.name', 't.sort', 't.type'])
             qb.orderBy('t.sort', 'ASC')
             qb.addOrderBy('t.keyId', 'ASC')
             return await qb.getMany().then(nodes => {

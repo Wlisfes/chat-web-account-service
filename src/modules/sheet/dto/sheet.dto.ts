@@ -14,7 +14,7 @@ export class CreateSheetDto extends IntersectionType(
     PickType(Schema.TbAccountMenuDto, ['permissionCode', 'icon', 'externalUrl', 'sort', 'visible', 'keepAlive', 'status'])
 ) {}
 
-export class SheetTreeNodeDto extends Schema.TbAccountMenuDto {
+export class SheetTreeNodeDto extends PickType(Schema.TbAccountMenuDto, ['keyId', 'parentKeyId', 'name', 'sort', 'type'] as const) {
     @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeDto, isArray: true, example: [] })
     children: SheetTreeNodeDto[]
 }
