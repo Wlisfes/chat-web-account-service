@@ -35,6 +35,7 @@ export class UserService {
         const memberships = this.userUtilsService.resolveMemberships(input)
         const roleKeyIds = input.roleKeyIds ?? []
         const postKeyIds = input.postKeyIds ?? []
+        const levelKeyIds = input.levelKeyIds ?? []
         this.userUtilsService.findMembershipsRequired(memberships)
         if (roleKeyIds.length > 0) {
             await this.userUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以在创建账号时分配角色')
@@ -48,10 +49,12 @@ export class UserService {
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
             await this.userUtilsService.findPostsRequired(postKeyIds)
+            await this.userUtilsService.findLevelsRequired(levelKeyIds)
             const {
                 memberships: _memberships,
                 roleKeyIds: _roleKeyIds,
                 postKeyIds: _postKeyIds,
+                levelKeyIds: _levelKeyIds,
                 organizationKeyIds: _organizationKeyIds,
                 password,
                 ...fields
@@ -65,6 +68,7 @@ export class UserService {
             await this.userUtilsService.insertMemberships(manager, saved.uid, memberships)
             await this.userUtilsService.insertRoles(manager, saved.uid, roleKeyIds)
             await this.userUtilsService.replacePosts(manager, saved.uid, postKeyIds)
+            await this.userUtilsService.replaceLevels(manager, saved.uid, levelKeyIds)
             saved.password = undefined as unknown as string
             await this.permissionCacheService.invalidate({ uids: [saved.uid] })
             return saved
@@ -136,6 +140,12 @@ export class UserService {
                     { postLinkName: Schema.TbAccountChunkLinkName.USER_POST, filterPostKeyIds: input.postKeyIds }
                 )
             }
+            if ((input.levelKeyIds?.length ?? 0) > 0) {
+                qb.andWhere(
+                    `EXISTS (SELECT 1 FROM tb_account_chunk filter_level WHERE filter_level.link_name = :levelLinkName AND filter_level.link_id = t.uid AND filter_level.chunk_id IN (:...filterLevelKeyIds))`,
+                    { levelLinkName: Schema.TbAccountChunkLinkName.USER_LEVEL, filterLevelKeyIds: input.levelKeyIds }
+                )
+            }
             qb.orderBy('t.keyId', 'DESC')
                 .skip((input.page - 1) * input.size)
                 .take(input.size)
@@ -190,7 +200,7 @@ export class UserService {
         return this.userRepository.manager.transaction(async manager => {
             const user = await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findUserUnique(manager, fields, targetUid)
-            const { postKeyIds, ...userFields } = fields
+            const { postKeyIds, levelKeyIds, ...userFields } = fields
             manager.merge(Schema.TbAccountUser, user, userFields)
             const saved = await manager.save(user)
             // postKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
@@ -198,6 +208,12 @@ export class UserService {
                 const nextPostKeyIds = postKeyIds ?? []
                 await this.userUtilsService.findPostsRequired(nextPostKeyIds)
                 await this.userUtilsService.replacePosts(manager, targetUid, nextPostKeyIds)
+            }
+            // levelKeyIds 同为三态字段：未传保持原关联，传空数组表示清空。
+            if (levelKeyIds !== undefined) {
+                const nextLevelKeyIds = levelKeyIds ?? []
+                await this.userUtilsService.findLevelsRequired(nextLevelKeyIds)
+                await this.userUtilsService.replaceLevels(manager, targetUid, nextLevelKeyIds)
             }
             return saved
         })
