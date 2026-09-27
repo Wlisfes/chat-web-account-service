@@ -8,9 +8,6 @@ import * as Schema from '@wlisfes/chat-web-base-schema'
 import * as feign from '@wlisfes/chat-web-base-schema/feign'
 import * as UserDto from '@/modules/user/dto/user.dto'
 
-/** Skyline 中账号岗位的枚举类型编码。 */
-const USER_POST_CHUNK_TYPE = 'CHUNK_ACCOUNT_POST'
-
 @Injectable()
 export class UserUtilsService {
     constructor(
@@ -22,13 +19,15 @@ export class UserUtilsService {
     ) {}
 
     /**
-     * 通过 Skyline Feign 获取岗位枚举（CHUNK_ACCOUNT_POST），返回 岗位主键 -> 岗位名称。
+     * 通过 Skyline Feign 获取岗位枚举（CHUNK_SYSTEM_ACCOUNT_USER_POST），返回 岗位主键 -> 岗位名称。
      *
      * 岗位主键即枚举项 value（tb_account_chunk.chunk_id 存储该值，link_name = tb_account_user.post），仅包含启用状态的岗位。
      */
     public async findPostOptions(): Promise<Map<number, string>> {
         const authorization = feign.resolveFeignServiceAuthorization(this.configService)
-        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, { types: [USER_POST_CHUNK_TYPE] })
+        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, {
+            types: [Schema.TbSkylineChunkModuleType.CHUNK_SYSTEM_ACCOUNT_USER_POST]
+        })
         const options = new Map<number, string>()
         const stack = groups.flatMap(group => group.options ?? [])
         while (stack.length > 0) {
