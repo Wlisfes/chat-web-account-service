@@ -6,7 +6,7 @@ import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
-/** 账号岗位展示数据，岗位来源于 Skyline 枚举 CHUNK_ACCOUNT_POST。 */
+/** 账号岗位展示数据，岗位来源于 Skyline 枚举 CHUNK_SYSTEM_ACCOUNT_USER_POST。 */
 export class UserPostResponseDto {
     @ApiProperty({ description: '岗位主键（Skyline 岗位枚举值）', example: 1024100 })
     keyId: number
