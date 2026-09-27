@@ -6,12 +6,12 @@ import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
-/** 账号岗位展示数据，岗位来源于 Skyline 枚举 CHUNK_SYSTEM_ACCOUNT_USER_POST。 */
-export class UserPostResponseDto {
-    @ApiProperty({ description: '岗位主键（Skyline 岗位枚举值）', example: 1024100 })
+/** 账号枚举展示数据，来源于 Skyline 枚举（岗位 CHUNK_SYSTEM_ACCOUNT_USER_POST、职级 CHUNK_SYSTEM_ACCOUNT_USER_LEVEL）。 */
+export class UserChunkResponseDto {
+    @ApiProperty({ description: '枚举主键（Skyline 枚举值）', example: 1024100 })
     keyId: number
 
-    @ApiProperty({ description: '岗位名称', example: '外贸业务员' })
+    @ApiProperty({ description: '枚举名称', example: '外贸业务员' })
     name: string
 }
 
@@ -24,6 +24,15 @@ class PostKeyIdsDto {
     @IsInt({ each: true, message: '岗位主键必须是整数' })
     @Min(1, { each: true, message: '岗位主键必须大于0' })
     postKeyIds?: number[]
+
+    @ApiPropertyOptional({ description: '职级主键数组（Skyline 职级枚举值）', type: [Number], example: [1024170] })
+    @IsOptional()
+    @IsArray({ message: '职级主键列表必须是数组' })
+    @ArrayMaxSize(16, { message: '单个账号最多关联16个职级' })
+    @ArrayUnique({ message: '职级主键不能重复' })
+    @IsInt({ each: true, message: '职级主键必须是整数' })
+    @Min(1, { each: true, message: '职级主键必须大于0' })
+    levelKeyIds?: number[]
 }
 
 export class UserQueryDto extends IntersectionType(PageDto, PostKeyIdsDto) {
@@ -247,8 +256,14 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号岗位主键（Skyline 岗位枚举值）', type: [Number], example: [1024100, 1024101] })
     postKeyIds: number[]
 
-    @ApiProperty({ description: '账号岗位', type: [UserPostResponseDto] })
-    posts: UserPostResponseDto[]
+    @ApiProperty({ description: '账号岗位', type: [UserChunkResponseDto] })
+    posts: UserChunkResponseDto[]
+
+    @ApiProperty({ description: '账号职级主键（Skyline 职级枚举值）', type: [Number], example: [1024170] })
+    levelKeyIds: number[]
+
+    @ApiProperty({ description: '账号职级', type: [UserChunkResponseDto] })
+    levels: UserChunkResponseDto[]
 }
 
 export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
