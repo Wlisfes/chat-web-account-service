@@ -218,7 +218,7 @@ export class OrganizationUtilsService {
             name: user.name,
             avatar: user.avatar,
             isPrimary: Boolean(membership?.isPrimary),
-            positionName: membership?.positionName,
+            postName: membership?.postName,
             organizationKeyId
         }
     }

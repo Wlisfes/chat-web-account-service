@@ -79,7 +79,7 @@ export class UserUtilsService {
             organizations: organizations.map(organization => ({
                 ...organization,
                 isPrimary: membershipByOrganization.get(organization.keyId)?.isPrimary ?? false,
-                positionName: membershipByOrganization.get(organization.keyId)?.positionName,
+                postName: membershipByOrganization.get(organization.keyId)?.postName,
                 membershipStatus:
                     membershipByOrganization.get(organization.keyId)?.status ?? Schema.TbAccountUserOrganizationStatus.DISABLED
             })),
@@ -189,7 +189,7 @@ export class UserUtilsService {
                 userUid,
                 organizationKeyId: item.organizationKeyId,
                 isPrimary: item.isPrimary,
-                positionName: item.positionName,
+                postName: item.postName,
                 status: item.status
             }))
         )
@@ -290,7 +290,7 @@ export class UserUtilsService {
                 userOrganizations.push({
                     ...organization,
                     isPrimary: membership.isPrimary,
-                    positionName: membership.positionName,
+                    postName: membership.postName,
                     membershipStatus: membership.status
                 })
             }

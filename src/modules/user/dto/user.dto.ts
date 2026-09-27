@@ -74,7 +74,7 @@ export class UserOrganizationMembershipDto {
     @IsOptional()
     @IsString({ message: '岗位名称必须是字符串' })
     @MaxLength(64, { message: '岗位名称长度不能超过64位' })
-    positionName?: string
+    postName?: string
 
     @ApiPropertyOptional({
         description: '用户组织关系状态',
@@ -92,7 +92,7 @@ export class ReplaceUserOrganizationsDto {
     @ApiPropertyOptional({
         description: '用户的完整组织关系；空数组表示清空',
         type: [UserOrganizationMembershipDto],
-        example: [{ organizationKeyId: 1, isPrimary: true, positionName: '研发工程师', status: 'enabled' }]
+        example: [{ organizationKeyId: 1, isPrimary: true, postName: '研发工程师', status: 'enabled' }]
     })
     @IsOptional()
     @IsArray({ message: '组织关系列表必须是数组' })
@@ -139,7 +139,7 @@ export class CreateUserDto extends IntersectionType(
     @ApiPropertyOptional({
         description: '创建时一并设置的组织关系',
         type: [UserOrganizationMembershipDto],
-        example: [{ organizationKeyId: 1, isPrimary: true, positionName: '客户经理', status: 'enabled' }]
+        example: [{ organizationKeyId: 1, isPrimary: true, postName: '客户经理', status: 'enabled' }]
     })
     @IsOptional()
     @IsArray({ message: '组织关系列表必须是数组' })
@@ -218,7 +218,7 @@ export class UserOrganizationResponseDto extends Schema.TbAccountOrganizationDto
     isPrimary: boolean
 
     @ApiProperty({ description: '岗位名称', required: false, example: '客户经理' })
-    positionName?: string
+    postName?: string
 
     @ApiProperty({
         description: '用户组织关系状态',
