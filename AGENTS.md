@@ -120,7 +120,7 @@
 
 ### 操作权限
 
-- 本服务 HTTP 业务接口只使用 `@RequirePermissions` 做操作权限校验，不按数据范围过滤账号、组织、职位或菜单数据。
+- 本服务 HTTP 业务接口只使用 `@RequirePermissions` 做操作权限校验，不按数据范围过滤账号、组织、岗位或菜单数据。
 - 只有使用了 `@RequirePermissions` 的接口才会请求 `/feign/auth/permission/authorized-principal`。多个权限码为或关系；传入 `*` 时跳过权限码校验。未使用该装饰器的接口不得调用该 Feign。
 - 权限校验通过后，Auth 返回的 `superAdmin`、`roleCodes` 由 `AuthorizationGuard` 挂到 `request.user`。本服务业务代码只允许用 `superAdmin` 做超级管理员校验，不得使用 `all` / `items` 做数据范围过滤，也不得再调用 `hasPermission` / `isSuperAdmin` / `resolveDataScope` 或 `/permission/check`。
 - 角色模块仍可配置数据范围规则，供其他服务使用；规则 `resourceCode` 格式为 `chat:{服务}:{资源}`。本服务自身接口不消费这些规则。

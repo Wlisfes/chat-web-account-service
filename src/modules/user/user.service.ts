@@ -34,7 +34,7 @@ export class UserService {
     ): Promise<UserDto.AccountUserResponseDto> {
         const memberships = this.userUtilsService.resolveMemberships(input)
         const roleKeyIds = input.roleKeyIds ?? []
-        const positionKeyIds = input.positionKeyIds ?? []
+        const postKeyIds = input.postKeyIds ?? []
         this.userUtilsService.findMembershipsRequired(memberships)
         if (roleKeyIds.length > 0) {
             await this.userUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以在创建账号时分配角色')
@@ -47,11 +47,11 @@ export class UserService {
                 memberships.map(item => item.organizationKeyId)
             )
             await this.userUtilsService.findRolesRequired(manager, roleKeyIds)
-            await this.userUtilsService.findPositionsRequired(positionKeyIds)
+            await this.userUtilsService.findPostsRequired(postKeyIds)
             const {
                 memberships: _memberships,
                 roleKeyIds: _roleKeyIds,
-                positionKeyIds: _positionKeyIds,
+                postKeyIds: _postKeyIds,
                 organizationKeyIds: _organizationKeyIds,
                 password,
                 ...fields
@@ -64,7 +64,7 @@ export class UserService {
             const saved = await manager.save(user)
             await this.userUtilsService.insertMemberships(manager, saved.uid, memberships)
             await this.userUtilsService.insertRoles(manager, saved.uid, roleKeyIds)
-            await this.userUtilsService.replacePositions(manager, saved.uid, positionKeyIds)
+            await this.userUtilsService.replacePosts(manager, saved.uid, postKeyIds)
             saved.password = undefined as unknown as string
             await this.permissionCacheService.invalidate({ uids: [saved.uid] })
             return saved
@@ -130,10 +130,10 @@ export class UserService {
                     }
                 )
             }
-            if ((input.positionKeyIds?.length ?? 0) > 0) {
+            if ((input.postKeyIds?.length ?? 0) > 0) {
                 qb.andWhere(
-                    `EXISTS (SELECT 1 FROM tb_account_user_position filter_user_position WHERE filter_user_position.user_uid = t.uid AND filter_user_position.position_key_id IN (:...filterPositionKeyIds))`,
-                    { filterPositionKeyIds: input.positionKeyIds }
+                    `EXISTS (SELECT 1 FROM tb_account_chunk filter_chunk WHERE filter_chunk.link_name = :postLinkName AND filter_chunk.link_id = t.uid AND filter_chunk.chunk_id IN (:...filterPostKeyIds))`,
+                    { postLinkName: Schema.TbAccountChunkLinkName.USER_POST, filterPostKeyIds: input.postKeyIds }
                 )
             }
             qb.orderBy('t.keyId', 'DESC')
@@ -190,14 +190,14 @@ export class UserService {
         return this.userRepository.manager.transaction(async manager => {
             const user = await this.userUtilsService.lockUser(manager, targetUid)
             await this.userUtilsService.findUserUnique(manager, fields, targetUid)
-            const { positionKeyIds, ...userFields } = fields
+            const { postKeyIds, ...userFields } = fields
             manager.merge(Schema.TbAccountUser, user, userFields)
             const saved = await manager.save(user)
-            // positionKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
-            if (positionKeyIds !== undefined) {
-                const nextPositionKeyIds = positionKeyIds ?? []
-                await this.userUtilsService.findPositionsRequired(nextPositionKeyIds)
-                await this.userUtilsService.replacePositions(manager, targetUid, nextPositionKeyIds)
+            // postKeyIds 是更新三态字段：未传保持原关联，传空数组表示清空。
+            if (postKeyIds !== undefined) {
+                const nextPostKeyIds = postKeyIds ?? []
+                await this.userUtilsService.findPostsRequired(nextPostKeyIds)
+                await this.userUtilsService.replacePosts(manager, targetUid, nextPostKeyIds)
             }
             return saved
         })

@@ -8,27 +8,27 @@ import * as Schema from '@wlisfes/chat-web-base-schema'
 import * as feign from '@wlisfes/chat-web-base-schema/feign'
 import * as UserDto from '@/modules/user/dto/user.dto'
 
-/** Skyline 中账号职位的枚举类型编码。 */
-const USER_POSITION_CHUNK_TYPE = 'CHUNK_ACCOUNT_POSITION'
+/** Skyline 中账号岗位的枚举类型编码。 */
+const USER_POST_CHUNK_TYPE = 'CHUNK_ACCOUNT_POST'
 
 @Injectable()
 export class UserUtilsService {
     constructor(
         @InjectRepository(Schema.TbAccountUser) private readonly userRepository: Repository<Schema.TbAccountUser>,
-        @InjectRepository(Schema.TbAccountUserPosition) private readonly userPositionRepository: Repository<Schema.TbAccountUserPosition>,
+        @InjectRepository(Schema.TbAccountChunk) private readonly chunkRepository: Repository<Schema.TbAccountChunk>,
         private readonly database: DataBaseService,
         private readonly skylineFeignClient: feign.FeignClientSkylineManager,
         private readonly configService: ConfigService
     ) {}
 
     /**
-     * 通过 Skyline Feign 获取职位枚举（CHUNK_ACCOUNT_POSITION），返回 职位主键 -> 职位名称。
+     * 通过 Skyline Feign 获取岗位枚举（CHUNK_ACCOUNT_POST），返回 岗位主键 -> 岗位名称。
      *
-     * 职位主键即枚举项 value（tb_account_user_position.position_key_id 存储该值），仅包含启用状态的职位。
+     * 岗位主键即枚举项 value（tb_account_chunk.chunk_id 存储该值，link_name = tb_account_user.post），仅包含启用状态的岗位。
      */
-    public async findPositionOptions(): Promise<Map<number, string>> {
+    public async findPostOptions(): Promise<Map<number, string>> {
         const authorization = feign.resolveFeignServiceAuthorization(this.configService)
-        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, { types: [USER_POSITION_CHUNK_TYPE] })
+        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, { types: [USER_POST_CHUNK_TYPE] })
         const options = new Map<number, string>()
         const stack = groups.flatMap(group => group.options ?? [])
         while (stack.length > 0) {
@@ -42,10 +42,10 @@ export class UserUtilsService {
         return options
     }
 
-    /**按职位主键还原职位名称，不存在或已禁用的职位不返回。*/
-    public toPositionOptions(positionKeyIds: number[], positionOptions: Map<number, string>): UserDto.UserPositionResponseDto[] {
-        return positionKeyIds.flatMap(keyId => {
-            const name = positionOptions.get(keyId)
+    /**按岗位主键还原岗位名称，不存在或已禁用的岗位不返回。*/
+    public toPostOptions(postKeyIds: number[], postOptions: Map<number, string>): UserDto.UserPostResponseDto[] {
+        return postKeyIds.flatMap(keyId => {
+            const name = postOptions.get(keyId)
             return name === undefined ? [] : [{ keyId, name }]
         })
     }
@@ -57,20 +57,20 @@ export class UserUtilsService {
         if (!user) {
             throw new NotFoundException('账号不存在')
         }
-        const [memberships, roleRelations, positionRelations] = await Promise.all([
+        const [memberships, roleRelations, postRelations] = await Promise.all([
             this.userRepository.manager.find(Schema.TbAccountUserOrganization, { where: { userUid: normalizedTargetUid } }),
             this.userRepository.manager.find(Schema.TbAccountUserRole, { where: { userUid: normalizedTargetUid } }),
-            this.userPositionRepository.find({ where: { userUid: normalizedTargetUid } })
+            this.chunkRepository.find({ where: { linkName: Schema.TbAccountChunkLinkName.USER_POST, linkId: normalizedTargetUid } })
         ])
         const organizationKeyIds = memberships.map(item => item.organizationKeyId)
         const roleKeyIds = roleRelations.map(item => item.roleKeyId)
-        const positionKeyIds = positionRelations.map(item => item.positionKeyId)
-        const [organizations, roles, positionOptions] = await Promise.all([
+        const postKeyIds = postRelations.map(item => item.chunkId)
+        const [organizations, roles, postOptions] = await Promise.all([
             organizationKeyIds.length > 0
                 ? this.userRepository.manager.find(Schema.TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
                 : [],
             roleKeyIds.length > 0 ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } }) : [],
-            positionKeyIds.length > 0 ? this.findPositionOptions() : new Map<number, string>()
+            postKeyIds.length > 0 ? this.findPostOptions() : new Map<number, string>()
         ])
         const membershipByOrganization = new Map(memberships.map(item => [item.organizationKeyId, item]))
         return {
@@ -86,8 +86,8 @@ export class UserUtilsService {
             })),
             roleKeyIds,
             roles,
-            positionKeyIds,
-            positions: this.toPositionOptions(positionKeyIds, positionOptions)
+            postKeyIds,
+            posts: this.toPostOptions(postKeyIds, postOptions)
         }
     }
 
@@ -167,11 +167,11 @@ export class UserUtilsService {
         }
     }
 
-    /**校验职位列表均为 Skyline 中启用状态的职位枚举。*/
-    public async findPositionsRequired(positionKeyIds: number[]): Promise<void> {
-        if (positionKeyIds.length === 0) return
-        const positionOptions = await this.findPositionOptions()
-        if (positionKeyIds.some(keyId => !positionOptions.has(keyId))) throw new BadRequestException('职位列表包含不存在或已禁用的职位')
+    /**校验岗位列表均为 Skyline 中启用状态的岗位枚举。*/
+    public async findPostsRequired(postKeyIds: number[]): Promise<void> {
+        if (postKeyIds.length === 0) return
+        const postOptions = await this.findPostOptions()
+        if (postKeyIds.some(keyId => !postOptions.has(keyId))) throw new BadRequestException('岗位列表包含不存在或已禁用的岗位')
     }
 
     /**批量写入账号组织关系*/
@@ -242,13 +242,13 @@ export class UserUtilsService {
         )
     }
 
-    /**替换账号职位关系。*/
-    public async replacePositions(manager: EntityManager, userUid: string, positionKeyIds: number[]): Promise<void> {
-        await manager.delete(Schema.TbAccountUserPosition, { userUid })
-        if (positionKeyIds.length > 0) {
+    /**替换账号岗位关系。*/
+    public async replacePosts(manager: EntityManager, userUid: string, postKeyIds: number[]): Promise<void> {
+        await manager.delete(Schema.TbAccountChunk, { linkName: Schema.TbAccountChunkLinkName.USER_POST, linkId: userUid })
+        if (postKeyIds.length > 0) {
             await manager.insert(
-                Schema.TbAccountUserPosition,
-                positionKeyIds.map(positionKeyId => ({ userUid, positionKeyId }))
+                Schema.TbAccountChunk,
+                postKeyIds.map(chunkId => ({ linkName: Schema.TbAccountChunkLinkName.USER_POST, linkId: userUid, chunkId }))
             )
         }
     }
@@ -259,14 +259,14 @@ export class UserUtilsService {
         if (userUids.length === 0) {
             return []
         }
-        const [memberships, roleRelations, positionRelations] = await Promise.all([
+        const [memberships, roleRelations, postRelations] = await Promise.all([
             this.userRepository.manager.find(Schema.TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
             this.userRepository.manager.find(Schema.TbAccountUserRole, { where: { userUid: In(userUids) } }),
-            this.userPositionRepository.find({ where: { userUid: In(userUids) } })
+            this.chunkRepository.find({ where: { linkName: Schema.TbAccountChunkLinkName.USER_POST, linkId: In(userUids) } })
         ])
         const organizationKeyIds = [...new Set(memberships.map(item => item.organizationKeyId))]
         const roleKeyIds = [...new Set(roleRelations.map(item => item.roleKeyId))]
-        const positionKeyIds = [...new Set(positionRelations.map(item => item.positionKeyId))]
+        const postKeyIds = [...new Set(postRelations.map(item => item.chunkId))]
         const organizationsPromise: Promise<Schema.TbAccountOrganization[]> =
             organizationKeyIds.length > 0
                 ? this.userRepository.manager.find(Schema.TbAccountOrganization, { where: { keyId: In(organizationKeyIds) } })
@@ -275,15 +275,15 @@ export class UserUtilsService {
             roleKeyIds.length > 0
                 ? this.userRepository.manager.find(Schema.TbAccountRole, { where: { keyId: In(roleKeyIds) } })
                 : Promise.resolve([])
-        const positionsPromise: Promise<Map<number, string>> =
-            positionKeyIds.length > 0 ? this.findPositionOptions() : Promise.resolve(new Map<number, string>())
-        const [organizations, roles, positionOptions] = await Promise.all([organizationsPromise, rolesPromise, positionsPromise])
+        const postsPromise: Promise<Map<number, string>> =
+            postKeyIds.length > 0 ? this.findPostOptions() : Promise.resolve(new Map<number, string>())
+        const [organizations, roles, postOptions] = await Promise.all([organizationsPromise, rolesPromise, postsPromise])
         const organizationByKeyId = new Map<number, Schema.TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
         const roleByKeyId = new Map<number, Schema.TbAccountRole>(roles.map(item => [item.keyId, item]))
         return users.map(user => {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
-            const userPositionRelations = positionRelations.filter(item => item.userUid === user.uid)
+            const userPostRelations = postRelations.filter(item => item.linkId === user.uid)
             const userOrganizations: UserDto.UserOrganizationResponseDto[] = []
             for (const membership of userMemberships) {
                 const organization = organizationByKeyId.get(membership.organizationKeyId)
@@ -307,10 +307,10 @@ export class UserUtilsService {
                 organizations: userOrganizations,
                 roleKeyIds: userRoleRelations.map(item => item.roleKeyId),
                 roles: userRoles,
-                positionKeyIds: userPositionRelations.map(item => item.positionKeyId),
-                positions: this.toPositionOptions(
-                    userPositionRelations.map(item => item.positionKeyId),
-                    positionOptions
+                postKeyIds: userPostRelations.map(item => item.chunkId),
+                posts: this.toPostOptions(
+                    userPostRelations.map(item => item.chunkId),
+                    postOptions
                 )
             }
         })

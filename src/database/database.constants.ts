@@ -9,7 +9,7 @@ import {
     TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserRole,
-    TbAccountUserPosition
+    TbAccountChunk
 } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 
 /** Nacos 中账号服务 MySQL 配置的根路径。 */
@@ -27,5 +27,5 @@ export const ACCOUNT_MYSQL_ENTITIES = [
     TbAccountRoleMenu,
     TbAccountRoleDataScope,
     TbAccountRoleDataScopeOrganization,
-    TbAccountUserPosition
+    TbAccountChunk
 ]

@@ -6,27 +6,27 @@ import { PageDto } from '@wlisfes/chat-web-base-schema/utils'
 import { Type } from 'class-transformer'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
-/** 账号职位展示数据，职位来源于 Skyline 枚举 CHUNK_ACCOUNT_POSITION。 */
-export class UserPositionResponseDto {
-    @ApiProperty({ description: '职位主键（Skyline 职位枚举值）', example: 1024100 })
+/** 账号岗位展示数据，岗位来源于 Skyline 枚举 CHUNK_ACCOUNT_POST。 */
+export class UserPostResponseDto {
+    @ApiProperty({ description: '岗位主键（Skyline 岗位枚举值）', example: 1024100 })
     keyId: number
 
-    @ApiProperty({ description: '职位名称', example: '外贸业务员' })
+    @ApiProperty({ description: '岗位名称', example: '外贸业务员' })
     name: string
 }
 
-class PositionKeyIdsDto {
-    @ApiPropertyOptional({ description: '职位主键数组（Skyline 职位枚举值）', type: [Number], example: [1024100, 1024101] })
+class PostKeyIdsDto {
+    @ApiPropertyOptional({ description: '岗位主键数组（Skyline 岗位枚举值）', type: [Number], example: [1024100, 1024101] })
     @IsOptional()
-    @IsArray({ message: '职位主键列表必须是数组' })
-    @ArrayMaxSize(100, { message: '单个账号最多关联100个职位' })
-    @ArrayUnique({ message: '职位主键不能重复' })
-    @IsInt({ each: true, message: '职位主键必须是整数' })
-    @Min(1, { each: true, message: '职位主键必须大于0' })
-    positionKeyIds?: number[]
+    @IsArray({ message: '岗位主键列表必须是数组' })
+    @ArrayMaxSize(100, { message: '单个账号最多关联100个岗位' })
+    @ArrayUnique({ message: '岗位主键不能重复' })
+    @IsInt({ each: true, message: '岗位主键必须是整数' })
+    @Min(1, { each: true, message: '岗位主键必须大于0' })
+    postKeyIds?: number[]
 }
 
-export class UserQueryDto extends IntersectionType(PageDto, PositionKeyIdsDto) {
+export class UserQueryDto extends IntersectionType(PageDto, PostKeyIdsDto) {
     @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询', example: '张三' })
     @IsOptional()
     @IsString({ message: '查询关键词必须是字符串' })
@@ -134,7 +134,7 @@ export class CreateUserDto extends IntersectionType(
         'employmentTime',
         'resignationTime'
     ] as const),
-    PositionKeyIdsDto
+    PostKeyIdsDto
 ) {
     @ApiPropertyOptional({
         description: '创建时一并设置的组织关系',
@@ -181,7 +181,7 @@ export class UpdateUserDto extends IntersectionType(
             'resignationTime'
         ] as const)
     ),
-    PositionKeyIdsDto
+    PostKeyIdsDto
 ) {}
 
 export class ResetUserPasswordDto {
@@ -244,11 +244,11 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号角色', type: [Schema.TbAccountRoleDto] })
     roles: Schema.TbAccountRoleDto[]
 
-    @ApiProperty({ description: '账号职位主键（Skyline 职位枚举值）', type: [Number], example: [1024100, 1024101] })
-    positionKeyIds: number[]
+    @ApiProperty({ description: '账号岗位主键（Skyline 岗位枚举值）', type: [Number], example: [1024100, 1024101] })
+    postKeyIds: number[]
 
-    @ApiProperty({ description: '账号职位', type: [UserPositionResponseDto] })
-    positions: UserPositionResponseDto[]
+    @ApiProperty({ description: '账号岗位', type: [UserPostResponseDto] })
+    posts: UserPostResponseDto[]
 }
 
 export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
