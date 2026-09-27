@@ -24,9 +24,9 @@ export class RoleService {
         }
     }
 
-    /**角色下拉列表**/
-    public async httpBaseAccountSelectRole(): Promise<RoleDto.RoleResponseDto[]> {
-        return this.roleUtilsService.findAll()
+    /**通用角色列表和岗位角色树**/
+    public async httpBaseAccountRoleConfiger(): Promise<RoleDto.RoleConfigerResponseDto> {
+        return this.roleUtilsService.findConfiger()
     }
 
     /**角色详情**/

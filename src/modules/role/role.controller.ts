@@ -19,12 +19,12 @@ export class RoleController {
     }
 
     @RequirePermissions('chat:deploy:system:role')
-    @ApiServiceDecorator(Get('/select'), {
-        operation: { summary: '获取角色列表' },
-        response: { type: RoleDto.RoleResponseDto, isArray: true, description: '角色列表' }
+    @ApiServiceDecorator(Get('/configer'), {
+        operation: { summary: '获取通用角色列表和岗位角色树' },
+        response: { type: RoleDto.RoleConfigerResponseDto, description: '角色配置数据' }
     })
-    public async httpBaseAccountSelectRole() {
-        return this.roleService.httpBaseAccountSelectRole()
+    public async httpBaseAccountRoleConfiger() {
+        return this.roleService.httpBaseAccountRoleConfiger()
     }
 
     @RequirePermissions('chat:deploy:system:role')

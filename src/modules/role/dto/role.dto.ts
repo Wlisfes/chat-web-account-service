@@ -131,6 +131,34 @@ export class RoleResponseDto extends Schema.TbAccountRoleDto {
     dataScopes: RoleDataScopeResponseDto[]
 }
 
+export class RoleConfigerTreeNodeResponseDto extends PickType(Schema.TbAccountOrganizationDto, [
+    'keyId',
+    'parentKeyId',
+    'name',
+    'type',
+    'sort'
+] as const) {
+    @ApiProperty({ description: '树节点主键；有岗位角色时为角色主键，否则为组织主键的负数', example: 1 })
+    nodeId: number
+
+    @ApiProperty({ description: '组织绑定的岗位角色', type: RoleResponseDto, required: false })
+    node?: RoleResponseDto
+
+    @ApiProperty({ description: '是否禁用选择；组织未绑定岗位角色时为 true', example: false })
+    disabled: boolean
+
+    @ApiProperty({ description: '下级岗位角色节点', type: () => RoleConfigerTreeNodeResponseDto, isArray: true, example: [] })
+    children: RoleConfigerTreeNodeResponseDto[]
+}
+
+export class RoleConfigerResponseDto {
+    @ApiProperty({ description: '通用角色列表', type: [RoleResponseDto] })
+    list: RoleResponseDto[]
+
+    @ApiProperty({ description: '岗位角色树', type: [RoleConfigerTreeNodeResponseDto] })
+    tree: RoleConfigerTreeNodeResponseDto[]
+}
+
 export class RoleEnumsResponseDto extends EnumsResponseDto({
     statusOptions: { description: '角色状态选项', example: Schema.TbAccountRoleStatusDefinition.options },
     scopeTypeOptions: { description: '数据范围类型选项', example: Schema.TbAccountRoleDataScopeTypeDefinition.options },

@@ -23,8 +23,8 @@ export class SheetController {
         operation: { summary: '获取完整菜单树' },
         response: { type: SheetDto.SheetTreeNodeDto, isArray: true, description: '完整菜单树' }
     })
-    public async httpBaseAccountSheetTree() {
-        return this.sheetService.httpBaseAccountSheetTree()
+    public async httpBaseAccountSheetTreeStructure() {
+        return this.sheetService.httpBaseAccountSheetTreeStructure()
     }
 
     @RequirePermissions('chat:deploy:system:sheet')

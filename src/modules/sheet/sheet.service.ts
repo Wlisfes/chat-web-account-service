@@ -31,7 +31,7 @@ export class SheetService {
     }
 
     /**菜单树结构**/
-    public async httpBaseAccountSheetTree(): Promise<Array<Schema.TbAccountMenu>> {
+    public async httpBaseAccountSheetTreeStructure(): Promise<Array<Schema.TbAccountMenu>> {
         return await this.database.builder(this.sheetRepository, async qb => {
             qb.orderBy('t.sort', 'ASC')
             qb.addOrderBy('t.keyId', 'ASC')

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import type { AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { DataBaseService, EntityManager, In, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
+import { buildTree, type TreeNode } from '@wlisfes/chat-web-base-schema/utils'
 import { isNotEmpty } from 'class-validator'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 import * as RoleDto from '@/modules/role/dto/role.dto'
@@ -50,6 +51,51 @@ export class RoleUtilsService {
             scopesByRole.set(scope.roleKeyId, scopes)
         }
         return roles.map(role => ({ ...role, dataScopes: scopesByRole.get(role.keyId) ?? [] }))
+    }
+
+    /**获取通用角色列表和岗位角色树*/
+    public async findConfiger(): Promise<RoleDto.RoleConfigerResponseDto> {
+        const [roles, organizations] = await Promise.all([
+            this.findAll(),
+            this.roleRepository.manager.find(Schema.TbAccountOrganization, { order: { sort: 'ASC', keyId: 'ASC' } })
+        ])
+        const rolesByOrganization = new Map<number, RoleDto.RoleResponseDto>()
+        for (const role of roles) {
+            const organizationKeyIds = new Set(role.dataScopes.flatMap(scope => scope.organizations.map(item => item.organizationKeyId)))
+            if (organizationKeyIds.size !== 1) continue
+            const [organizationKeyId] = organizationKeyIds
+            if (!rolesByOrganization.has(organizationKeyId)) {
+                rolesByOrganization.set(organizationKeyId, role)
+            }
+        }
+        const roleKeyIds = new Set([...rolesByOrganization.values()].map(role => role.keyId))
+        const tree = buildTree(
+            organizations.map(organization => ({
+                keyId: organization.keyId,
+                parentKeyId: organization.parentKeyId,
+                name: organization.name,
+                type: organization.type,
+                sort: organization.sort
+            }))
+        )
+        const roots = tree.flatMap(node => (node.type === Schema.TbAccountOrganizationType.COMPANY ? node.children : [node]))
+        return {
+            list: roles.filter(role => !roleKeyIds.has(role.keyId)),
+            tree: this.findConfigerTree(roots, rolesByOrganization)
+        }
+    }
+
+    /**组装组织与岗位角色树，只保留自身或下级绑定角色的组织*/
+    private findConfigerTree(
+        nodes: Array<TreeNode<Pick<RoleDto.RoleConfigerTreeNodeResponseDto, 'keyId' | 'parentKeyId' | 'name' | 'type' | 'sort'>>>,
+        rolesByOrganization: Map<number, RoleDto.RoleResponseDto>
+    ): RoleDto.RoleConfigerTreeNodeResponseDto[] {
+        return nodes.flatMap(node => {
+            const children = this.findConfigerTree(node.children, rolesByOrganization)
+            const role = rolesByOrganization.get(node.keyId)
+            if (!role && children.length === 0) return []
+            return [{ ...node, nodeId: role?.keyId ?? -node.keyId, node: role, disabled: !role, children }]
+        })
     }
 
     /**获取角色、菜单和数据范围详情*/
