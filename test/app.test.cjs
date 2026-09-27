@@ -89,8 +89,8 @@ test('OpenAPI 请求和响应包含完整字段类型与示例', async () => {
     assert.equal(document.paths['/organization/tree/structure'], undefined, '部门组织不能保留 /organization 路由前缀')
 
     assert.equal(document.paths['/position/column'], undefined, '职位管理已迁移至 Skyline 枚举，不能保留 /position 路由')
-    assert.equal(operations.length, 39)
-    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 21)
+    assert.equal(operations.length, 40)
+    assert.equal(operations.filter(({ operation }) => operation.requestBody).length, 22)
     assert.equal(operations.flatMap(({ operation }) => operation.parameters ?? []).filter(parameter => parameter.in === 'query').length, 6)
 
     for (const { path, method, operation } of operations) {
