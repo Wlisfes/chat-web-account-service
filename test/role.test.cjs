@@ -39,6 +39,17 @@ test('角色新增在同一事务内完成编码校验与写入', async () => {
         }
     }
     const roleUtilsService = {
+        async findDataScopesRequired(principal, dataScopes) {
+            calls.push(['findDataScopesRequired', dataScopes])
+        },
+        async findDataScopeOrganizationsRequired(manager, dataScopes) {
+            assert.equal(manager, transactionManager)
+            calls.push(['findDataScopeOrganizationsRequired', dataScopes])
+        },
+        async replaceRoleDataScopes(manager, roleKeyId, dataScopes) {
+            assert.equal(manager, transactionManager)
+            calls.push(['replaceRoleDataScopes', roleKeyId, dataScopes])
+        },
         async findCodeAvailable(manager, code) {
             assert.equal(manager, transactionManager)
             calls.push(['findCodeAvailable', code])
@@ -46,13 +57,24 @@ test('角色新增在同一事务内完成编码校验与写入', async () => {
     }
     const service = new RoleService(repository, roleUtilsService, { invalidate: async () => undefined })
 
-    const result = await service.httpBaseAccountCreateRole({ name: '审计员', code: 'auditor', sort: 10, status: 'enabled' })
+    const result = await service.httpBaseAccountCreateRole(
+        { uid: '2281665656346656771' },
+        { name: '审计员', code: 'auditor', sort: 10, status: 'enabled', dataScopes: [] }
+    )
 
     assert.equal(result.keyId, 101)
     assert.equal(result.builtin, false)
     assert.deepEqual(
         calls.map(call => call[0]),
-        ['transaction', 'findCodeAvailable', 'create', 'save']
+        [
+            'findDataScopesRequired',
+            'transaction',
+            'findCodeAvailable',
+            'findDataScopeOrganizationsRequired',
+            'create',
+            'save',
+            'replaceRoleDataScopes'
+        ]
     )
 })
 test('角色编辑在事务内重新锁定角色并完成编码校验与写入', async () => {
@@ -77,6 +99,17 @@ test('角色编辑在事务内重新锁定角色并完成编码校验与写入',
         }
     }
     const roleUtilsService = {
+        async findDataScopesRequired(principal, dataScopes) {
+            calls.push(['findDataScopesRequired', dataScopes])
+        },
+        async findDataScopeOrganizationsRequired(manager, dataScopes) {
+            assert.equal(manager, transactionManager)
+            calls.push(['findDataScopeOrganizationsRequired', dataScopes])
+        },
+        async replaceRoleDataScopes(manager, roleKeyId, dataScopes) {
+            assert.equal(manager, transactionManager)
+            calls.push(['replaceRoleDataScopes', roleKeyId, dataScopes])
+        },
         async findRequired(keyId, manager) {
             calls.push(['findRequired', keyId, manager])
             return { keyId, name: '旧角色', code: 'old_code', builtin: false, status: 'enabled' }
@@ -109,6 +142,9 @@ test('编辑内置角色时优先返回禁止修改编码错误', async () => {
         }
     }
     const roleUtilsService = {
+        async findDataScopesRequired() {
+            calls.push('findDataScopesRequired')
+        },
         async findRequired() {
             return { keyId: 103, code: 'builtin_role', builtin: true, status: 'enabled' }
         },
@@ -122,7 +158,7 @@ test('编辑内置角色时优先返回禁止修改编码错误', async () => {
         () => service.httpBaseAccountUpdateRole({ uid: 'ordinary-user' }, { keyId: 103, code: 'changed_role' }),
         error => error.message === '系统内置角色不能修改编码'
     )
-    assert.deepEqual(calls, [])
+    assert.deepEqual(calls, ['findDataScopesRequired'])
 })
 
 test('资源专属数据范围覆盖同角色的默认规则，不影响其他角色并集', () => {
