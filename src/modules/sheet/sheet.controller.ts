@@ -1,7 +1,7 @@
 import { Body, Get, Post, Query } from '@nestjs/common'
 import { ApiServiceDecorator, ApifoxController, SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { RequirePermissions, CurrentPrincipal, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
-import { TbAccountMenuDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
+import { TbAccountSheetDto } from '@wlisfes/chat-web-base-schema/chat-web-account-mysql'
 import { SheetService } from '@/modules/sheet/sheet.service'
 import * as SheetDto from '@/modules/sheet/dto/sheet.dto'
 
@@ -23,8 +23,8 @@ export class SheetController {
         operation: { summary: '获取完整菜单树' },
         response: { type: SheetDto.SheetTreeNodeDto, isArray: true, description: '完整菜单树' }
     })
-    public async httpBaseAccountSheetTree() {
-        return this.sheetService.httpBaseAccountSheetTree()
+    public async httpBaseAccountSheetTreeStructure() {
+        return this.sheetService.httpBaseAccountSheetTreeStructure()
     }
 
     @RequirePermissions('chat:deploy:system:sheet')
@@ -41,7 +41,7 @@ export class SheetController {
     @ApiServiceDecorator(Get('/resolve'), {
         operation: { summary: '获取菜单详情' },
         request: { source: 'query', type: SheetDto.SheetKeyDto },
-        response: { type: TbAccountMenuDto, description: '菜单详情' }
+        response: { type: TbAccountSheetDto, description: '菜单详情' }
     })
     public async httpBaseAccountSheetResolver(@Query() query: SheetDto.SheetKeyDto) {
         return this.sheetService.httpBaseAccountSheetResolver(query)
@@ -51,7 +51,7 @@ export class SheetController {
     @ApiServiceDecorator(Post('/create'), {
         operation: { summary: '创建目录、菜单或按钮节点' },
         request: { source: 'body', type: SheetDto.CreateSheetDto },
-        response: { type: TbAccountMenuDto, description: '新增后的菜单节点' }
+        response: { type: TbAccountSheetDto, description: '新增后的菜单节点' }
     })
     public async httpBaseAccountCreateSheet(@Body() input: SheetDto.CreateSheetDto) {
         return this.sheetService.httpBaseAccountCreateSheet(input)
@@ -61,7 +61,7 @@ export class SheetController {
     @ApiServiceDecorator(Post('/update'), {
         operation: { summary: '更新或移动菜单节点' },
         request: { source: 'body', type: SheetDto.UpdateSheetPayloadDto },
-        response: { type: TbAccountMenuDto, description: '更新后的菜单节点' }
+        response: { type: TbAccountSheetDto, description: '更新后的菜单节点' }
     })
     public async httpBaseAccountUpdateSheet(@Body() input: SheetDto.UpdateSheetPayloadDto) {
         return this.sheetService.httpBaseAccountUpdateSheet(input)

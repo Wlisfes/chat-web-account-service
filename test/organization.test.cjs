@@ -8,7 +8,7 @@ const {
     TbAccountRole,
     TbAccountRoleDataScope,
     TbAccountRoleDataScopeOrganization,
-    TbAccountRoleMenu,
+    TbAccountRoleSheet,
     TbAccountUser,
     TbAccountUserOrganization,
     TbAccountUserRole
@@ -137,7 +137,7 @@ test('空部门删除时级联删除专属岗位角色并移除其他角色中�
     const roleDelete = manager.deletes.find(item => item.entity === TbAccountRole)
     assert.deepEqual(roleDelete.criteria.keyId.value, [154])
     assert.ok(manager.deletes.some(item => item.entity === TbAccountUserRole))
-    assert.ok(manager.deletes.some(item => item.entity === TbAccountRoleMenu))
+    assert.ok(manager.deletes.some(item => item.entity === TbAccountRoleSheet))
     assert.ok(manager.deletes.some(item => item.entity === TbAccountRoleDataScope))
     assert.equal(manager.deletes.filter(item => item.entity === TbAccountRoleDataScopeOrganization).length, 2)
     assert.ok(manager.deletes.some(item => item.entity === TbAccountOrganization && item.criteria.keyId === 156))

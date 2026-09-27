@@ -24,9 +24,9 @@ export class RoleService {
         }
     }
 
-    /**角色下拉列表**/
-    public async httpBaseAccountSelectRole(): Promise<RoleDto.RoleResponseDto[]> {
-        return this.roleUtilsService.findAll()
+    /**通用角色列表和岗位角色树**/
+    public async httpBaseAccountRoleConfiger(): Promise<RoleDto.RoleConfigerResponseDto> {
+        return this.roleUtilsService.findConfiger()
     }
 
     /**角色详情**/
@@ -35,24 +35,28 @@ export class RoleService {
     }
 
     /**新增角色**/
-    public async httpBaseAccountCreateRole(body: RoleDto.CreateRoleDto): Promise<Schema.TbAccountRole> {
-        return await this.roleRepository.manager.transaction(async manager => {
-            if (body.code.trim() === 'super_admin') {
+    public async httpBaseAccountCreateRole(principal: AuthPrincipal, body: RoleDto.CreateRoleDto): Promise<Schema.TbAccountRole> {
+        const { dataScopes, ...input } = body
+        await this.roleUtilsService.findDataScopesRequired(principal, dataScopes)
+        const saved = await this.roleRepository.manager.transaction(async manager => {
+            if (input.code.trim() === 'super_admin') {
                 throw new ConflictException('super_admin 是保留角色编码')
             }
-            await this.roleUtilsService.findCodeAvailable(manager, body.code)
-            const role = manager.create(Schema.TbAccountRole, { ...body, builtin: false })
-            return manager.save(role).then(async saved => {
-                await this.permissionCacheService.invalidate({ roleKeyIds: [saved.keyId] })
-                return saved
-            })
+            await this.roleUtilsService.findCodeAvailable(manager, input.code)
+            await this.roleUtilsService.findDataScopeOrganizationsRequired(manager, dataScopes)
+            const role = await manager.save(manager.create(Schema.TbAccountRole, { ...input, builtin: false }))
+            await this.roleUtilsService.replaceRoleDataScopes(manager, role.keyId, dataScopes)
+            return role
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [saved.keyId] })
+        return saved
     }
 
     /**编辑角色**/
     public async httpBaseAccountUpdateRole(principal: AuthPrincipal, body: RoleDto.UpdateRolePayloadDto): Promise<Schema.TbAccountRole> {
-        const { keyId, ...input } = body
-        return await this.roleRepository.manager.transaction(async manager => {
+        const { keyId, dataScopes, ...input } = body
+        await this.roleUtilsService.findDataScopesRequired(principal, dataScopes)
+        const saved = await this.roleRepository.manager.transaction(async manager => {
             const role = await this.roleUtilsService.findRequired(keyId, manager)
             if (role.builtin && isNotEmpty(input.code) && input.code !== role.code) {
                 throw new ConflictException('系统内置角色不能修改编码')
@@ -66,12 +70,16 @@ export class RoleService {
             if (isNotEmpty(input.code) && input.code !== role.code) {
                 await this.roleUtilsService.findCodeAvailable(manager, input.code, keyId)
             }
+            await this.roleUtilsService.findDataScopeOrganizationsRequired(manager, dataScopes)
             await manager.merge(Schema.TbAccountRole, role, input)
-            return await manager.save(role).then(async saved => {
-                await this.permissionCacheService.invalidate({ roleKeyIds: [saved.keyId] })
-                return saved
-            })
+            const updated = await manager.save(role)
+            if (isNotEmpty(dataScopes)) {
+                await this.roleUtilsService.replaceRoleDataScopes(manager, keyId, dataScopes)
+            }
+            return updated
         })
+        await this.permissionCacheService.invalidate({ roleKeyIds: [saved.keyId] })
+        return saved
     }
 
     /**删除角色**/
@@ -86,35 +94,45 @@ export class RoleService {
         })
     }
 
-    /**替换角色菜单权限**/
-    public async httpBaseAccountUpdateRoleMenu(
-        principal: AuthPrincipal,
-        body: RoleDto.ReplaceRoleMenusPayloadDto
-    ): Promise<SuccessResponseDataDto> {
-        await this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以配置角色权限')
-        return await this.roleRepository.manager.transaction(async manager => {
-            await this.roleUtilsService.findRequired(body.keyId, manager)
-            await this.roleUtilsService.findMenusRequired(manager, body.menuKeyIds)
-            await this.roleUtilsService.replaceRoleMenus(manager, body.keyId, body.menuKeyIds)
-            await this.permissionCacheService.invalidate({ roleKeyIds: [body.keyId] })
-            return { success: true }
+    /**批量关联角色用户**/
+    public async httpBaseAccountRoleLinkUser(principal: AuthPrincipal, body: RoleDto.RoleUserPayloadDto): Promise<SuccessResponseDataDto> {
+        await this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以分配用户角色')
+        const uids = this.roleUtilsService.findUidsRequired(body.uids)
+        await this.roleRepository.manager.transaction(async manager => {
+            await this.roleUtilsService.findEnabledRequired(manager, body.keyId)
+            await this.roleUtilsService.findUsersRequired(manager, uids)
+            await this.roleUtilsService.insertRoleUsers(manager, body.keyId, uids)
         })
+        await this.permissionCacheService.invalidate({ uids })
+        return { success: true }
     }
 
-    /**替换角色数据范围**/
-    public async httpBaseAccountUpdateRoleDataScope(
+    /**批量移除角色用户**/
+    public async httpBaseAccountRoleUnlinkUser(
         principal: AuthPrincipal,
-        body: RoleDto.ReplaceRoleDataScopesPayloadDto
+        body: RoleDto.RoleUserPayloadDto
+    ): Promise<SuccessResponseDataDto> {
+        await this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以移除用户角色')
+        const uids = this.roleUtilsService.findUidsRequired(body.uids)
+        await this.roleRepository.manager.transaction(async manager => {
+            const role = await this.roleUtilsService.findRequired(body.keyId, manager)
+            await this.roleUtilsService.findUsersRequired(manager, uids)
+            await this.roleUtilsService.deleteRoleUsers(manager, role, uids)
+        })
+        await this.permissionCacheService.invalidate({ uids })
+        return { success: true }
+    }
+
+    /**替换角色菜单权限**/
+    public async httpBaseAccountUpdateRoleSheet(
+        principal: AuthPrincipal,
+        body: RoleDto.ReplaceRoleSheetsPayloadDto
     ): Promise<SuccessResponseDataDto> {
         await this.roleUtilsService.findSuperAdminRequired(principal, '只有超级管理员可以配置角色权限')
-        this.roleUtilsService.findDataScopeRulesRequired(body.rules)
         return await this.roleRepository.manager.transaction(async manager => {
             await this.roleUtilsService.findRequired(body.keyId, manager)
-            const organizationKeyIds = [
-                ...new Set(body.rules.flatMap(rule => rule.organizations?.map(item => item.organizationKeyId) ?? []))
-            ]
-            await this.roleUtilsService.findOrganizationsRequired(manager, organizationKeyIds)
-            await this.roleUtilsService.replaceRoleDataScopes(manager, body.keyId, body.rules)
+            await this.roleUtilsService.findSheetsRequired(manager, body.sheetKeyIds)
+            await this.roleUtilsService.replaceRoleSheets(manager, body.keyId, body.sheetKeyIds)
             await this.permissionCacheService.invalidate({ roleKeyIds: [body.keyId] })
             return { success: true }
         })

@@ -23,13 +23,13 @@
 - 通用入口固定为 `src/main.ts` 和 `src/app.module.ts`。
 - 业务模块放在 `src/modules/<module-name>/`。`health`、`feign`、`database` 三个基础设施模块必须提取到 `src/` 一级目录（`src/health/`、`src/feign/`、`src/database/`），不要放进 `src/modules/`。后续改造其他 NestJS 服务时必须与 Account 保持同一目录级别。
 - 文件名使用小写 kebab-case，并使用职责后缀：
-  - `*.module.ts`
-  - `*.controller.ts`
-  - `*.service.ts`
-  - `*.middleware.ts`
-  - `*.interface.ts`
-  - `*.constants.ts`
-  - `*.options.ts`
+    - `*.module.ts`
+    - `*.controller.ts`
+    - `*.service.ts`
+    - `*.middleware.ts`
+    - `*.interface.ts`
+    - `*.constants.ts`
+    - `*.options.ts`
 - 一个模块的接口、常量和配置构造分别放入对应后缀文件，不与实现类混放。
 - 自动化测试放在仓库根目录 `test/`，文件名与模块目录一致并使用 `<module>.test.cjs`，例如 `sheet.test.cjs`、`user.test.cjs`。禁止引入 Jest 或 `*.spec.ts`。禁止提交生成目录、依赖目录和真实 `.env`。
 
@@ -211,7 +211,7 @@
 - 本仓库测试文件为 `test/app.test.cjs`、`test/sheet.test.cjs`、`test/dept.test.cjs`、`test/role.test.cjs`、`test/user.test.cjs`、`test/feign.test.cjs`、`test/health.test.cjs`、`test/isolate-service-databases.test.cjs`。
 - 本服务业务接口不应用数据范围；有 `@RequirePermissions` 即可访问对应账号数据。
 - Controller 必须保持为薄协议层：除装饰器、`query`/`body` DTO、当前身份参数和调用同名 Service 方法外，不得进行 DTO 拆包、字段转换、默认值注入、数据库访问、业务校验或响应结构拼装。
-- 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountSheetTree`、`httpBaseAccountSheetResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
+- 公开 HTTP 方法统一声明为 `public async`；CRUD、列表等通用动作通常使用 `httpBaseAccount<Action><Resource>`，Tree、Resolver 等资源专属读取语义可使用 `httpBaseAccount<Resource><Action>`，例如 `httpBaseAccountSheetTreeStructure`、`httpBaseAccountSheetResolver`。方法名应保持业务语义清晰及同模块一致，Controller 与对应 Service 的方法名称必须完全相同并直接返回调用结果；不得只为统一单词顺序而机械倒装。
 - Cookie 读写、Header 解析、流或文件响应、SVG 输出等依赖 Express 的纯 HTTP 协议适配允许保留在 Controller。禁止把 `Request`、`Response`、Cookie、Header 或响应发送逻辑传入业务 Service；协议例外必须写中文职责注释。
 - 每个接口入参必须使用模块 `dto/` 下独立 DTO。Controller 不得以内联类型、散乱原始参数或私有 Adapter 代替 DTO；服务端三态字段需要由 DTO 明确保留 `undefined`、`null` 与具体值。
 - 业务 Service 引用本模块请求 DTO 时统一使用 `import * as <Module>Dto` 命名空间归组，并通过 `<Module>Dto.<Type>` 标注参数；响应 DTO 继续按需使用命名导入，禁止把请求与响应协议混在同一组散乱导入中。

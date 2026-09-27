@@ -19,12 +19,12 @@ export class RoleController {
     }
 
     @RequirePermissions('chat:deploy:system:role')
-    @ApiServiceDecorator(Get('/select'), {
-        operation: { summary: '获取角色列表' },
-        response: { type: RoleDto.RoleResponseDto, isArray: true, description: '角色列表' }
+    @ApiServiceDecorator(Get('/configer'), {
+        operation: { summary: '获取通用角色列表和岗位角色树' },
+        response: { type: RoleDto.RoleConfigerResponseDto, description: '角色配置数据' }
     })
-    public async httpBaseAccountSelectRole() {
-        return this.roleService.httpBaseAccountSelectRole()
+    public async httpBaseAccountRoleConfiger() {
+        return this.roleService.httpBaseAccountRoleConfiger()
     }
 
     @RequirePermissions('chat:deploy:system:role')
@@ -43,8 +43,8 @@ export class RoleController {
         request: { source: 'body', type: RoleDto.CreateRoleDto },
         response: { type: TbAccountRoleDto, description: '新增后的角色' }
     })
-    public async httpBaseAccountCreateRole(@Body() input: RoleDto.CreateRoleDto) {
-        return this.roleService.httpBaseAccountCreateRole(input)
+    public async httpBaseAccountCreateRole(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: RoleDto.CreateRoleDto) {
+        return this.roleService.httpBaseAccountCreateRole(principal, input)
     }
 
     @RequirePermissions('chat:deploy:system:role:update')
@@ -67,29 +67,36 @@ export class RoleController {
         return this.roleService.httpBaseAccountDeleteRole(input)
     }
 
-    @RequirePermissions('chat:deploy:system:role:authorize')
-    @ApiServiceDecorator(Post('/update/menu'), {
-        operation: { summary: '替换角色的全部菜单和按钮权限' },
-        request: { source: 'body', type: RoleDto.ReplaceRoleMenusPayloadDto },
-        response: { type: SuccessResponseDataDto, description: '角色菜单权限更新结果' }
+    @RequirePermissions('chat:deploy:system:role:link:user')
+    @ApiServiceDecorator(Post('/link/user'), {
+        operation: { summary: '批量关联角色用户' },
+        request: { source: 'body', type: RoleDto.RoleUserPayloadDto },
+        response: { type: SuccessResponseDataDto, description: '角色用户关联结果' }
     })
-    public async httpBaseAccountUpdateRoleMenu(
-        @CurrentPrincipal() principal: AuthPrincipal,
-        @Body() input: RoleDto.ReplaceRoleMenusPayloadDto
-    ) {
-        return this.roleService.httpBaseAccountUpdateRoleMenu(principal, input)
+    public async httpBaseAccountRoleLinkUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: RoleDto.RoleUserPayloadDto) {
+        return this.roleService.httpBaseAccountRoleLinkUser(principal, input)
+    }
+
+    @RequirePermissions('chat:deploy:system:role:unlink:user')
+    @ApiServiceDecorator(Post('/unlink/user'), {
+        operation: { summary: '批量移除角色用户' },
+        request: { source: 'body', type: RoleDto.RoleUserPayloadDto },
+        response: { type: SuccessResponseDataDto, description: '角色用户移除结果' }
+    })
+    public async httpBaseAccountRoleUnlinkUser(@CurrentPrincipal() principal: AuthPrincipal, @Body() input: RoleDto.RoleUserPayloadDto) {
+        return this.roleService.httpBaseAccountRoleUnlinkUser(principal, input)
     }
 
     @RequirePermissions('chat:deploy:system:role:authorize')
-    @ApiServiceDecorator(Post('/update/data/scope'), {
-        operation: { summary: '替换角色的全部资源数据范围' },
-        request: { source: 'body', type: RoleDto.ReplaceRoleDataScopesPayloadDto },
-        response: { type: SuccessResponseDataDto, description: '角色数据范围更新结果' }
+    @ApiServiceDecorator(Post('/update/sheet'), {
+        operation: { summary: '替换角色的全部菜单和按钮权限' },
+        request: { source: 'body', type: RoleDto.ReplaceRoleSheetsPayloadDto },
+        response: { type: SuccessResponseDataDto, description: '角色菜单权限更新结果' }
     })
-    public async httpBaseAccountUpdateRoleDataScope(
+    public async httpBaseAccountUpdateRoleSheet(
         @CurrentPrincipal() principal: AuthPrincipal,
-        @Body() input: RoleDto.ReplaceRoleDataScopesPayloadDto
+        @Body() input: RoleDto.ReplaceRoleSheetsPayloadDto
     ) {
-        return this.roleService.httpBaseAccountUpdateRoleDataScope(principal, input)
+        return this.roleService.httpBaseAccountUpdateRoleSheet(principal, input)
     }
 }

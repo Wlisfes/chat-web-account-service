@@ -4,13 +4,13 @@ const assert = require('node:assert/strict')
 const { SheetService } = require('../dist/modules/sheet/sheet.service')
 const { SheetUtilsService } = require('../dist/modules/sheet/sheet.utils.service')
 const {
-    TbAccountMenuStatusDefinition,
-    TbAccountMenuType,
-    TbAccountMenuTypeDefinition,
-    TbAccountMenuVisibleDefinition
+    TbAccountSheetStatusDefinition,
+    TbAccountSheetType,
+    TbAccountSheetTypeDefinition,
+    TbAccountSheetVisibleDefinition
 } = require('@wlisfes/chat-web-base-schema/chat-web-account-mysql')
 
-const menus = [
+const sheets = [
     { keyId: 1, parentKeyId: null, sort: 30, name: '系统管理' },
     { keyId: 2, parentKeyId: null, sort: 20, name: '业务管理' },
     { keyId: 3, parentKeyId: 1, sort: 10, name: '用户管理' },
@@ -85,7 +85,7 @@ function fakeDatabaseService() {
 }
 
 test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async () => {
-    const repository = fakeRepository(menus)
+    const repository = fakeRepository(sheets)
     const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50 })
@@ -100,7 +100,7 @@ test('菜单 column 未传 parentKeyId 时只返回一级平铺节点', async ()
 })
 
 test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', async () => {
-    const repository = fakeRepository(menus)
+    const repository = fakeRepository(sheets)
     const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     const result = await service.httpBaseAccountColumnSheet({ page: 1, size: 50, parentKeyId: 1 })
@@ -115,7 +115,7 @@ test('菜单 column 传 parentKeyId 时返回父节点和一层直接下级', as
 })
 
 test('菜单 column 使用共享数据库查询构造器', async () => {
-    const repository = fakeRepository(menus)
+    const repository = fakeRepository(sheets)
     const database = fakeDatabaseService()
     const service = new SheetService(repository, database, {}, { invalidate: async () => undefined })
 
@@ -125,7 +125,7 @@ test('菜单 column 使用共享数据库查询构造器', async () => {
 })
 
 test('菜单 column 保留名称、权限码和路由筛选条件', async () => {
-    const repository = fakeRepository(menus)
+    const repository = fakeRepository(sheets)
     const service = new SheetService(repository, fakeDatabaseService(), {}, { invalidate: async () => undefined })
 
     await service.httpBaseAccountColumnSheet({
@@ -181,9 +181,9 @@ test('菜单枚举接口直接返回 schema 定义的选项', async () => {
     const result = await service.httpBaseAccountSheetEnums()
 
     assert.deepEqual(result, {
-        typeOptions: TbAccountMenuTypeDefinition.options,
-        statusOptions: TbAccountMenuStatusDefinition.options,
-        visibleOptions: TbAccountMenuVisibleDefinition.options
+        typeOptions: TbAccountSheetTypeDefinition.options,
+        statusOptions: TbAccountSheetStatusDefinition.options,
+        visibleOptions: TbAccountSheetVisibleDefinition.options
     })
 })
 
@@ -209,7 +209,7 @@ test('父菜单为空时允许菜单创建或移动到顶层', async () => {
 })
 
 test('按钮节点不能作为父菜单', async () => {
-    const parent = { keyId: 1, type: TbAccountMenuType.BUTTON }
+    const parent = { keyId: 1, type: TbAccountSheetType.BUTTON }
     let queryCount = 0
     const manager = {
         async findOneBy() {
@@ -229,7 +229,7 @@ test('目录节点必须配置菜单地址', () => {
     assert.throws(
         () =>
             service.findSheetFieldsRequired({
-                type: TbAccountMenuType.DIRECTORY,
+                type: TbAccountSheetType.DIRECTORY,
                 permissionCode: null,
                 path: null,
                 externalUrl: null
@@ -238,7 +238,7 @@ test('目录节点必须配置菜单地址', () => {
     )
     assert.doesNotThrow(() =>
         service.findSheetFieldsRequired({
-            type: TbAccountMenuType.DIRECTORY,
+            type: TbAccountSheetType.DIRECTORY,
             permissionCode: null,
             path: '/deploy/datetask',
             externalUrl: null
