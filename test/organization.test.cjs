@@ -211,8 +211,8 @@ test('带启用成员的组织树把员工挂到所属部门下', async () => {
         { keyId: 2, parentKeyId: 1, sort: 10, name: '研发部', leaderUserUid: undefined }
     ]
     const memberships = [
-        { userUid: '10001', organizationKeyId: 1, isPrimary: true, positionName: '总经理', status: 'enabled' },
-        { userUid: '10002', organizationKeyId: 2, isPrimary: true, positionName: '工程师', status: 'enabled' }
+        { userUid: '10001', organizationKeyId: 1, isPrimary: true, postName: '总经理', status: 'enabled' },
+        { userUid: '10002', organizationKeyId: 2, isPrimary: true, postName: '工程师', status: 'enabled' }
     ]
     const users = [
         { uid: '10001', number: 'A1', name: '张三', avatar: 'a.png' },
@@ -221,7 +221,7 @@ test('带启用成员的组织树把员工挂到所属部门下', async () => {
     const tree = await createOrganizationUserUtils(organizations, memberships, users).findOrganizationUser()
     assert.equal(tree.length, 1)
     assert.equal(tree[0].members[0].uid, '10001')
-    assert.equal(tree[0].members[0].positionName, '总经理')
+    assert.equal(tree[0].members[0].postName, '总经理')
     assert.equal(tree[0].members.length, 1)
     assert.equal(tree[0].children[0].name, '研发部')
     assert.equal(tree[0].children[0].members[0].name, '李四')

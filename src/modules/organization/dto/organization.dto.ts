@@ -53,7 +53,7 @@ export class OrganizationUserResponseDto extends AccountUserSummaryResponseDto {
     isPrimary: boolean
 
     @ApiProperty({ description: '用户在该组织中的岗位名称', required: false, example: '研发工程师' })
-    positionName?: string
+    postName?: string
 
     @ApiProperty({ description: '所属组织主键', example: 1 })
     organizationKeyId: number
