@@ -184,3 +184,35 @@ test('角色枚举接口直接返回 schema 定义的选项', async () => {
         scopeStatusOptions: TbAccountRoleDataScopeStatusDefinition.options
     })
 })
+
+test('批量更新角色排序在一个事务内完成，并拒绝重复或不存在的角色', async () => {
+    const updates = []
+    const transactionManager = {
+        async count() {
+            return 2
+        },
+        async update(entity, where, values) {
+            updates.push({ where, values })
+        }
+    }
+    const repository = {
+        manager: {
+            async transaction(callback) {
+                return callback(transactionManager)
+            }
+        }
+    }
+    const service = new RoleService(repository, {}, { invalidate: async () => undefined })
+
+    const list = [
+        { keyId: 2, sort: 10 },
+        { keyId: 1, sort: 20 }
+    ]
+    assert.deepEqual(await service.httpBaseAccountUpdateRoleSort({ list }), { success: true })
+    assert.deepEqual(updates, [
+        { where: { keyId: 2 }, values: { sort: 10 } },
+        { where: { keyId: 1 }, values: { sort: 20 } }
+    ])
+    await assert.rejects(() => service.httpBaseAccountUpdateRoleSort({ list: [list[0], list[0]] }), /角色主键不能重复/)
+    await assert.rejects(() => service.httpBaseAccountUpdateRoleSort({ list: [...list, { keyId: 3, sort: 30 }] }), /角色不存在/)
+})

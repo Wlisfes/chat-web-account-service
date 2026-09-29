@@ -1,6 +1,6 @@
-import { ConflictException, Injectable } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { isNotEmpty } from '@wlisfes/chat-web-base-schema/utils'
-import { Repository, InjectRepository } from '@wlisfes/chat-web-base-schema/database'
+import { In, Repository, InjectRepository } from '@wlisfes/chat-web-base-schema/database'
 import { AuthorizationService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { RoleUtilsService } from '@/modules/role/role.utils.service'
@@ -80,6 +80,24 @@ export class RoleService {
         })
         await this.permissionCacheService.invalidate({ roleKeyIds: [saved.keyId] })
         return saved
+    }
+
+    /**批量更新角色排序；排序只影响展示顺序，不涉及权限，因此不刷新权限缓存**/
+    public async httpBaseAccountUpdateRoleSort(body: RoleDto.UpdateRoleSortPayloadDto): Promise<SuccessResponseDataDto> {
+        const keyIds = [...new Set(body.list.map(item => item.keyId))]
+        if (keyIds.length !== body.list.length) {
+            throw new BadRequestException('角色主键不能重复')
+        }
+        return await this.roleRepository.manager.transaction(async manager => {
+            const total = await manager.count(Schema.TbAccountRole, { where: { keyId: In(keyIds) } })
+            if (total !== keyIds.length) {
+                throw new NotFoundException('角色不存在')
+            }
+            for (const item of body.list) {
+                await manager.update(Schema.TbAccountRole, { keyId: item.keyId }, { sort: item.sort })
+            }
+            return { success: true }
+        })
     }
 
     /**删除角色**/

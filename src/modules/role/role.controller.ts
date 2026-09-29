@@ -58,6 +58,16 @@ export class RoleController {
     }
 
     @RequirePermissions('chat:deploy:system:role:update')
+    @ApiServiceDecorator(Post('/sort/update'), {
+        operation: { summary: '批量更新角色排序' },
+        request: { source: 'body', type: RoleDto.UpdateRoleSortPayloadDto },
+        response: { type: SuccessResponseDataDto, description: '角色排序更新结果' }
+    })
+    public async httpBaseAccountUpdateRoleSort(@Body() input: RoleDto.UpdateRoleSortPayloadDto) {
+        return this.roleService.httpBaseAccountUpdateRoleSort(input)
+    }
+
+    @RequirePermissions('chat:deploy:system:role:update')
     @ApiServiceDecorator(Post('/update/sheet'), {
         operation: { summary: '替换角色的全部菜单和按钮权限' },
         request: { source: 'body', type: RoleDto.ReplaceRoleSheetsPayloadDto },
