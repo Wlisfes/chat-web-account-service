@@ -3,6 +3,7 @@ import { EnumsResponseDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { Type } from 'class-transformer'
 import {
     ArrayMaxSize,
+    ArrayNotEmpty,
     ArrayUnique,
     IsArray,
     IsBoolean,
@@ -124,6 +125,18 @@ export class RoleUserPayloadDto extends RoleKeyDto {
 }
 
 export class UpdateRolePayloadDto extends IntersectionType(RoleKeyDto, UpdateRoleDto) {}
+
+export class RoleSortItemDto extends PickType(Schema.TbAccountRoleDto, ['keyId', 'sort'] as const) {}
+
+export class UpdateRoleSortPayloadDto {
+    @ApiProperty({ description: '角色排序列表', type: [RoleSortItemDto], example: [{ keyId: 1, sort: 10 }] })
+    @IsArray({ message: '角色排序列表必须是数组' })
+    @ArrayNotEmpty({ message: '角色排序列表不能为空' })
+    @ArrayMaxSize(1000, { message: '单次最多排序1000个角色' })
+    @ValidateNested({ each: true })
+    @Type(() => RoleSortItemDto)
+    list: RoleSortItemDto[]
+}
 
 export class ReplaceRoleSheetsPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleSheetsDto) {}
 
