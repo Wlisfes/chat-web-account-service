@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { SuccessResponseDataDto } from '@wlisfes/chat-web-base-schema/decorator'
 import { AuthorizationService, PasswordService, type AuthPrincipal } from '@wlisfes/chat-web-base-schema/auth'
 import { Brackets, DataBaseService, InjectRepository, Repository } from '@wlisfes/chat-web-base-schema/database'
-import { ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS, AccountColumnUserResolverDto, AccountUserSummary } from '@wlisfes/chat-web-base-schema/feign'
+import {
+    ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS,
+    ACCOUNT_USER_RESOLVER_RELATION_FIELDS,
+    AccountColumnUserResolverDto,
+    AccountUserSummary
+} from '@wlisfes/chat-web-base-schema/feign'
 import { assertUid, generateUid, isNotEmpty, PageResult } from '@wlisfes/chat-web-base-schema/utils'
 import { UserUtilsService } from '@/modules/user/user.utils.service'
 import * as Schema from '@wlisfes/chat-web-base-schema'
@@ -183,14 +188,21 @@ export class UserService {
     public async httpBaseAccountColumnUserResolver(input: AccountColumnUserResolverDto): Promise<AccountUserSummary[]> {
         const uids = [...new Set(input.uids)]
         if (uids.length === 0) return []
-        // fields 已由共享 DTO 限定在白名单内；uid 作为映射键始终返回。
-        const fields = [...new Set(['uid', ...(input.fields ?? ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS)])]
-        return this.database.builder(this.userRepository, qb =>
+        // fields 已由共享 DTO 限定在白名单内；uid 作为映射键始终返回，关联字段单独批量查询。
+        const fields: string[] = [...new Set(['uid', ...(input.fields ?? ACCOUNT_USER_RESOLVER_DEFAULT_FIELDS)])]
+        const relationFields: string[] = [...ACCOUNT_USER_RESOLVER_RELATION_FIELDS]
+        const columns = fields.filter(field => !relationFields.includes(field))
+        const users: AccountUserSummary[] = await this.database.builder(this.userRepository, qb =>
             qb
-                .select(fields.map(field => `t.${field}`))
+                .select(columns.map(field => `t.${field}`))
                 .where('t.uid IN (:...uids)', { uids })
                 .getMany()
         )
+        if (!fields.includes('organizations')) {
+            return users
+        }
+        const organizations = await this.userUtilsService.findUserOrganizationSummaries(users.map(user => user.uid))
+        return users.map(user => Object.assign(user, { organizations: organizations.get(user.uid) ?? [] }))
     }
 
     /**编辑账号*/

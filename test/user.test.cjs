@@ -39,6 +39,39 @@ test('批量账号摘要只返回展示字段并对重复 UID 去重', async () 
     assert.deepEqual(received.fields, ['t.uid', 't.name', 't.phone'])
 })
 
+test('批量账号摘要请求 organizations 时关联返回所属组织且不作为数据库列查询', async () => {
+    let selected = []
+    const database = {
+        async builder(repository, handler) {
+            return handler({
+                select(fields) {
+                    selected = fields
+                    return this
+                },
+                where() {
+                    return this
+                },
+                async getMany() {
+                    return [{ uid: '1', name: '张三' }, { uid: '2', name: '李四' }]
+                }
+            })
+        }
+    }
+    const userUtilsService = {
+        async findUserOrganizationSummaries(uids) {
+            assert.deepEqual(uids, ['1', '2'])
+            return new Map([['1', [{ keyId: 10, name: '研发中心', code: 'RD', isPrimary: true, postName: '前端开发工程师' }]]])
+        }
+    }
+    const service = new UserService({}, database, {}, userUtilsService, {})
+    const users = await service.httpBaseAccountColumnUserResolver({ uids: ['1', '2'], fields: ['name', 'organizations'] })
+    assert.deepEqual(selected, ['t.uid', 't.name'])
+    assert.deepEqual(users, [
+        { uid: '1', name: '张三', organizations: [{ keyId: 10, name: '研发中心', code: 'RD', isPrimary: true, postName: '前端开发工程师' }] },
+        { uid: '2', name: '李四', organizations: [] }
+    ])
+})
+
 test('业务UID为不超过19位的正数字字符串', () => {
     const values = new Set(Array.from({ length: 1000 }, () => generateUid()))
     assert.equal(values.size, 1000)

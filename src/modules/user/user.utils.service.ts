@@ -365,6 +365,44 @@ export class UserUtilsService {
         })
     }
 
+    /**
+     * 批量查询账号所属组织摘要，供 Feign 账号还原使用；只返回启用的成员关系和启用的组织，主组织排在前面。
+     */
+    public async findUserOrganizationSummaries(userUids: string[]): Promise<Map<string, feign.AccountUserOrganizationSummary[]>> {
+        const result = new Map<string, feign.AccountUserOrganizationSummary[]>()
+        if (userUids.length === 0) {
+            return result
+        }
+        const memberships = await this.userRepository.manager.find(Schema.TbAccountUserOrganization, {
+            where: { userUid: In(userUids), status: Schema.TbAccountUserOrganizationStatus.ENABLED },
+            order: { isPrimary: 'DESC', keyId: 'ASC' }
+        })
+        const organizationKeyIds = [...new Set(memberships.map(item => item.organizationKeyId))]
+        if (organizationKeyIds.length === 0) {
+            return result
+        }
+        const organizations = await this.userRepository.manager.find(Schema.TbAccountOrganization, {
+            where: { keyId: In(organizationKeyIds), status: Schema.TbAccountOrganizationStatus.ENABLED }
+        })
+        const organizationByKeyId = new Map(organizations.map(item => [item.keyId, item]))
+        for (const membership of memberships) {
+            const organization = organizationByKeyId.get(membership.organizationKeyId)
+            if (!organization) {
+                continue
+            }
+            const items = result.get(membership.userUid) ?? []
+            items.push({
+                keyId: organization.keyId,
+                name: organization.name,
+                code: organization.code,
+                isPrimary: membership.isPrimary,
+                postName: membership.postName
+            })
+            result.set(membership.userUid, items)
+        }
+        return result
+    }
+
     /**裁剪账号分页字段，只保留列表展示和操作所需的关联摘要*/
     public toColumnUsers(users: UserDto.UserDetailResponseDto[]): UserDto.UserColumnResponseDto[] {
         return users.map(({ memberships: _memberships, organizations, roles, ...user }) => ({
