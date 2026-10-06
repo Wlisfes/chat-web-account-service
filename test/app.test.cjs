@@ -211,7 +211,7 @@ test('HTTP 业务异常使用传输状态 200 和响应体业务 code', () => {
     new HttpExceptionFilter().catch(new BadRequestException(['验证码错误']), host)
 
     assert.equal(response.statusCode, 200)
-    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'logId', 'timestamp'])
+    assert.deepEqual(Object.keys(response.body), ['data', 'code', 'message', 'logId', 'timestamp', 'url'])
     assert.equal(response.body.code, 400)
     assert.equal(response.body.message, '验证码错误')
     assert.equal(response.headers['x-request-id'], response.body.logId)

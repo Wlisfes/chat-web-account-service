@@ -25,9 +25,9 @@ export class UserUtilsService {
      */
     public async findChunkOptions(type: Schema.TbSkylineChunkModuleType): Promise<Map<number, string>> {
         const authorization = feign.resolveFeignServiceAuthorization(this.configService)
-        const groups = await this.skylineFeignClient.httpBaseSkylineColumnChunkOption(authorization, { types: [type] })
+        const record = await this.skylineFeignClient.httpBaseSkylineChunkOptionColumn(authorization, { types: [type] })
         const options = new Map<number, string>()
-        const stack = groups.flatMap(group => group.options ?? [])
+        const stack = [...(record[type]?.options ?? [])]
         while (stack.length > 0) {
             const option = stack.shift() as feign.SkylineChunkOption
             const keyId = Number(option.value)
