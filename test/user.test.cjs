@@ -52,7 +52,10 @@ test('批量账号摘要请求 organizations 时关联返回所属组织且不�
                     return this
                 },
                 async getMany() {
-                    return [{ uid: '1', name: '张三' }, { uid: '2', name: '李四' }]
+                    return [
+                        { uid: '1', name: '张三' },
+                        { uid: '2', name: '李四' }
+                    ]
                 }
             })
         }
@@ -67,7 +70,11 @@ test('批量账号摘要请求 organizations 时关联返回所属组织且不�
     const users = await service.httpBaseAccountColumnUserResolver({ uids: ['1', '2'], fields: ['name', 'organizations'] })
     assert.deepEqual(selected, ['t.uid', 't.name'])
     assert.deepEqual(users, [
-        { uid: '1', name: '张三', organizations: [{ keyId: 10, name: '研发中心', code: 'RD', isPrimary: true, postName: '前端开发工程师' }] },
+        {
+            uid: '1',
+            name: '张三',
+            organizations: [{ keyId: 10, name: '研发中心', code: 'RD', isPrimary: true, postName: '前端开发工程师' }]
+        },
         { uid: '2', name: '李四', organizations: [] }
     ])
 })
