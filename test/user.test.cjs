@@ -36,7 +36,7 @@ test('批量账号摘要只返回展示字段并对重复 UID 去重', async () 
     assert.deepEqual(received.parameters, { uids: ['1', '2'] })
 
     await service.httpBaseAccountColumnUserResolver({ uids: ['1'], fields: ['name', 'phone', 'name'] })
-    assert.deepEqual(received.fields, ['t.uid', 't.name', 't.phone'])
+    assert.deepEqual(received.fields, ['t.uid', 't.number', 't.name', 't.avatar', 't.phone'])
 })
 
 test('批量账号摘要请求 organizations 时关联返回所属组织且不作为数据库列查询', async () => {
@@ -67,8 +67,8 @@ test('批量账号摘要请求 organizations 时关联返回所属组织且不�
         }
     }
     const service = new UserService({}, database, {}, userUtilsService, {})
-    const users = await service.httpBaseAccountColumnUserResolver({ uids: ['1', '2'], fields: ['name', 'organizations'] })
-    assert.deepEqual(selected, ['t.uid', 't.name'])
+    const users = await service.httpBaseAccountColumnUserResolver({ uids: ['1', '2'], fields: ['organizations'] })
+    assert.deepEqual(selected, ['t.uid', 't.number', 't.name', 't.avatar'])
     assert.deepEqual(users, [
         {
             uid: '1',
