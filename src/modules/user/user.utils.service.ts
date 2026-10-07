@@ -287,11 +287,11 @@ export class UserUtilsService {
         return this.replaceChunks(manager, Schema.TbAccountChunkLinkName.USER_LEVEL, userUid, levelKeyIds)
     }
 
-    /**批量补充账号组织和角色信息*/
+    /**批量补充账号组织和角色信息，直接在原列表上追加字段并返回原列表*/
     public async enrichUsers(users: Schema.TbAccountUser[]): Promise<UserDto.UserDetailResponseDto[]> {
         const userUids = users.map(user => user.uid)
         if (userUids.length === 0) {
-            return []
+            return users as unknown as UserDto.UserDetailResponseDto[]
         }
         const [memberships, roleRelations, chunkRelations] = await Promise.all([
             this.userRepository.manager.find(Schema.TbAccountUserOrganization, { where: { userUid: In(userUids) } }),
@@ -329,7 +329,7 @@ export class UserUtilsService {
         ])
         const organizationByKeyId = new Map<number, Schema.TbAccountOrganization>(organizations.map(item => [item.keyId, item]))
         const roleByKeyId = new Map<number, Schema.TbAccountRole>(roles.map(item => [item.keyId, item]))
-        return users.map(user => {
+        for (const user of users) {
             const userMemberships = memberships.filter(item => item.userUid === user.uid)
             const userRoleRelations = roleRelations.filter(item => item.userUid === user.uid)
             const userPostKeyIds = postRelations.filter(item => item.linkId === user.uid).map(item => item.chunkId)
@@ -350,8 +350,7 @@ export class UserUtilsService {
                 const role = roleByKeyId.get(relation.roleKeyId)
                 if (role) userRoles.push(role)
             }
-            return {
-                ...user,
+            Object.assign(user, {
                 memberships: userMemberships,
                 organizationKeyIds: userMemberships.map(item => item.organizationKeyId),
                 organizations: userOrganizations,
@@ -361,8 +360,9 @@ export class UserUtilsService {
                 posts: this.toChunkOptions(userPostKeyIds, postOptions),
                 levelKeyIds: userLevelKeyIds,
                 levels: this.toChunkOptions(userLevelKeyIds, levelOptions)
-            }
-        })
+            })
+        }
+        return users as unknown as UserDto.UserDetailResponseDto[]
     }
 
     /**
@@ -403,13 +403,18 @@ export class UserUtilsService {
         return result
     }
 
-    /**裁剪账号分页字段，只保留列表展示和操作所需的关联摘要*/
+    /**裁剪账号分页字段，只保留列表展示和操作所需的关联摘要；直接修改原列表并返回原列表*/
     public toColumnUsers(users: UserDto.UserDetailResponseDto[]): UserDto.UserColumnResponseDto[] {
-        return users.map(({ memberships: _memberships, organizations, roles, ...user }) => ({
-            ...user,
-            organizations: organizations.map(({ keyId, name, code }) => ({ keyId, name, code })),
-            roles: roles.map(({ keyId, name, code }) => ({ keyId, name, code }))
-        }))
+        for (const user of users as Array<Partial<UserDto.UserDetailResponseDto>>) {
+            const organizations = user.organizations ?? []
+            const roles = user.roles ?? []
+            delete user.memberships
+            Object.assign(user, {
+                organizations: organizations.map(({ keyId, name, code }) => ({ keyId, name, code })),
+                roles: roles.map(({ keyId, name, code }) => ({ keyId, name, code }))
+            })
+        }
+        return users as unknown as UserDto.UserColumnResponseDto[]
     }
 
     /**校验操作者为超级管理员*/
