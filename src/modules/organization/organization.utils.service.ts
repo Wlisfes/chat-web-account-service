@@ -320,10 +320,16 @@ export class OrganizationUtilsService {
         }
     }
 
+    /**组织编码非必填，空白值统一保存为 NULL，避免唯一索引冲突*/
+    public normalizeCode(code?: string | null): string | null {
+        const value = code?.trim()
+        return isNotEmpty(value) ? value : null
+    }
+
     /**校验组织编码可用*/
     public async findCodeAvailable(manager: EntityManager, code: string, excludedKeyId?: number): Promise<void> {
         const exists = await this.database.builder(manager.getRepository(Schema.TbAccountOrganization), qb => {
-            qb.where('t.code = :code', { code: code.trim() })
+            qb.where('t.code = :code', { code })
             if (isNotEmpty(excludedKeyId)) {
                 qb.andWhere('t.keyId <> :excludedKeyId', { excludedKeyId })
             }
