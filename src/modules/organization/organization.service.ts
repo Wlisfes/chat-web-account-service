@@ -51,9 +51,13 @@ export class OrganizationService {
             await this.organizationUtilsService.lockTree(manager)
             const parentKeyId = input.parentKeyId ?? null
             await this.organizationUtilsService.findReferencesRequired(manager, parentKeyId, input.leaderUserUid)
-            await this.organizationUtilsService.findCodeAvailable(manager, input.code)
+            const code = this.organizationUtilsService.normalizeCode(input.code)
+            if (isNotEmpty(code)) {
+                await this.organizationUtilsService.findCodeAvailable(manager, code)
+            }
             const organization = manager.create(Schema.TbAccountOrganization, {
                 ...input,
+                code: code as unknown as string,
                 parentKeyId: parentKeyId as unknown as number
             })
             const saved = await manager.save(organization)
@@ -78,6 +82,9 @@ export class OrganizationService {
                 throw new BadRequestException('组织不能成为自己的父节点')
             }
             await this.organizationUtilsService.findReferencesRequired(manager, nextParentKeyId, fields.leaderUserUid)
+            if (fields.code !== undefined) {
+                fields.code = this.organizationUtilsService.normalizeCode(fields.code) as unknown as string
+            }
             if (isNotEmpty(fields.code) && fields.code !== organization.code) {
                 await this.organizationUtilsService.findCodeAvailable(manager, fields.code, keyId)
             }
