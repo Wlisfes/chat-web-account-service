@@ -9,29 +9,37 @@ export class SheetColumnQueryDto extends IntersectionType(
     PartialType(PickType(Schema.TbAccountSheetDto, ['parentKeyId', 'name', 'permissionCode', 'path'] as const))
 ) {}
 
+/** 创建目录、菜单或按钮节点入参：POST /sheet/create。 */
 export class CreateSheetDto extends IntersectionType(
     PickType(Schema.TbAccountSheetDto, ['parentKeyId', 'type', 'name', 'routeName', 'path', 'component']),
     PickType(Schema.TbAccountSheetDto, ['permissionCode', 'icon', 'externalUrl', 'sort', 'visible', 'keepAlive', 'status'])
 ) {}
 
+/** 获取完整菜单树响应：GET /sheet/tree/structure。 */
 export class SheetTreeNodeDto extends PickType(Schema.TbAccountSheetDto, ['keyId', 'parentKeyId', 'name', 'sort', 'type'] as const) {
     @ApiProperty({ description: '下级菜单节点', type: () => SheetTreeNodeDto, isArray: true, example: [] })
     children: SheetTreeNodeDto[]
 }
 
+/** UpdateSheetPayloadDto 的基类；更新或移动菜单节点入参：POST /sheet/update。 */
 export class UpdateSheetDto extends PartialType(CreateSheetDto) {}
 
+/** 入参：GET /sheet/resolve、POST /sheet/delete（获取菜单详情；删除没有下级和角色引用的菜单节点）。 */
 export class SheetKeyDto extends PickType(Schema.TbAccountSheetDto, ['keyId'] as const) {}
 
+/** 更新或移动菜单节点入参：POST /sheet/update。 */
 export class UpdateSheetPayloadDto extends IntersectionType(SheetKeyDto, UpdateSheetDto) {}
 
+/** 完整菜单树节点列表响应结构，当前没有接口引用。 */
 export class SheetTreeNodeResponseDto extends ListResponseDto(SheetTreeNodeDto, '完整菜单树节点列表') {}
 
+/** 按父菜单分页查询一级及直接下级节点响应：POST /sheet/column。 */
 export class SheetPageResponseDto extends PageListResponseDto(
     Schema.TbAccountSheetDto,
     '菜单平铺分页数据；parentKeyId 为空返回一级节点，否则将指定节点排在第一条并返回其直接下级节点'
 ) {}
 
+/** 获取菜单类型、状态和显示状态枚举响应：GET /sheet/enums。 */
 export class SheetEnumsResponseDto extends EnumsResponseDto({
     typeOptions: { description: '菜单类型选项', example: Schema.TbAccountSheetTypeDefinition.options },
     statusOptions: { description: '菜单状态选项', example: Schema.TbAccountSheetStatusDefinition.options },

@@ -35,6 +35,7 @@ class PostKeyIdsDto {
     levelKeyIds?: number[]
 }
 
+/** 分页查询账号入参：POST /user/column。 */
 export class UserQueryDto extends IntersectionType(PageDto, PostKeyIdsDto) {
     @ApiPropertyOptional({ description: '按工号、姓名、手机号或邮箱模糊查询', example: '张三' })
     @IsOptional()
@@ -69,6 +70,7 @@ export class UserQueryDto extends IntersectionType(PageDto, PostKeyIdsDto) {
     roleKeyId?: number
 }
 
+/** ReplaceUserOrganizationsDto.memberships 字段结构；替换账号的主组织和兼任组织入参：POST /user/update/organization。 */
 export class UserOrganizationMembershipDto {
     @ApiProperty({ description: '组织主键', example: 1 })
     @IsInt({ message: '组织主键必须是整数' })
@@ -97,6 +99,7 @@ export class UserOrganizationMembershipDto {
     status: Schema.TbAccountUserOrganizationStatus = Schema.TbAccountUserOrganizationStatus.ENABLED
 }
 
+/** ReplaceUserOrganizationsPayloadDto 的基类；替换账号的主组织和兼任组织入参：POST /user/update/organization。 */
 export class ReplaceUserOrganizationsDto {
     @ApiPropertyOptional({
         description: '用户的完整组织关系；空数组表示清空',
@@ -120,6 +123,7 @@ export class ReplaceUserOrganizationsDto {
     organizationKeyIds?: number[]
 }
 
+/** ReplaceUserRolesPayloadDto 的基类；替换账号的全部角色入参：POST /user/update/role。 */
 export class ReplaceUserRolesDto {
     @ApiProperty({ description: '用户拥有的全部角色主键；空数组表示清空', type: [Number], example: [1, 2] })
     @IsArray({ message: '角色主键列表必须是数组' })
@@ -130,6 +134,7 @@ export class ReplaceUserRolesDto {
     roleKeyIds: number[]
 }
 
+/** 创建账号并可原子设置组织和角色入参：POST /user/create。 */
 export class CreateUserDto extends IntersectionType(
     PickType(Schema.TbAccountUserDto, [
         'number',
@@ -176,6 +181,7 @@ export class CreateUserDto extends IntersectionType(
     roleKeyIds?: number[]
 }
 
+/** UpdateUserPayloadDto 的基类；更新账号资料和状态入参：POST /user/update。 */
 export class UpdateUserDto extends IntersectionType(
     PartialType(
         PickType(Schema.TbAccountUserDto, [
@@ -193,6 +199,7 @@ export class UpdateUserDto extends IntersectionType(
     PostKeyIdsDto
 ) {}
 
+/** ResetUserPasswordPayloadDto 的基类；超级管理员重置账号密码入参：POST /user/reset/password。 */
 export class ResetUserPasswordDto {
     @ApiProperty({ description: '新密码', example: 'NewPassword2026', writeOnly: true })
     @IsString({ message: '新密码必须是字符串' })
@@ -201,6 +208,7 @@ export class ResetUserPasswordDto {
     password: string
 }
 
+/** 获取账号详情入参：GET /user/resolve。 */
 export class UserUidDto {
     @ApiProperty({ description: '账号 UID', example: '2026082200000000001' })
     @IsString({ message: '账号UID必须是字符串' })
@@ -208,20 +216,28 @@ export class UserUidDto {
     uid: string
 }
 
+/** 更新账号资料和状态入参：POST /user/update。 */
 export class UpdateUserPayloadDto extends IntersectionType(UserUidDto, UpdateUserDto) {}
 
+/** 超级管理员重置账号密码入参：POST /user/reset/password。 */
 export class ResetUserPasswordPayloadDto extends IntersectionType(UserUidDto, ResetUserPasswordDto) {}
 
+/** 替换账号的主组织和兼任组织入参：POST /user/update/organization。 */
 export class ReplaceUserOrganizationsPayloadDto extends IntersectionType(UserUidDto, ReplaceUserOrganizationsDto) {}
 
+/** 替换账号的全部角色入参：POST /user/update/role。 */
 export class ReplaceUserRolesPayloadDto extends IntersectionType(UserUidDto, ReplaceUserRolesDto) {}
 
+/** 响应：POST /user/create、POST /user/update（创建账号并可原子设置组织和角色；更新账号资料和状态）。 */
 export class AccountUserResponseDto extends OmitType(Schema.TbAccountUserDto, ['password'] as const) {}
 
+/** 获取账号下拉选项响应：GET /user/select。 */
 export class AccountUserSelectResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
 
+/** OrganizationUserResponseDto 的基类；按组织主键获取该组织的直接启用成员响应：GET /dept/column/user。 */
 export class AccountUserSummaryResponseDto extends PickType(AccountUserResponseDto, ['uid', 'number', 'name', 'avatar'] as const) {}
 
+/** UserDetailResponseDto.organizations 字段结构；获取账号详情响应：GET /user/resolve。 */
 export class UserOrganizationResponseDto extends Schema.TbAccountOrganizationDto {
     @ApiProperty({ description: '是否为主组织', example: true })
     isPrimary: boolean
@@ -237,6 +253,7 @@ export class UserOrganizationResponseDto extends Schema.TbAccountOrganizationDto
     membershipStatus: Schema.TbAccountUserOrganizationStatus
 }
 
+/** 获取账号详情响应：GET /user/resolve。 */
 export class UserDetailResponseDto extends AccountUserResponseDto {
     @ApiProperty({ description: '账号组织关系', type: [Schema.TbAccountUserOrganizationDto] })
     memberships: Schema.TbAccountUserOrganizationDto[]
@@ -266,10 +283,13 @@ export class UserDetailResponseDto extends AccountUserResponseDto {
     levels: UserChunkResponseDto[]
 }
 
+/** UserColumnResponseDto.organizations 字段结构；分页查询账号响应：POST /user/column。 */
 export class UserColumnOrganizationResponseDto extends PickType(Schema.TbAccountOrganizationDto, ['keyId', 'name', 'code'] as const) {}
 
+/** UserColumnResponseDto.roles 字段结构；分页查询账号响应：POST /user/column。 */
 export class UserColumnRoleResponseDto extends PickType(Schema.TbAccountRoleDto, ['keyId', 'name', 'code'] as const) {}
 
+/** UserPageResponseDto.list 字段结构；分页查询账号响应：POST /user/column。 */
 export class UserColumnResponseDto extends OmitType(UserDetailResponseDto, ['memberships', 'organizations', 'roles'] as const) {
     @ApiProperty({ description: '账号所属组织', type: [UserColumnOrganizationResponseDto] })
     organizations: UserColumnOrganizationResponseDto[]
@@ -278,11 +298,13 @@ export class UserColumnResponseDto extends OmitType(UserDetailResponseDto, ['mem
     roles: UserColumnRoleResponseDto[]
 }
 
+/** 分页查询账号响应：POST /user/column。 */
 export class UserPageResponseDto extends PageResponseDataDto {
     @ApiProperty({ description: '账号列表', type: [UserColumnResponseDto] })
     list: UserColumnResponseDto[]
 }
 
+/** 获取账号状态、员工状态和组织关系状态枚举响应：GET /user/enums。 */
 export class UserEnumsResponseDto extends EnumsResponseDto({
     statusOptions: { description: '账号状态选项', example: Schema.TbAccountUserStatusDefinition.options },
     employmentStatusOptions: { description: '员工状态选项', example: Schema.TbAccountUserEmploymentStatusDefinition.options },

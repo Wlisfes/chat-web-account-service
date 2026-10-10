@@ -18,6 +18,7 @@ import {
 } from 'class-validator'
 import * as Schema from '@wlisfes/chat-web-base-schema'
 
+/** ReplaceRoleSheetsPayloadDto 的基类；替换角色的全部菜单和按钮权限入参：POST /role/update/sheet。 */
 export class ReplaceRoleSheetsDto {
     @ApiProperty({ description: '角色拥有的全部菜单主键；空数组表示清空', type: [Number], example: [1, 2, 3] })
     @IsArray({ message: '菜单主键列表必须是数组' })
@@ -28,6 +29,7 @@ export class ReplaceRoleSheetsDto {
     sheetKeyIds: number[]
 }
 
+/** RoleDataScopeRuleDto.organizations 字段结构；创建角色入参：POST /role/create。 */
 export class DataScopeOrganizationGrantDto {
     @ApiProperty({ description: '授权组织主键', example: 1 })
     @IsInt({ message: '授权组织主键必须是整数' })
@@ -39,6 +41,7 @@ export class DataScopeOrganizationGrantDto {
     includeChildren: boolean
 }
 
+/** RoleDataScopesDto.dataScopes 字段结构；创建角色入参：POST /role/create。 */
 export class RoleDataScopeRuleDto {
     @ApiProperty({ description: '业务资源编码；星号表示默认规则', example: 'chat:account:user' })
     @IsString({ message: '业务资源编码必须是字符串' })
@@ -79,6 +82,7 @@ export class RoleDataScopeRuleDto {
     organizations?: DataScopeOrganizationGrantDto[]
 }
 
+/** CreateRoleDto 的基类；创建角色入参：POST /role/create。 */
 export class RoleDataScopesDto {
     @ApiProperty({
         description: '角色的完整数据范围规则；空数组表示清空',
@@ -99,13 +103,16 @@ export class RoleDataScopesDto {
     dataScopes: RoleDataScopeRuleDto[]
 }
 
+/** 创建角色入参：POST /role/create。 */
 export class CreateRoleDto extends IntersectionType(
     PickType(Schema.TbAccountRoleDto, ['code', 'name', 'description', 'sort', 'status'] as const),
     RoleDataScopesDto
 ) {}
 
+/** UpdateRolePayloadDto 的基类；更新角色入参：POST /role/update。 */
 export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
 
+/** 入参：GET /role/resolve、POST /role/delete（获取角色、菜单和数据范围详情；删除未分配用户的非内置角色）。 */
 export class RoleKeyDto {
     @ApiProperty({ description: '角色主键', example: 1 })
     @Type(() => Number)
@@ -114,6 +121,7 @@ export class RoleKeyDto {
     keyId: number
 }
 
+/** 入参：POST /role/link/user、POST /role/unlink/user（批量关联角色用户；批量移除角色用户）。 */
 export class RoleUserPayloadDto extends RoleKeyDto {
     @ApiProperty({ description: '账号UID列表', type: [String], example: ['2281665656346656771'] })
     @IsArray({ message: '账号UID列表必须是数组' })
@@ -124,10 +132,13 @@ export class RoleUserPayloadDto extends RoleKeyDto {
     uids: string[]
 }
 
+/** 更新角色入参：POST /role/update。 */
 export class UpdateRolePayloadDto extends IntersectionType(RoleKeyDto, UpdateRoleDto) {}
 
+/** UpdateRoleSortPayloadDto.list 字段结构；批量更新角色排序入参：POST /role/sort/update。 */
 export class RoleSortItemDto extends PickType(Schema.TbAccountRoleDto, ['keyId', 'sort'] as const) {}
 
+/** 批量更新角色排序入参：POST /role/sort/update。 */
 export class UpdateRoleSortPayloadDto {
     @ApiProperty({ description: '角色排序列表', type: [RoleSortItemDto], example: [{ keyId: 1, sort: 10 }] })
     @IsArray({ message: '角色排序列表必须是数组' })
@@ -138,15 +149,19 @@ export class UpdateRoleSortPayloadDto {
     list: RoleSortItemDto[]
 }
 
+/** 替换角色的全部菜单和按钮权限入参：POST /role/update/sheet。 */
 export class ReplaceRoleSheetsPayloadDto extends IntersectionType(RoleKeyDto, ReplaceRoleSheetsDto) {}
 
+/** RoleDataScopeResponseDto.organizations 字段结构；获取角色、菜单和数据范围详情响应：GET /role/resolve。 */
 export class RoleDataScopeOrganizationResponseDto extends Schema.TbAccountRoleDataScopeOrganizationDto {}
 
+/** RoleResponseDto.dataScopes 字段结构；获取角色、菜单和数据范围详情响应：GET /role/resolve。 */
 export class RoleDataScopeResponseDto extends Schema.TbAccountRoleDataScopeDto {
     @ApiProperty({ description: '自定义数据范围组织', type: [RoleDataScopeOrganizationResponseDto] })
     organizations: RoleDataScopeOrganizationResponseDto[]
 }
 
+/** 获取角色、菜单和数据范围详情响应：GET /role/resolve。 */
 export class RoleResponseDto extends Schema.TbAccountRoleDto {
     @ApiProperty({ description: '角色拥有的菜单主键', type: [Number], required: false, example: [1, 2, 3] })
     sheetKeyIds?: number[]
@@ -155,6 +170,7 @@ export class RoleResponseDto extends Schema.TbAccountRoleDto {
     dataScopes: RoleDataScopeResponseDto[]
 }
 
+/** RoleConfigerResponseDto.tree 字段结构；获取通用角色列表和岗位角色树响应：GET /role/configer。 */
 export class RoleConfigerTreeNodeResponseDto extends PickType(Schema.TbAccountOrganizationDto, [
     'keyId',
     'parentKeyId',
@@ -175,6 +191,7 @@ export class RoleConfigerTreeNodeResponseDto extends PickType(Schema.TbAccountOr
     children: RoleConfigerTreeNodeResponseDto[]
 }
 
+/** 获取通用角色列表和岗位角色树响应：GET /role/configer。 */
 export class RoleConfigerResponseDto {
     @ApiProperty({ description: '通用角色列表', type: [RoleResponseDto] })
     list: RoleResponseDto[]
@@ -183,6 +200,7 @@ export class RoleConfigerResponseDto {
     tree: RoleConfigerTreeNodeResponseDto[]
 }
 
+/** 获取角色状态和数据范围枚举响应：GET /role/enums。 */
 export class RoleEnumsResponseDto extends EnumsResponseDto({
     statusOptions: { description: '角色状态选项', example: Schema.TbAccountRoleStatusDefinition.options },
     scopeTypeOptions: { description: '数据范围类型选项', example: Schema.TbAccountRoleDataScopeTypeDefinition.options },
