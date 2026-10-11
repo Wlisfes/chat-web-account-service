@@ -28,7 +28,7 @@
 ## Project setup
 
 ```bash
-$ yarn install
+$ node scripts/yarn-auth.cjs install --frozen-lockfile --check-files --ignore-scripts
 ```
 
 ## Compile and run the project
