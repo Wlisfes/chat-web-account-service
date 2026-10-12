@@ -110,6 +110,10 @@ export class CronSchedulerService implements OnApplicationBootstrap, OnModuleDes
         const remaining = next.getTime() - Date.now()
         const requiresRecalculation = remaining > constants.TASK_MAX_TIMER_DELAY_MS
         const delay = Math.max(100, Math.min(remaining, constants.TASK_MAX_TIMER_DELAY_MS))
+        this.logger.log(
+            `已注册调度：${task.taskName}（taskId=${taskId}，Cron=${task.cron}，下次执行=${next.toLocaleString('zh-CN', { hour12: false })}）`,
+            CronSchedulerService.name
+        )
         await this.repository.update({ taskId }, { nextTime: next } as never).catch(error => {
             this.logger.warn(`更新任务 ${taskId} 下次执行时间失败：${this.errorMessage(error)}`, CronSchedulerService.name)
         })
