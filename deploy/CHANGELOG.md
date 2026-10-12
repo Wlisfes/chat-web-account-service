@@ -1,5 +1,14 @@
 # 部署变更记录
 
+## 2026-10-12：Account 服务下线
+
+- 影响机器：`chat-home-server`。
+- 变更内容：账号、菜单、角色、组织功能和数据已迁移到 `chat-web-skyline-service`（`tb_skyline_*`），Auth/CRM/Finance/Gateway/管理端均已切换。Gateway 已删除 `/api/account`、`/api/account/auth`、`/feign/account` 路由，Auth Nacos 已删除 `database.chat-web-account` 节点。
+- 机器侧操作：`docker update --restart=no chat-web-account-service` 后执行 `docker stop chat-web-account-service`，Nacos 临时实例已自动摘除。容器、镜像、`/opt/chat-web-account-service` 与 `chat-web-account` 库暂时保留，服务后续改造为其他功能后再重新上线。
+- 注意：在改造完成前不要向 `main` 推送或手动运行 `Build and deploy`，否则旧服务会被重新部署并注册到 Nacos。
+- 验证命令：`docker ps -a --filter name=chat-web-account-service` 为 Exited；`https://chat.lisfes.cn/api/account/health` 返回业务 404；Auth/Skyline/CRM/Finance 健康检查为 UP。
+- 回滚方法：`docker update --restart=unless-stopped chat-web-account-service && docker start chat-web-account-service`，并在 Gateway Nacos 恢复 Account 路由。
+
 ## 2026-09-20：发布 v1.0.3
 
 - 影响机器：`chat-home-server`。

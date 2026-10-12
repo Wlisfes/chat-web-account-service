@@ -1,5 +1,7 @@
 # Account 服务部署与故障恢复手册
 
+> **2026-10-12 已下线**：功能与数据已迁移到 `chat-web-skyline-service`，容器已停止且 `restart=no`，Gateway 不再转发 `/api/account`、`/feign/account`。改造完成前不要推送 `main` 或手动运行部署流水线；重新上线前需同步恢复 Gateway 路由。
+
 ## 日志排障
 
 容器日志为单行 JSON，日志中的 `requestId` 可串联网关和业务服务。容器启动后可直接检查标准输出和日志轮转配置：
