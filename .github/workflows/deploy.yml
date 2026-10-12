@@ -1,0 +1,191 @@
+name: Build and deploy
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+jobs:
+    verify:
+        name: Verify service
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: read
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: yarn
+                  registry-url: https://npm.pkg.github.com
+                  scope: '@wlisfes'
+
+            - name: Install dependencies
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: yarn install --frozen-lockfile --non-interactive
+
+            - name: Run complete verification
+              run: yarn format:check && yarn test
+
+    build:
+        name: Build and publish image
+        needs: verify
+        runs-on: ubuntu-latest
+        concurrency:
+            group: build-${{ github.ref }}
+            cancel-in-progress: true
+        permissions:
+            contents: read
+            packages: write
+        outputs:
+            image: ${{ steps.image.outputs.name }}
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Resolve image name
+              id: image
+              shell: bash
+              run: |
+                  repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+                  echo "name=${repository}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                  echo "latest=${repository}:latest" >> "$GITHUB_OUTPUT"
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and push image
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  push: true
+                  tags: |
+                      ${{ steps.image.outputs.name }}
+                      ${{ steps.image.outputs.latest }}
+                  labels: |
+                      org.opencontainers.image.revision=${{ github.sha }}
+                      org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  secrets: |
+                      github_token=${{ secrets.GITHUB_TOKEN }}
+
+    deploy-home:
+        name: Deploy to chat-home-server
+        needs: build
+        runs-on:
+            - self-hosted
+            - linux
+            - chat-home-server
+        environment: production-home
+        concurrency:
+            group: deploy-chat-home-server
+            cancel-in-progress: true
+        permissions:
+            contents: read
+            packages: read
+        env:
+            DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/chat-web-task-service' }}
+            DEPLOYMENT_ENVIRONMENT: production-home
+            IMAGE: ${{ needs.build.outputs.image }}
+
+        steps:
+            - name: Check out deployment files
+              uses: actions/checkout@v4
+
+            - name: Validate chat-home-server Docker host
+              shell: bash
+              run: |
+                  set -eu
+                  [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "DEPLOY_PATH must be an absolute path" >&2; exit 1; }
+                  command -v docker >/dev/null
+                  export DOCKER_CONFIG="$RUNNER_TEMP/chat-web-task-service-docker-config"
+                  printf 'DOCKER_CONFIG=%s\n' "$DOCKER_CONFIG" >> "$GITHUB_ENV"
+                  mkdir -p "$DOCKER_CONFIG"
+                  chmod 700 "$DOCKER_CONFIG"
+                  runner_compose_plugin=/home/runner/.docker/cli-plugins/docker-compose
+                  if [ -x "$runner_compose_plugin" ]; then
+                    install -d -m 0700 "$DOCKER_CONFIG/cli-plugins"
+                    install -m 0755 "$runner_compose_plugin" "$DOCKER_CONFIG/cli-plugins/docker-compose"
+                  fi
+                  docker compose version
+                  docker info >/dev/null
+                  docker network inspect chat-web-infrastructure >/dev/null
+                  mkdir -p "$DEPLOY_PATH"
+                  test -w "$DEPLOY_PATH" || { echo "$DEPLOY_PATH is not writable by the runner user" >&2; exit 1; }
+
+            - name: Install deployment files
+              shell: bash
+              run: |
+                  set -eu
+                  install -m 0644 deploy/compose.yml "$DEPLOY_PATH/compose.yml"
+                  install -m 0755 deploy/deploy.sh "$DEPLOY_PATH/deploy.sh"
+                  install -m 0600 deploy/.env.example "$DEPLOY_PATH/.env.example"
+                  if [ ! -f "$DEPLOY_PATH/.env" ]; then
+                    install -m 0600 deploy/.env.example "$DEPLOY_PATH/.env"
+                    echo "Initialized $DEPLOY_PATH/.env; machine-specific values must be configured before deployment." >&2
+                    exit 1
+                  fi
+
+            - name: 清理 Nacos 注册地址覆盖项
+              shell: bash
+              run: |
+                  set -eu
+                  # Task 服务不发布宿主机端口，只能注册容器网卡 IP 供同一 Docker 网络中的 Gateway 访问。
+                  sed -i -E '/^NACOS_(REGISTER_IP|REQUEST_TIMEOUT|REGISTER_PORT|REGISTER_REQUIRED|GROUP|CONFIG_GROUP)=/d' "$DEPLOY_PATH/.env"
+
+            - name: Pull and deploy image
+              shell: bash
+              env:
+                  GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -eu
+                  attempt=1
+                  until printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username '${{ github.actor }}' --password-stdin; do
+                    [ "$attempt" -lt 8 ] || exit 1
+                    delay=$((attempt * 5))
+                    echo "GHCR login attempt $attempt failed; retrying in ${delay}s." >&2
+                    sleep "$delay"
+                    attempt=$((attempt + 1))
+                  done
+                  cd "$DEPLOY_PATH"
+                  DEPLOYMENT_ENVIRONMENT="$DEPLOYMENT_ENVIRONMENT" ./deploy.sh "$IMAGE" compose.yml
+
+            - name: Verify container and Gateway exposure
+              shell: bash
+              run: |
+                  set -eu
+                  docker exec chat-web-task-service node -e "require('http').get('http://127.0.0.1:5010/health/live', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+                  published_ports=$(docker port chat-web-task-service 2>/dev/null || true)
+                  [ -z "$published_ports" ] || { echo "Task 服务不得发布宿主机端口：$published_ports" >&2; exit 1; }
+                  # Task 只允许服务间 /feign/task 调用，公网业务入口 /api/task 必须不可达。
+                  output=$(docker exec chat-web-gateway-service node -e '
+                    fetch("http://127.0.0.1:5000/api/task/health/live")
+                      .then(async (response) => {
+                        const body = await response.text();
+                        console.log("status=" + response.status + " body=" + body);
+                        if (body.includes("\"status\":\"UP\"")) process.exit(1);
+                      })
+                      .catch((error) => { console.error(String(error)); process.exit(1); });
+                  ' 2>&1) || { printf "Task 服务被 /api/task 暴露：%s\n" "$output" >&2; exit 1; }
+                  printf "%s\n" "$output"
+
+            - name: Log out from GitHub Container Registry
+              if: always()
+              shell: bash
+              run: docker logout ghcr.io >/dev/null 2>&1 || true

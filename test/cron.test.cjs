@@ -1,0 +1,188 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const { HttpException } = require('@nestjs/common')
+const { CronExecutionService } = require('../dist/modules/cron/cron-execution.service')
+const { CronExpressionService } = require('../dist/modules/cron/cron-expression.service')
+const { isRetryableTaskError, TaskNonRetryableError } = require('../dist/modules/cron/handlers/task-handler.interface')
+const constants = require('../dist/modules/cron/cron.constants')
+
+const logger = { log() {}, warn() {}, error() {} }
+const task = {
+    taskId: '2149446185344106496',
+    taskName: '汇率同步定时任务',
+    handler: 'datetask-sync-exchange-rate',
+    body: {},
+    maxAttempts: 3
+}
+
+/** 内存版执行记录仓库，模拟唯一业务键、条件更新抢占和按状态查询。 */
+function createRepository() {
+    const rows = new Map()
+    const match = (row, where) =>
+        Object.entries(where).every(([key, value]) => (value && value._type === 'lessThan' ? row[key] < value._value : row[key] === value))
+    return {
+        rows,
+        create: values => ({ ...values }),
+        async insert(record) {
+            for (const row of rows.values()) {
+                if (row.bizKey === record.bizKey) throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' })
+            }
+            rows.set(record.executionId, { ...record, createTime: new Date(), modifyTime: new Date() })
+        },
+        async findOne({ where }) {
+            return [...rows.values()].find(row => match(row, where)) ?? null
+        },
+        async update(where, values) {
+            let affected = 0
+            for (const row of rows.values()) {
+                if (match(row, where)) {
+                    Object.assign(row, values, { modifyTime: new Date() })
+                    affected += 1
+                }
+            }
+            return { affected }
+        },
+        createQueryBuilder() {
+            const state = {}
+            const builder = {
+                update: () => builder,
+                set: values => ((state.set = values), builder),
+                where: (_sql, params) => ((state.executionId = params.executionId), builder),
+                andWhere: (_sql, params) => ((state.statuses = params.statuses), builder),
+                async execute() {
+                    const row = rows.get(state.executionId)
+                    if (!row || !state.statuses.includes(row.status)) return { affected: 0 }
+                    row.status = state.set.status
+                    row.attempts += 1
+                    row.nextRetryTime = null
+                    row.startTime = row.startTime ?? new Date()
+                    return { affected: 1 }
+                }
+            }
+            return builder
+        }
+    }
+}
+
+function createService(handler, { publishFails = false } = {}) {
+    const repository = createRepository()
+    const published = []
+    const rabbitmqService = {
+        async publish(exchange, routingKey, payload) {
+            if (publishFails) throw new Error('mq down')
+            published.push([exchange, routingKey, payload.executionId])
+        },
+        async consume() {}
+    }
+    const handlers = handler ? [{ handler: task.handler, execute: handler }] : []
+    return { service: new CronExecutionService(repository, rabbitmqService, handlers, logger), repository, published }
+}
+
+const systemInput = scheduledTime => ({ task, triggerType: 'system', scheduledTime, operatorUid: '0' })
+
+test('系统调度同一计划时间只生成一条执行记录，多实例重复触发返回同一条', async () => {
+    const { service, repository, published } = createService(async () => ({}))
+    const at = new Date('2026-10-12T08:00:00+08:00')
+    const first = await service.create(systemInput(at))
+    const second = await service.create(systemInput(at))
+    assert.equal(first.executionId, second.executionId)
+    assert.equal(repository.rows.size, 1)
+    assert.equal(published.length, 1)
+    assert.match(first.bizKey, /^2149446185344106496:\d{14}$/)
+    assert.equal(first.status, 'pending')
+})
+
+test('手动触发每次生成独立执行记录', async () => {
+    const { service, repository } = createService(async () => ({}))
+    await service.create({ task, triggerType: 'manual', scheduledTime: new Date(), operatorUid: '1001' })
+    await service.create({ task, triggerType: 'manual', scheduledTime: new Date(), operatorUid: '1001' })
+    assert.equal(repository.rows.size, 2)
+    for (const row of repository.rows.values()) assert.match(row.bizKey, /:manual:\d+$/)
+})
+
+test('投递失败时执行记录仍保留为待执行且未标记投递时间，由补发扫描重投', async () => {
+    const { service, repository } = createService(async () => ({}), { publishFails: true })
+    const record = await service.create(systemInput(new Date()))
+    const row = repository.rows.get(record.executionId)
+    assert.equal(row.status, 'pending')
+    assert.equal(row.publishTime, undefined)
+})
+
+test('执行成功写入结果摘要；重复投递同一条记录不会重复执行', async () => {
+    let calls = 0
+    const { service, repository } = createService(async () => {
+        calls += 1
+        return { date: '2026-10-12', count: 30 }
+    })
+    const record = await service.create(systemInput(new Date()))
+    await service.consume({ executionId: record.executionId })
+    await service.consume({ executionId: record.executionId })
+    const row = repository.rows.get(record.executionId)
+    assert.equal(calls, 1)
+    assert.equal(row.status, 'success')
+    assert.equal(row.attempts, 1)
+    assert.deepEqual(row.result, { date: '2026-10-12', count: 30 })
+})
+
+test('可重试错误按梯度进入延迟重试队列，超过最大尝试次数后标记失败并进入死信', async () => {
+    const { service, repository, published } = createService(async () => {
+        throw new Error('Finance服务暂不可用')
+    })
+    const record = await service.create(systemInput(new Date()))
+    await service.consume({ executionId: record.executionId })
+    let row = repository.rows.get(record.executionId)
+    assert.equal(row.status, 'retrying')
+    assert.ok(row.nextRetryTime instanceof Date)
+    assert.deepEqual(published.at(-1), ['', constants.taskRetryQueue(constants.TASK_RETRY_DELAYS_MS[0]), record.executionId])
+
+    await service.consume({ executionId: record.executionId })
+    assert.deepEqual(published.at(-1), ['', constants.taskRetryQueue(constants.TASK_RETRY_DELAYS_MS[1]), record.executionId])
+
+    await service.consume({ executionId: record.executionId })
+    row = repository.rows.get(record.executionId)
+    assert.equal(row.attempts, 3)
+    assert.equal(row.status, 'failed')
+    assert.equal(row.error, 'Finance服务暂不可用')
+    assert.deepEqual(published.at(-1), [constants.TASK_DEAD_EXCHANGE, constants.TASK_DEAD_ROUTING_KEY, record.executionId])
+})
+
+test('不可重试错误和未注册处理器直接标记失败', async () => {
+    const nonRetryable = createService(async () => {
+        throw new TaskNonRetryableError('参数错误')
+    })
+    const record = await nonRetryable.service.create(systemInput(new Date()))
+    await nonRetryable.service.consume({ executionId: record.executionId })
+    assert.equal(nonRetryable.repository.rows.get(record.executionId).status, 'failed')
+
+    const missing = createService(undefined)
+    const other = await missing.service.create(systemInput(new Date()))
+    await missing.service.consume({ executionId: other.executionId })
+    const row = missing.repository.rows.get(other.executionId)
+    assert.equal(row.status, 'failed')
+    assert.match(row.error, /未注册的任务处理器/)
+})
+
+test('错误分类：网络错误、5xx、408、429 可重试，其余 4xx 不重试', () => {
+    assert.equal(isRetryableTaskError(new Error('ECONNREFUSED')), true)
+    assert.equal(isRetryableTaskError(new HttpException('x', 503)), true)
+    assert.equal(isRetryableTaskError(new HttpException('x', 429)), true)
+    assert.equal(isRetryableTaskError(new HttpException('x', 400)), false)
+    assert.equal(isRetryableTaskError(new TaskNonRetryableError('x')), false)
+})
+
+test('重试延迟梯度按尝试次数递增，超出梯度取最大值', () => {
+    assert.equal(constants.taskRetryDelay(1), 60_000)
+    assert.equal(constants.taskRetryDelay(2), 300_000)
+    assert.equal(constants.taskRetryDelay(99), constants.TASK_RETRY_DELAYS_MS.at(-1))
+})
+
+test('Cron 表达式支持 5 段和 6 段并正确计算下次执行时间', () => {
+    const cron = new CronExpressionService()
+    assert.equal(cron.normalizeCron('  0  0 8,20 * * * '), '0 0 8,20 * * *')
+    assert.throws(() => cron.normalizeCron('* * *'), /5段或6段/)
+    assert.throws(() => cron.normalizeCron('0 0 25 * * *'), /第3段格式错误/)
+    const next = cron.getNextRun('0 0 8,20 * * *', new Date(2026, 9, 12, 8, 0, 0, 500))
+    assert.deepEqual([next.getHours(), next.getMinutes(), next.getSeconds()], [20, 0, 0])
+    const fiveField = cron.getNextRun('30 9 * * *', new Date(2026, 9, 12, 10, 0, 0))
+    assert.deepEqual([fiveField.getDate(), fiveField.getHours(), fiveField.getMinutes()], [13, 9, 30])
+})
