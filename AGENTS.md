@@ -203,11 +203,23 @@
 
 ### 当前工程边界
 
-- 本仓库由已下线的 `chat-web-account-service` 重置而来，当前是默认 NestJS 空服务，仅保留首页接口；原账号、菜单、角色、组织功能和数据已迁移到 `chat-web-skyline-service`，不得在本仓库恢复。
-- 具体业务职责确定前，不接入数据库、Redis、Nacos 或 Feign，也不新增业务模块；业务确定后再按 Skyline 基准补齐 `src/health/`、`src/feign/`、`src/database/` 等基础设施，并同步补充本节规则。
-- 新功能在 `developer` 分支开发，只提交并推送 `developer`。
+- 本仓库由已下线的 `chat-web-account-service` 重置而来；原账号、菜单、角色、组织功能和数据已迁移到 `chat-web-skyline-service`，不得在本仓库恢复。
+- 本服务负责全部定时任务：周期任务定义、Cron 调度、执行记录、RabbitMQ 投递、失败重试和死信。定时任务已从 Skyline 迁出，Skyline 只保留管理页面接口并通过 `/feign/task` 转发。
+- 只保留 Cron 周期任务；一次性任务、手动任务等类型在出现真实场景前不得新增。任务定义由 `src/modules/cron/cron.constants.ts` 的 `TASK_CRON_DEFINITIONS` 在启动时幂等写入，页面不提供新增和删除。
+- 数据库只使用 `chat-web-task`（Nacos `database.chat-web-task`），表结构来自 `@wlisfes/chat-web-base-schema/chat-web-task-mysql`。task 库只保存调度定义和执行状态，执行结果只存摘要；汇率、短信记录等业务数据必须留在数据所属服务的库中。
+- RabbitMQ 只使用虚拟主机 `/chat-task`（Nacos `rabbitmq` 节点），队列统一使用 `chat.task.*` 前缀；消息只携带执行记录ID，消费者回库读取详情。
+- 新增任务时：在 `TASK_CRON_DEFINITIONS` 登记任务定义，在 `src/modules/cron/handlers/` 实现 `TaskHandler` 并注册到 `TASK_HANDLERS`，下游接口必须能按业务键安全重复调用，同时补充测试。
+- 处理器调用其他服务统一使用共享 Feign 客户端和 `gateway.feign.service_token`，不转发用户令牌。
+
+### 接口暴露边界
+
+- 本服务的接口不对外暴露：业务接口只有继承 `FeignClientTaskManager` 的 `/feign/task/**` 服务间接口，由服务间凭据校验；不得新增普通 Controller 业务接口，Gateway 不得配置 `/api/task`。
+- 只有首页 `/` 和 `/health/live` 不需要凭据，用于 Docker 健康检查和 Gateway 探活，不返回业务数据。
+- 用户登录和按钮权限在 Skyline 校验；写操作的操作人 UID 由 Skyline 校验后作为参数传入，本服务只记录不鉴权。
 
 ### 部署边界
 
-- 本仓库尚未建立新的部署流水线、Dockerfile 和 Nacos 配置；改造完成并获得用户明确发布指令前，不得向 `main` 推送、合并 PR 或运行任何部署流水线，避免旧 Account 部署被重新触发或注册到 Nacos。
-- 重新上线时按 Skyline 基准补齐 `Dockerfile`、`.github/workflows/`、`deploy/`（含 `CHANGELOG.md`、`RUNBOOK.md`）、`.env.example` 和 Gateway 路由，并在 `deploy/CHANGELOG.md` 记录上线变更。
+- 只部署到当前主机 `chat-home-server`；容器不发布宿主机端口，只在 `chat-web-infrastructure` Docker 网络中开放 5010，不得配置 `NACOS_REGISTER_IP`。
+- 部署前由 `dist/cli/apply-schema-bootstrap.js` 以临时单库账号执行 Task 增量 SQL。
+- 修改 Docker、端口、健康检查或部署流程时，必须同步更新 `deploy/CHANGELOG.md` 与 `deploy/RUNBOOK.md`。
+- 获得用户明确发布指令前，不得向 `main` 推送、合并 PR 或运行部署流水线。

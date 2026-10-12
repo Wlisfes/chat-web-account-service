@@ -1,0 +1,33 @@
+name: chat-web-service
+
+x-logging: &default-logging
+    driver: json-file
+    options:
+        max-size: '20m'
+        max-file: '30'
+
+services:
+    task-service:
+        image: ${IMAGE:?IMAGE is required}
+        container_name: chat-web-task-service
+        restart: unless-stopped
+        logging: *default-logging
+        init: true
+        env_file:
+            - ${ENV_FILE:-.env}
+        environment:
+            NODE_ENV: production
+            PORT: 5010
+            TZ: ${TZ:-Asia/Shanghai}
+        # Task 服务的接口不对外暴露：不发布宿主机端口，只在 Docker 内部网络开放，
+        # Gateway 通过 Nacos 注册的容器网卡 IP 访问 /feign/task。
+        expose:
+            - '5010'
+        networks:
+            - infrastructure
+        stop_grace_period: 20s
+
+networks:
+    infrastructure:
+        external: true
+        name: ${DOCKER_NETWORK:-chat-web-infrastructure}
