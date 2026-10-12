@@ -1,5 +1,12 @@
 # 部署变更记录
 
+## 2026-10-12：修复 RabbitMQ 首次连接未声明拓扑
+
+- 影响机器：`chat-home-server`。
+- 变更内容：升级 `@wlisfes/chat-web-base-schema` 到 1.6.87，修复首次连接时未创建通道、未声明 `/chat-task` 队列拓扑、未订阅 `chat.task.execute` 的问题。
+- 验证命令：`docker exec chat-web-rabbitmq rabbitmqctl list_queues -p /chat-task name messages consumers`，`chat.task.execute` 消费者数为 1。
+- 回滚方法：回退到上一镜像（回退后任务无法投递，仅用于紧急排障）。
+
 ## 2026-10-12：Task 服务接管定时任务
 
 - 影响机器：`chat-home-server`。
