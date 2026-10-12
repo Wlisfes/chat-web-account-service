@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } f
 import { InjectRepository, In, LessThan, Repository } from '@wlisfes/chat-web-base-schema/database'
 import { RabbitmqService } from '@wlisfes/chat-web-base-schema/rabbitmq'
 import { generateUid } from '@wlisfes/chat-web-base-schema/utils'
+import { runWithRequestContext } from '@wlisfes/chat-web-base-schema/request-context'
+import { hostname } from 'node:os'
 import * as Schema from '@wlisfes/chat-web-base-schema/chat-web-task-mysql'
 import * as constants from '@/modules/cron/cron.constants'
 import { isRetryableTaskError, TASK_HANDLERS, TaskHandler } from '@/modules/cron/handlers/task-handler.interface'
@@ -94,6 +96,11 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
             if (existing) return existing
             throw error
         }
+        this.logger.log(
+            `生成执行记录：${record.taskName}（taskId=${record.taskId}，executionId=${executionId}，触发=${this.triggerLabel(record.triggerType)}，` +
+                `操作人=${input.operatorUid}，计划时间=${this.formatSqlTime(input.scheduledTime)}，业务键=${bizKey}，最多尝试 ${record.maxAttempts} 次）`,
+            CronExecutionService.name
+        )
         await this.publish(executionId)
         return (await this.repository.findOne({ where: { executionId } })) ?? record
     }
@@ -154,8 +161,12 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
             return
         }
         const record = await this.claim(executionId)
-        if (!record) return
-        await this.run(record)
+        if (!record) {
+            this.logger.log(`跳过重复投递：executionId=${executionId} 已被处理或正在执行`, CronExecutionService.name)
+            return
+        }
+        // 每次尝试使用独立日志ID：本服务日志和下游 Feign 调用（x-request-id）使用同一个ID，便于在 Dozzle 中串联排查。
+        await runWithRequestContext(`task-${executionId}-${record.attempts}`, () => this.run(record))
     }
 
     /** 用条件更新抢占执行权：只有待执行或等待重试的记录才能进入执行中，避免重复投递导致重复执行。 */
@@ -183,6 +194,12 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
     private async run(record: Schema.TbTaskExecution): Promise<void> {
         const startedAt = Date.now()
         const handler = this.handlers.get(record.handler)
+        this.logger.log(
+            `开始执行：${record.taskName}（executionId=${record.executionId}，处理器=${record.handler}，第${record.attempts}/${record.maxAttempts}次，` +
+                `触发=${this.triggerLabel(record.triggerType)}，计划时间=${this.formatSqlTime(new Date(record.scheduledTime))}，实例=${hostname()}` +
+                `${record.body && Object.keys(record.body).length ? `，参数=${JSON.stringify(record.body)}` : ''}）`,
+            CronExecutionService.name
+        )
         try {
             if (!handler) throw new Error(`未注册的任务处理器：${record.handler}`)
             const result = await handler.execute({
@@ -200,7 +217,8 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
                 error: null
             } as never)
             this.logger.log(
-                `任务执行成功：${record.taskName}（executionId=${record.executionId}，第${record.attempts}次）`,
+                `执行成功：${record.taskName}（executionId=${record.executionId}，第${record.attempts}次，耗时 ${Date.now() - startedAt}ms）` +
+                    `${typeof result?.summary === 'string' ? `结果：${result.summary}` : ''}，明细=${JSON.stringify(result)}`,
                 CronExecutionService.name
             )
         } catch (error) {
@@ -211,6 +229,7 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
     /** 失败处理：可重试且未超过上限时延迟重试，否则标记失败并写入死信队列。 */
     private async fail(record: Schema.TbTaskExecution, error: unknown, duration: number, retryable: boolean): Promise<void> {
         const message = this.errorMessage(error).slice(0, constants.TASK_ERROR_MAX_LENGTH)
+        const detail = this.errorDetail(error, retryable)
         if (retryable && record.attempts < record.maxAttempts) {
             const delay = constants.taskRetryDelay(record.attempts)
             await this.repository.update({ executionId: record.executionId }, {
@@ -221,7 +240,8 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
             } as never)
             await this.publishRetry(record.executionId, delay)
             this.logger.warn(
-                `任务执行失败，${Math.round(delay / 1000)} 秒后重试：${record.taskName}（executionId=${record.executionId}，第${record.attempts}次），原因=${message}`,
+                `执行失败，${Math.round(delay / 1000)} 秒后重试：${record.taskName}（executionId=${record.executionId}，第${record.attempts}/${record.maxAttempts}次，` +
+                    `耗时 ${duration}ms，下次重试=${this.formatSqlTime(new Date(Date.now() + delay))}）${detail}`,
                 CronExecutionService.name
             )
             return
@@ -235,8 +255,8 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
         } as never)
         await this.publish(record.executionId, constants.TASK_DEAD_ROUTING_KEY, constants.TASK_DEAD_EXCHANGE)
         this.logger.error(
-            `任务执行最终失败：${record.taskName}（executionId=${record.executionId}，共${record.attempts}次），原因=${message}`,
-            undefined,
+            `执行最终失败，已进入死信队列：${record.taskName}（executionId=${record.executionId}，共${record.attempts}/${record.maxAttempts}次，耗时 ${duration}ms）${detail}`,
+            error instanceof Error ? error.stack : undefined,
             CronExecutionService.name
         )
     }
@@ -274,10 +294,27 @@ export class CronExecutionService implements OnApplicationBootstrap, OnModuleDes
                 )
                 if (reset.affected) pending.push(record)
             }
+            if (pending.length > 0) {
+                this.logger.warn(
+                    `补发扫描：重新投递 ${pending.length} 条执行记录（其中执行超时 ${stuck.length} 条）：${pending.map(item => item.executionId).join(',')}`,
+                    CronExecutionService.name
+                )
+            }
             for (const record of pending) await this.publish(record.executionId)
         } catch (error) {
             this.logger.error(`补发扫描失败：${this.errorMessage(error)}`, undefined, CronExecutionService.name)
         }
+    }
+
+    /** 失败日志明细：错误类型、HTTP 状态码和原因。 */
+    private errorDetail(error: unknown, retryable: boolean): string {
+        const status = (error as { getStatus?: () => number })?.getStatus?.()
+        const name = error instanceof Error ? error.name : typeof error
+        return `，错误类型=${name}${status ? `（HTTP ${status}）` : ''}，${retryable ? '可重试' : '不可重试'}，原因=${this.errorMessage(error)}`
+    }
+
+    private triggerLabel(trigger: Schema.TbTaskExecutionTrigger): string {
+        return trigger === Schema.TbTaskExecutionTrigger.MANUAL ? '手动' : '系统'
     }
 
     private formatKeyTime(date: Date): string {

@@ -5,6 +5,8 @@ const { CronExecutionService } = require('../dist/modules/cron/cron-execution.se
 const { CronExpressionService } = require('../dist/modules/cron/cron-expression.service')
 const { isRetryableTaskError, TaskNonRetryableError } = require('../dist/modules/cron/handlers/task-handler.interface')
 const constants = require('../dist/modules/cron/cron.constants')
+const { CurrencyExchangeTaskHandler } = require('../dist/modules/cron/handlers/currency-exchange.handler')
+const { getActiveRequestId } = require('@wlisfes/chat-web-base-schema/request-context')
 
 const logger = { log() {}, warn() {}, error() {} }
 const task = {
@@ -110,9 +112,11 @@ test('投递失败时执行记录仍保留为待执行且未标记投递时间�
 
 test('执行成功写入结果摘要；重复投递同一条记录不会重复执行', async () => {
     let calls = 0
+    let requestId
     const { service, repository } = createService(async () => {
         calls += 1
-        return { date: '2026-10-12', count: 30 }
+        requestId = getActiveRequestId()
+        return { summary: '2026-10-12 新增 30 个币种汇率', date: '2026-10-12', inserted: 30 }
     })
     const record = await service.create(systemInput(new Date()))
     await service.consume({ executionId: record.executionId })
@@ -121,7 +125,9 @@ test('执行成功写入结果摘要；重复投递同一条记录不会重复�
     assert.equal(calls, 1)
     assert.equal(row.status, 'success')
     assert.equal(row.attempts, 1)
-    assert.deepEqual(row.result, { date: '2026-10-12', count: 30 })
+    assert.deepEqual(row.result, { summary: '2026-10-12 新增 30 个币种汇率', date: '2026-10-12', inserted: 30 })
+    // 每次尝试使用独立日志ID，下游 Feign 调用会通过 x-request-id 带上同一个ID。
+    assert.equal(requestId, `task-${record.executionId}-1`)
 })
 
 test('可重试错误按梯度进入延迟重试队列，超过最大尝试次数后标记失败并进入死信', async () => {
@@ -185,4 +191,49 @@ test('Cron 表达式支持 5 段和 6 段并正确计算下次执行时间', () 
     assert.deepEqual([next.getHours(), next.getMinutes(), next.getSeconds()], [20, 0, 0])
     const fiveField = cron.getNextRun('30 9 * * *', new Date(2026, 9, 12, 10, 0, 0))
     assert.deepEqual([fiveField.getDate(), fiveField.getHours(), fiveField.getMinutes()], [13, 9, 30])
+})
+
+function createCurrencyHandler(response) {
+    const financeFeignClient = { httpBaseFinanceSyncCurrencyExchange: async () => response }
+    const configService = { get: key => (key === 'gateway.feign.service_token' ? 'service-token' : undefined) }
+    return new CurrencyExchangeTaskHandler(configService, financeFeignClient, logger)
+}
+
+test('汇率任务结果包含一句说明和统计明细，不保存汇率数值', async () => {
+    const result = await createCurrencyHandler({
+        date: '2026-10-12',
+        count: 28,
+        list: [{ currency: 'CNY', rate: 7.1, date: '2026-10-12' }],
+        source: 'Open Exchange Rates',
+        fetched: 170,
+        enabled: 30,
+        inserted: 28,
+        skipped: 0,
+        insertedCurrencies: ['CNY', 'EUR'],
+        skippedCurrencies: [],
+        missingCurrencies: ['XAU', 'XAG']
+    }).execute()
+    assert.equal(
+        result.summary,
+        '2026-10-12 新增 28 个币种汇率，2 个启用币种未返回汇率：XAU、XAG（来源 Open Exchange Rates，外部返回 170 个）'
+    )
+    assert.equal(result.inserted, 28)
+    assert.deepEqual(result.missingCurrencies, ['XAU', 'XAG'])
+    assert.equal(JSON.stringify(result).includes('7.1'), false)
+})
+
+test('汇率已存在时说明跳过数量；兼容旧版只返回 date、count 的结果', async () => {
+    const existing = await createCurrencyHandler({
+        date: '2026-10-12',
+        count: 0,
+        list: [],
+        source: 'Open Exchange Rates',
+        fetched: 170,
+        enabled: 30,
+        inserted: 0,
+        skipped: 30
+    }).execute()
+    assert.equal(existing.summary, '2026-10-12 汇率已存在，跳过 30 个币种（来源 Open Exchange Rates，外部返回 170 个）')
+    const legacy = await createCurrencyHandler({ date: '2026-10-12', count: 0, list: [] }).execute()
+    assert.equal(legacy.summary, '2026-10-12 没有需要新增的币种汇率')
 })
