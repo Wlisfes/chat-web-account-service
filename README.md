@@ -28,7 +28,7 @@
 ## Project setup
 
 ```bash
-$ node scripts/yarn-auth.cjs install --frozen-lockfile --check-files --ignore-scripts
+$ yarn install
 ```
 
 ## Compile and run the project
@@ -58,60 +58,6 @@ $ yarn run test:cov
 ```
 
 ## Deployment
-
-本项目已配置 Docker 自动部署。向 `main` 分支提交或合并 Pull Request 后，会自动构建镜像、推送到 GHCR，并通过 `chat-home-server` 上的仓库专用 Self-hosted Runner 部署；失败时自动回滚。原另一台部署机器已废弃，不再创建部署任务。
-
-外部客户归 CRM 服务管理，Account 不再提供客户接口、客户表或客户数据脚本。
-
-菜单管理分为两类查询：左侧树使用 `GET /api/account/sheet/tree/structure`，右侧表格使用 `POST /api/account/sheet/column`。该接口在 `parentKeyId` 为空时返回所有一级节点，传入主键时将指定节点排在第一条并返回其一层直接下级节点，结果为不带 `children` 的平铺分页数据；同时支持名称、权限码和路由路径筛选。组织管理接口统一使用 `/api/account/dept` 前缀。
-
-完整的服务器初始化和 GitHub Secrets 配置请参阅 [deploy/README.md](deploy/README.md)。
-
-### Nacos 配置
-
-服务启动时会从 Nacos 加载并监听以下配置：
-
-```text
-Namespace ID: replace-with-nacos-namespace-id
-Data ID: chat-web-account-service.yaml
-Group: DEFAULT_GROUP
-```
-
-配置会写入 Nest `ConfigService`，例如 `server.port` 和 `database.chat-web-account.host`。普通配置更新后会动态生效；监听端口、数据库连接池等启动期配置变更后需要重启服务。MySQL、Nacos 等基础服务由独立环境管理，Docker 中的账号服务应使用 Nacos 中配置的可访问地址，不能使用指向账号服务容器自身的 `127.0.0.1`。
-
-认证由独立的 `chat-web-auth-service` 负责。Gateway 收到 `/api/**` 请求后调用 Auth 的内部 `POST /internal/auth/token/introspect` 校验用户令牌，再签发 `X-Gateway-Principal` 身份上下文转发给 Account；Account 只在本地验证该签名上下文，不持有 JWT 密钥、不读取登录会话，也不提供用户令牌内省接口。业务 Feign 路由统一使用 `/feign/account/**`，只校验 Nacos `gateway.feign.service_token`。组织、菜单、角色和用户授权接口还会校验菜单按钮绑定的权限码，Account 业务接口不按数据范围过滤。公开业务路由统一使用单数模块、动作式路径、GET query 或 POST body，不使用路径参数。角色模块仍可配置数据范围规则供其他服务使用，支持 `all`、`self`、`organization`、`organization_tree` 和 `custom`。
-
-岗位已迁移为 Skyline 枚举字典 `CHUNK_SYSTEM_ACCOUNT_USER_POST`（模块 `CHUNK_SYSTEM`），Account 不再提供 `/api/account/position` 接口。账号创建/更新仍通过 `postKeyIds` 数组维护岗位关系，关系统一存储在 `tb_account_chunk`（`link_name = tb_account_user.post`，`link_id` 为账号 UID，`chunk_id` 为枚举主键），岗位主键即枚举项 `value`，保存时通过 Skyline Feign 校验岗位存在且启用；详情和列表的 `posts` 同样通过 Skyline Feign 还原为 `{ keyId, name }`。
-
-`/health/live` 只检查进程存活；`/health` 和 `/health/ready` 会检查数据库连接、全部必需表和 `gateway.feign.service_token` 是否配置，缺表或服务间凭据缺失时返回 HTTP 503。Docker 使用 `/health`，因此部署前必须先应用共享 Schema 的增量 SQL 并配置服务间凭据。
-
-账号数据库的 Nacos 配置格式如下；数据库和表必须由外部 SQL 提前创建，TypeORM 固定关闭 `synchronize` 和自动迁移：
-
-```yaml
-database:
-    chat-web-account:
-        host: mysql
-        port: 3306
-        database: chat_web_account
-        username: account_service
-        password: replace-with-secret
-        charset: utf8mb4
-        timezone: +08:00
-        logging: false
-        poolSize: 10
-        connectTimeout: 10000
-        retryAttempts: 5
-        retryDelay: 3000
-
-gateway:
-    feign:
-        # Account Feign 提供方校验的服务间凭据；真实值只维护在 Nacos。
-        service_token: replace-with-internal-service-token
-```
-
-MySQL 和服务间凭据统一维护在 Nacos 远端 `chat-web-account-service.yaml` 中；登录会话、验证码和 JWT 参数属于 Auth 服务的 Nacos 配置，不在 Account 重复配置，也不放入根目录 `.env`。
-
-本地执行 `yarn run dev` 时，根目录 `.env` 只提供 `NODE_ENV`、`PORT` 和 Nacos 连接参数，使用端口 `5010` 运行。显式 `PORT` 的优先级高于 Nacos 的 `server.port`。
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
@@ -150,7 +96,3 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
-## 可观测性
-
-Docker 部署输出结构化单行 JSON 日志，日志包含 `requestId` 并支持通过容器标准输出直接排障，完整命令见 `deploy/RUNBOOK.md`。
