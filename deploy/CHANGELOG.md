@@ -13,7 +13,7 @@
 - 变更内容：定时任务从 Skyline 迁出到本服务；本服务负责 Cron 调度、执行记录、RabbitMQ 投递、失败重试与死信。只开放 `/feign/task` 服务间接口，管理端经 Skyline 转发；容器不发布宿主机端口。
 - 部署方式：新增 GitHub Actions 发布流水线，`main` 推送后构建镜像并由 `chat-home-server` 的 self-hosted runner（`/home/runner/actions-runner-task`）部署到 `/opt/chat-web-task-service`；部署前会从 `.env` 删除 `NACOS_REGISTER_IP`，部署后校验未发布宿主机端口且 Gateway 的 `/api/task` 不可访问。
 - 依赖：发布包含 `chat-web-task-mysql`、Task Feign 契约和 RabbitMQ 运行时模块的新版 `@wlisfes/chat-web-base-schema`；Gateway 增加 `/feign/task` 路由；Skyline 与管理端同步发布。
-- 机器侧操作（首次上线前完成，已于 2026-10-12 完成 1~3 项）：
+- 机器侧操作（已于 2026-10-12 全部完成，迁移 1 条任务）：
     1. MySQL 新建 `chat-web-task` 库和只授权该库的 `chat_web_task_service` 账号。
     2. RabbitMQ 新建虚拟主机 `/chat-task` 和只授权该虚拟主机的账号。
     3. Nacos 新建 `chat-web-task-service.yaml`（见 RUNBOOK），Skyline 的 Nacos 配置补充 `gateway.feign.task_timeout: 15000`。
